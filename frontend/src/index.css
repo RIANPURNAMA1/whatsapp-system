@@ -1,0 +1,97 @@
+/* index.css - Global Styles */
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: #111B21;
+    color: #E9EDEF;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #374045;
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4A5568;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: #25D366;
+    color: white;
+  }
+}
+
+@layer components {
+  /* Chat bubble tail */
+  .bubble-tail-right::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: -8px;
+    border: 8px solid transparent;
+    border-left-color: #005C4B;
+    border-bottom-color: #005C4B;
+  }
+
+  .bubble-tail-left::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: -8px;
+    border: 8px solid transparent;
+    border-right-color: #202C33;
+    border-bottom-color: #202C33;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar tapi tetap bisa scroll */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #374045 transparent;
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.15s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.2s ease-out;
+  }
+
+  .animate-bounce-in {
+    animation: bounceIn 0.3s ease-out;
+  }
+}
