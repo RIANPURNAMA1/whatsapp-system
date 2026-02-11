@@ -402,7 +402,7 @@ async function upsertChat(sessionId, chat) {
 }
 
 // ================================================
-// Kirim pesan teks
+// Kirim pesan teks (VERSI PERBAIKAN)
 // ================================================
 export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
   const session = sessions.get(sessionId);
@@ -413,7 +413,6 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
 
   let messageOptions = { text };
 
-  // Jika ada quoted message
   if (quotedMsgId) {
     const quotedMsg = await queryOne(
       'SELECT raw_data, from_jid, chat_jid FROM wa_messages WHERE session_id = ? AND message_id = ?',
@@ -431,7 +430,25 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
     }
   }
 
+  // 1. Kirim pesan via Baileys
   const sent = await sock.sendMessage(jid, messageOptions);
+
+  // 2. Proses pesan yang baru saja dikirim agar formatnya standar
+  const processed = await processMessage(sessionId, sent, sock);
+
+  if (processed) {
+    // 3. SIMPAN KE DATABASE (PENTING!)
+    await saveMessage(sessionId, processed);
+
+    // 4. UPDATE DATA CHAT (PENTING!)
+    await updateChat(sessionId, processed);
+
+    // 5. KIRIM KE FRONTEND VIA SOCKET agar langsung muncul tanpa refresh
+    const io = session.io; // Ambil io dari instance session
+    io.emit(`message:new:${sessionId}`, processed);
+    io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
+  }
+
   return sent;
 }
 

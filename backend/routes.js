@@ -9,7 +9,6 @@ import {
   markAsRead,
   deleteMessage,
   logoutSession,
-  getSessionInfo,
   isSessionConnected,
 } from './whatsapp.js';
 
@@ -19,6 +18,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 // ===============================================
 // SESSION ROUTES
 // ===============================================
+
+
 
 // GET: Ambil semua sesi
 router.get('/sessions', async (req, res) => {
@@ -37,19 +38,39 @@ router.get('/sessions/:sessionId', async (req, res) => {
 
 // POST: Buat sesi baru
 router.post('/sessions', async (req, res) => {
-  const { sessionId = 'default', name = 'Session Utama' } = req.body;
+  // Ambil sessionId dari body (yang kita kirim dari frontend tadi)
+  // Jika tidak ada, baru pakai 'default'
+  const { sessionId, name = 'Device Baru' } = req.body;
   const io = req.app.get('io');
 
+  if (!sessionId) {
+    return res.status(400).json({ success: false, message: 'Session ID wajib disertakan' });
+  }
+
   try {
+    // 1. Cek apakah session ID ini sudah ada di database
     const existing = await queryOne('SELECT id FROM wa_sessions WHERE id = ?', [sessionId]);
+    
     if (!existing) {
-      await query('INSERT INTO wa_sessions (id, name, status) VALUES (?, ?, ?)', [sessionId, name, 'connecting']);
+      // 2. Jika BELUM ADA, maka INSERT baris baru (Ini yang bikin device nambah di list)
+      await query(
+        'INSERT INTO wa_sessions (id, name, status, created_at) VALUES (?, ?, ?, NOW())', 
+        [sessionId, name, 'connecting']
+      );
     } else {
+      // 3. Jika SUDAH ADA, cukup update statusnya
       await query('UPDATE wa_sessions SET status = ? WHERE id = ?', ['connecting', sessionId]);
     }
 
+    // 4. Jalankan Baileys untuk ID unik tersebut
+    // Fungsi createSession di whatsapp.js kamu sudah benar karena pakai: ./sessions/${sessionId}
     await createSession(sessionId, io);
-    res.json({ success: true, message: 'Sesi sedang diinisialisasi. Scan QR untuk terhubung.' });
+    
+    res.json({ 
+      success: true, 
+      sessionId, // Kembalikan ID-nya agar frontend tahu mana yang sedang diproses
+      message: 'Sesi baru diinisialisasi. Silakan scan QR.' 
+    });
   } catch (err) {
     console.error('Error buat sesi:', err);
     res.status(500).json({ success: false, message: err.message });

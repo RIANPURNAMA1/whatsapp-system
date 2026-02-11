@@ -1,4 +1,3 @@
-// hooks/useSocket.ts - Socket.IO Real-time Hook
 import { useEffect, useCallback } from 'react';
 import { getSocket, joinSession } from '../services/socket';
 import useStore from '../store/useStore';
@@ -14,7 +13,6 @@ export function useSocket(sessionId: string | null) {
     updateMessageStatus,
     selectedChat,
     fetchChats,
-    resetUnread,
   } = useStore();
 
   const handleQR = useCallback((data: { qr: string }) => {
@@ -34,36 +32,36 @@ export function useSocket(sessionId: string | null) {
       phone_number: data.phoneNumber,
       qr_code: null,
     });
-    toast.success(`✅ WhatsApp terhubung! Nomor: ${data.phoneNumber}`);
+    toast.success(`✅ WhatsApp terhubung!`, { icon: '🚀' });
   }, [sessionId, updateSession]);
 
   const handleNewMessage = useCallback((message: Message) => {
     if (!sessionId) return;
 
-    // Tambah ke daftar pesan jika chat terbuka
+    // 1. Tambah pesan ke jendela chat (Realtime)
     addMessage(message);
 
-    // Update info chat terakhir
-    if (fetchChats) fetchChats(sessionId);
+    // 2. Update sidebar (Chat Terakhir & Waktu) agar naik ke atas
+    updateChat(message.chat_jid, {
+      last_message: message.content || '📎 Media',
+      last_message_time: message.timestamp,
+      last_message_from: message.is_from_me ? 'me' : 'them'
+    });
 
-    // Tambah unread jika bukan pesan sendiri & chat tidak sedang dibuka
-    if (!message.is_from_me && message.chat_jid !== selectedChat?.jid) {
+    // 3. Logika Notifikasi & Unread
+    const isCurrentChat = selectedChat?.jid === message.chat_jid;
+    
+    if (!message.is_from_me && !isCurrentChat) {
       incrementUnread(message.chat_jid);
-
-      // Notifikasi
-      const senderName = message.sender_name || message.from_jid?.split('@')[0];
-      const preview = message.content?.substring(0, 50) || '📎 Media';
-      toast(`💬 ${senderName}: ${preview}`, {
+      
+      const sender = message.sender_name || 'Seseorang';
+      toast(`💬 ${sender}: ${message.content?.substring(0, 30)}...`, {
         duration: 3000,
-        icon: '📱',
-        style: {
-          background: '#128C7E',
-          color: '#fff',
-          borderRadius: '8px',
-        },
+        position: 'bottom-right',
+        style: { background: '#202C33', color: '#fff', border: '1px solid #00a884' }
       });
     }
-  }, [sessionId, addMessage, incrementUnread, selectedChat, fetchChats]);
+  }, [sessionId, addMessage, updateChat, incrementUnread, selectedChat]);
 
   const handleMessageStatus = useCallback((data: {
     messageId: string;
@@ -75,7 +73,7 @@ export function useSocket(sessionId: string | null) {
 
   const handleChatUpdate = useCallback(({ chatJid }: { chatJid: string }) => {
     if (!sessionId) return;
-    // Refresh list chat
+    // Jika ada perubahan profil atau nama grup, refresh list chat
     fetchChats(sessionId);
   }, [sessionId, fetchChats]);
 
@@ -85,7 +83,7 @@ export function useSocket(sessionId: string | null) {
     const socket = getSocket();
     joinSession(sessionId);
 
-    // Register semua event listeners
+    // Listeners
     socket.on(`qr:${sessionId}`, handleQR);
     socket.on('session:update', handleSessionUpdate);
     socket.on(`session:connected:${sessionId}`, handleSessionConnected);
@@ -94,21 +92,12 @@ export function useSocket(sessionId: string | null) {
     socket.on(`chat:update:${sessionId}`, handleChatUpdate);
 
     return () => {
-      // Cleanup event listeners
-      socket.off(`qr:${sessionId}`, handleQR);
-      socket.off('session:update', handleSessionUpdate);
-      socket.off(`session:connected:${sessionId}`, handleSessionConnected);
-      socket.off(`message:new:${sessionId}`, handleNewMessage);
-      socket.off(`message:status:${sessionId}`, handleMessageStatus);
-      socket.off(`chat:update:${sessionId}`, handleChatUpdate);
+      socket.off(`qr:${sessionId}`);
+      socket.off('session:update');
+      socket.off(`session:connected:${sessionId}`);
+      socket.off(`message:new:${sessionId}`);
+      socket.off(`message:status:${sessionId}`);
+      socket.off(`chat:update:${sessionId}`);
     };
-  }, [
-    sessionId,
-    handleQR,
-    handleSessionUpdate,
-    handleSessionConnected,
-    handleNewMessage,
-    handleMessageStatus,
-    handleChatUpdate,
-  ]);
+  }, [sessionId, handleQR, handleSessionUpdate, handleSessionConnected, handleNewMessage, handleMessageStatus, handleChatUpdate]);
 }
