@@ -20,12 +20,19 @@ api.interceptors.response.use(
   }
 );
 
+
+
+
 // ===============================================
 // SESSION API
 // ===============================================
 export const sessionApi = {
   getAll: () => api.get<{ data: Session[] }>('/sessions').then(r => r.data.data),
   getOne: (id: string) => api.get<{ data: Session }>(`/sessions/${id}`).then(r => r.data.data),
+  delete: async (sessionId: string) => {
+    const response = await api.delete(`/sessions/${sessionId}`);
+    return response.data;
+  },
   create: (sessionId: string, name: string) =>
     api.post('/sessions', { sessionId, name }).then(r => r.data),
   logout: (id: string) => api.delete(`/sessions/${id}`).then(r => r.data),

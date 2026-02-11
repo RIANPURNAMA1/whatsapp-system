@@ -1,6 +1,28 @@
 /* index.css - Global Styles */
 @import "tailwindcss";
 
+
+/* ================================================================
+   TAMBAHKAN ke index.css (di bagian bawah @layer utilities)
+   ================================================================ */
+
+@layer utilities {
+  /* Slide-in dari kanan untuk panel info grup */
+  .animate-slide-in-right {
+    animation: slideInRight 0.22s ease-out;
+  }
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
+
 @layer base {
   * {
     box-sizing: border-box;

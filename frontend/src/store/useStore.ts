@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Session, Chat, Message, Stats } from '../types';
 import { sessionApi, chatApi, statsApi } from '../services/api';
+import axios from 'axios';
 
 interface AppState {
   sessions: Session[];
@@ -18,8 +19,12 @@ interface AppState {
   showNewChatModal: boolean;
   sidebarOpen: boolean;
   stats: Stats | null;
+  groups: Chat[]; // <--- 1. Tambahkan ini agar tidak merah
+  
 
   // Actions
+  setActiveTab: (tab: string) => void; // Tambahkan ini
+  deleteSession: (sessionId: string) => Promise<void>; // <--- TAMBAHKAN INI
   fetchSessions: () => Promise<void>;
   setActiveSession: (session: Session | null) => void;
   updateSession: (session: Partial<Session> & { id: string }) => void;
@@ -37,6 +42,7 @@ interface AppState {
   fetchStats: (sessionId: string) => Promise<void>;
   setShowNewChatModal: (show: boolean) => void;
   setSidebarOpen: (open: boolean) => void;
+  fetchGroups: (sessionId: string) => Promise<void>;
 }
 
 const useStore = create<AppState>((set, get) => ({
@@ -55,6 +61,43 @@ const useStore = create<AppState>((set, get) => ({
   showNewChatModal: false,
   sidebarOpen: true,
   stats: null,
+  groups: [], // Default value kosong
+
+   // 3. Implementasi fetchGroups (Sesuaikan URL-nya dengan routes.js)
+  fetchGroups: async (sessionId) => {
+    try {
+      // Hilangkan "/api" jika axios base URL Anda sudah mengarah ke backend
+      const res = await axios.get(`/sessions/${sessionId}/groups`); 
+      if (res.data.success) {
+        set({ groups: res.data.data }); // <--- Sekarang set tidak akan merah
+      }
+    } catch (err) {
+      console.error("Gagal ambil grup:", err);
+    }
+  },
+  // ... action lainnya
+  setActiveTab: (tab) => set({ activeTab: tab }),
+
+  // --- TAMBAHKAN FUNGSI INI ---
+  deleteSession: async (sessionId: string) => {
+    try {
+      // 1. Panggil API untuk hapus di database & folder session
+      await sessionApi.delete(sessionId); 
+      
+      // 2. Update state lokal
+      const updatedSessions = get().sessions.filter(s => s.id !== sessionId);
+      
+      set({ 
+        sessions: updatedSessions,
+        // Jika yang dihapus adalah session yang sedang aktif, kosongkan activeSession
+        activeSession: get().activeSession?.id === sessionId ? null : get().activeSession 
+      });
+    } catch (error) {
+      console.error("Gagal menghapus sesi:", error);
+      throw error;
+    }
+  },
+
 
   fetchSessions: async () => {
     set({ isLoadingSessions: true });

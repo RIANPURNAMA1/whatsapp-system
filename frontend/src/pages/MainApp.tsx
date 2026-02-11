@@ -1,19 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  QrCode, Wifi, WifiOff, MessageSquare, BarChart2, 
-  Settings, LayoutDashboard, PlusCircle, 
-  Smartphone, Trash2 
-} from 'lucide-react';
-import useStore from '../store/useStore';
-import ChatList from '../components/ChatList';
-import { ChatWindow } from '../components/ChatWindow';
-import QRModal from '../components/QRModal';
-import NewChatModal from '../components/NewChatModal';
-import { useSocket } from '../hooks/useSocket';
-import type { Chat } from '../types';
+import React, { useEffect, useState } from "react";
+import {
+  QrCode,
+  MessageSquare,
+  BarChart2,
+  Settings,
+  LayoutDashboard,
+  PlusCircle,
+  Smartphone,
+  Trash2,
+  Inbox,
+  Users,
+  Menu, // Icon Menu untuk Mobile
+} from "lucide-react";
+import useStore from "../store/useStore";
+import ChatList from "../components/ChatList";
+import { ChatWindow } from "../components/ChatWindow";
+import QRModal from "../components/QRModal";
+import NewChatModal from "../components/NewChatModal";
+import { useSocket } from "../hooks/useSocket";
+import Swal from "sweetalert2";
+import toast, { Toaster } from "react-hot-toast";
+import { GlobalInboxView } from "../components/GlobalInboxView";
+import { NoSessionSelected } from "../components/NoSessionSelected";
+import GroupsPage from "./GroupsPage";
+import StatDashboard from "../components/StatDashboard";
 
 export const MainApp: React.FC = () => {
-  // Ambil state dan action dari Zustand Store
   const {
     activeSession,
     sessions,
@@ -26,25 +38,26 @@ export const MainApp: React.FC = () => {
     setShowQRModal,
     setShowNewChatModal,
     selectChat,
-    chats,
     setActiveSession,
+    deleteSession,
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'chats' | 'stats' | 'devices'>('chats');
-  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
-  
-  // State untuk menampung ID unik saat klik "Tambah Device"
-  const [addDeviceSessionId, setAddDeviceSessionId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    "chats" | "stats" | "devices" | "all-messages" | "groups" | "dashboard"
+  >("chats");
 
-  // Inisialisasi Socket.IO berdasarkan session yang aktif
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State baru untuk sidebar mobile
+  const [addDeviceSessionId, setAddDeviceSessionId] = useState<string | null>(
+    null,
+  );
+
   useSocket(activeSession?.id || null);
 
-  // Load daftar sesi saat pertama kali aplikasi dibuka
   useEffect(() => {
     fetchSessions();
-  }, []);
+  }, [fetchSessions]);
 
-  // Auto-refresh statistik setiap 30 detik jika ada sesi yang aktif
   useEffect(() => {
     if (activeSession?.id) {
       fetchStats(activeSession.id);
@@ -53,71 +66,136 @@ export const MainApp: React.FC = () => {
     }
   }, [activeSession?.id, fetchStats]);
 
-  // Handle tampilan mobile saat chat dipilih
   useEffect(() => {
-    if (selectedChat) setMobileView('chat');
+    if (selectedChat) setMobileView("chat");
   }, [selectedChat?.jid]);
 
-  /**
-   * FUNGSI UTAMA: Menambah Device Baru
-   * Membuat ID unik agar backend membuat folder session baru (bukan nimpa yang lama)
-   */
   const handleAddNewDevice = () => {
-    const newUniqueId = `device_${Date.now()}`; // Contoh: device_174000123
+    const newUniqueId = `device_${Date.now()}`;
     setAddDeviceSessionId(newUniqueId);
     setShowQRModal(true);
   };
 
-  /**
-   * FUNGSI: Berpindah antar device (multi-account)
-   */
   const handleSwitchDevice = (session: any) => {
     setActiveSession(session);
-    setActiveTab('chats'); // Otomatis pindah ke tab chat setelah pilih device
+    setActiveTab("chats");
+    setIsSidebarOpen(false); // Tutup sidebar setelah pilih device
   };
 
-  const isConnected = activeSession?.status === 'connected';
-  const currentSessionId = activeSession?.id || 'default';
+  const handleDeleteDevice = async (
+    e: React.MouseEvent,
+    sessionId: string,
+    deviceName: string,
+  ) => {
+    e.stopPropagation();
+    const result = await Swal.fire({
+      title: "Hapus Perangkat?",
+      text: `Seluruh data chat dan koneksi untuk "${deviceName || sessionId}" akan dihapus permanen.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Ya, Hapus!",
+      background: "#202C33",
+      color: "#E9EDEF",
+    });
+
+    if (result.isConfirmed) {
+      const loadingToast = toast.loading("Menghapus sesi...");
+      try {
+        await deleteSession(sessionId);
+        toast.success(`Berhasil dihapus`, { id: loadingToast });
+      } catch (err: any) {
+        toast.error(`Gagal: ${err.message}`, { id: loadingToast });
+      }
+    }
+  };
+
+  const isConnected = activeSession?.status === "connected";
+  const currentSessionId =
+    selectedChat?.session_id || activeSession?.id || "default";
+  const isGroupTab = activeTab === "groups";
 
   return (
-    <div className="h-screen bg-[#0B141A] text-[#E9EDEF] flex overflow-hidden">
-      
-      {/* --- SIDEBAR NAVIGASI (RAIL) --- */}
-      <aside className="hidden md:flex flex-col w-[68px] bg-[#202C33] border-r border-[#313D45] py-5 items-center justify-between z-30">
+    <div className="h-screen bg-[#0B141A] text-[#E9EDEF] flex overflow-hidden font-sans relative">
+      <Toaster position="bottom-right" />
+
+      {/* OVERLAY MOBILE */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR RAIL */}
+      <aside
+        className={`
+        fixed md:relative z-50 flex flex-col w-[68px] h-full bg-[#202C33] border-r border-[#313D45] py-5 items-center justify-between 
+        transition-transform duration-300 ease-in-out
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}
+      >
         <div className="flex flex-col gap-6 items-center w-full">
           <div className="w-10 h-10 bg-[#00a884] rounded-xl flex items-center justify-center shadow-lg shadow-[#00a884]/20 mb-2">
             <MessageSquare className="w-6 h-6 text-white" />
           </div>
-          
+
           <div className="flex flex-col gap-3 w-full items-center">
-            <NavButton 
-              icon={<LayoutDashboard className="w-5 h-5" />} 
-              active={activeTab === 'chats'} 
-              onClick={() => setActiveTab('chats')}
-              label="Chat"
+            <NavButton
+              icon={<BarChart2 className="w-5 h-5" />}
+              active={activeTab === "dashboard"}
+              onClick={() => {
+                setActiveTab("dashboard");
+                setIsSidebarOpen(false);
+              }}
+              title="Dashboard"
             />
-            <NavButton 
-              icon={<BarChart2 className="w-5 h-5" />} 
-              active={activeTab === 'stats'} 
-              onClick={() => setActiveTab('stats')}
-              label="Statistik"
+            <NavButton
+              icon={<LayoutDashboard className="w-5 h-5" />}
+              active={activeTab === "chats"}
+              onClick={() => {
+                setActiveTab("chats");
+                setIsSidebarOpen(false);
+              }}
+              title="Chat"
             />
-            <div className="w-8 h-[1px] bg-[#313D45] my-2" /> 
-            <NavButton 
-              icon={<PlusCircle className="w-5 h-5" />} 
-              active={activeTab === 'devices'} 
-              onClick={() => setActiveTab('devices')}
-              label="Manajemen Perangkat"
+            <NavButton
+              icon={<Inbox className="w-5 h-5" />}
+              active={activeTab === "all-messages"}
+              onClick={() => {
+                setActiveTab("all-messages");
+                setIsSidebarOpen(false);
+              }}
+              title="Global Inbox"
+            />
+            <NavButton
+              icon={<Users className="w-5 h-5" />}
+              active={activeTab === "groups"}
+              onClick={() => {
+                setActiveTab("groups");
+                setIsSidebarOpen(false);
+              }}
+              title="Grup"
+            />
+            <div className="w-8 h-[1px] bg-[#313D45] my-2" />
+            <NavButton
+              icon={<PlusCircle className="w-5 h-5" />}
+              active={activeTab === "devices"}
+              onClick={() => {
+                setActiveTab("devices");
+                setIsSidebarOpen(false);
+              }}
+              title="Perangkat"
             />
           </div>
         </div>
 
         <div className="flex flex-col gap-5 items-center">
-          {!isConnected && (
-            <button 
+          {!isConnected && activeSession && (
+            <button
               onClick={() => setShowQRModal(true)}
-              className="p-3 text-orange-400 hover:bg-orange-400/10 rounded-xl transition-all animate-pulse"
-              title="Koneksi Terputus"
+              className="p-3 text-orange-400 animate-pulse"
             >
               <QrCode className="w-6 h-6" />
             </button>
@@ -128,141 +206,219 @@ export const MainApp: React.FC = () => {
         </div>
       </aside>
 
-      {/* --- KONTEN UTAMA --- */}
+      {/* MAIN CONTENT AREA */}
       <main className="flex flex-1 overflow-hidden relative">
-        
-        {/* KOLOM KIRI: Daftar Chat / List Device / Stats */}
-        <section className={`
-          ${mobileView === 'chat' ? 'hidden' : 'flex'} 
-          md:flex flex-col w-full md:w-[380px] lg:w-[420px] bg-[#111B21] border-r border-[#222d34] z-20
-        `}>
-          <div className="flex-1 overflow-hidden">
-            {activeTab === 'chats' && (
-              isConnected ? (
-                <ChatList sessionId={currentSessionId} />
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center p-10 text-center">
-                   <WifiOff className="w-16 h-16 text-[#3b4a54] mb-4" />
-                   <h3 className="text-lg font-medium">Belum Terhubung</h3>
-                   <p className="text-[#8696A0] text-sm mt-2">Pilih perangkat yang aktif atau hubungkan perangkat baru.</p>
-                   <button 
-                    onClick={() => setActiveTab('devices')}
-                    className="mt-6 px-4 py-2 bg-[#00a884] text-[#0B141A] rounded-lg font-bold"
-                   >
-                     Kelola Perangkat
-                   </button>
-                </div>
-              )
-            )}
-
-            {activeTab === 'stats' && <StatsPanel stats={stats} isConnected={isConnected} />}
-
-            {activeTab === 'devices' && (
-              <DevicePanel 
-                sessions={sessions} 
-                activeId={currentSessionId}
-                onAdd={handleAddNewDevice}
-                onSelect={handleSwitchDevice}
-              />
-            )}
+        {activeTab === "dashboard" ? (
+          /* 1. TAMPILAN DASHBOARD (FULL SCREEN) */
+          <div className="flex flex-1 overflow-hidden relative">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden absolute top-4 left-4 z-40 p-2 bg-[#202C33] rounded-lg border border-[#313D45] text-[#00a884]"
+            >
+              <Menu size={20} />
+            </button>
+            <StatDashboard stats={stats} />
           </div>
-        </section>
+        ) : activeTab === "groups" ? (
+          /* 2. TAMPILAN GRUP (FULL SCREEN) */
+          <div className="flex flex-1 overflow-hidden relative">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden absolute top-4 left-4 z-40 p-2 bg-[#202C33] rounded-lg border border-[#313D45] text-[#00a884]"
+            >
+              <Menu size={20} />
+            </button>
+            <GroupsPage sessionId={currentSessionId} />
+          </div>
+        ) : (
+          /* 3. TAMPILAN STANDAR (LEFT LIST + RIGHT CHAT) */
+          <>
+            {/* LEFT COLUMN: List Chat, Inbox, Devices, Stats Panel */}
+            <section
+              className={`
+          ${mobileView === "chat" ? "hidden" : "flex"}
+          md:flex flex-col w-full md:w-[380px] lg:w-[420px]
+          bg-[#111B21] border-r border-[#222d34] z-20
+        `}
+            >
+              {/* HEADER MOBILE UNTUK LIST */}
+              <div className="md:hidden flex items-center p-4 border-b border-[#222d34] bg-[#202C33] gap-4">
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="p-1 text-[#00a884]"
+                >
+                  <Menu size={24} />
+                </button>
+                <h1 className="font-bold text-lg capitalize">{activeTab}</h1>
+              </div>
 
-        {/* KOLOM KANAN: Jendela Chat */}
-        <section className={`
-          ${mobileView === 'list' ? 'hidden' : 'flex'} 
+              <div className="flex-1 overflow-hidden flex flex-col">
+                {activeTab === "all-messages" && <GlobalInboxView />}
+
+                {activeTab === "chats" &&
+                  (isConnected ? (
+                    <ChatList sessionId={activeSession?.id || ""} />
+                  ) : (
+                    <NoSessionSelected
+                      onManageDevices={() => setActiveTab("devices")}
+                    />
+                  ))}
+
+                {activeTab === "stats" && <StatsPanel stats={stats} />}
+
+                {activeTab === "devices" && (
+                  <DevicePanel
+                    sessions={sessions}
+                    activeId={activeSession?.id}
+                    onAdd={handleAddNewDevice}
+                    onSelect={handleSwitchDevice}
+                    onDelete={handleDeleteDevice}
+                  />
+                )}
+              </div>
+            </section>
+
+            {/* RIGHT COLUMN: Jendela Chat Aktif */}
+            <section
+              className={`
+          ${mobileView === "list" ? "hidden" : "flex"}
           md:flex flex-1 flex-col bg-[#0B141A] z-10
-        `}>
-          <ChatWindow sessionId={currentSessionId} onBack={() => setMobileView('list')} />
-        </section>
+        `}
+            >
+              <ChatWindow
+                sessionId={currentSessionId}
+                onBack={() => setMobileView("list")}
+              />
+            </section>
+          </>
+        )}
       </main>
 
-      {/* --- MODALS --- */}
+      {/* MODALS */}
       {showQRModal && (
-        <QRModal 
-          // Gunakan ID unik jika sedang tambah baru, 
-          // atau ID yang ada jika hanya ingin reconnect
-          sessionId={addDeviceSessionId || currentSessionId} 
+        <QRModal
+          sessionId={addDeviceSessionId || currentSessionId}
           onClose={() => {
             setShowQRModal(false);
             setAddDeviceSessionId(null);
             fetchSessions();
-          }} 
+          }}
         />
       )}
 
       {showNewChatModal && (
-        <NewChatModal 
-          sessionId={currentSessionId} 
-          onClose={() => setShowNewChatModal(false)} 
+        <NewChatModal
+          sessionId={currentSessionId}
+          onClose={() => setShowNewChatModal(false)}
           onSelectContact={(jid, name) => {
-             // Logic create placeholder chat jika belum ada
-             selectChat({ jid, display_name: name, session_id: currentSessionId } as any);
-             setShowNewChatModal(false);
-          }} 
+            selectChat({
+              jid,
+              display_name: name,
+              session_id: currentSessionId,
+            } as any);
+            setShowNewChatModal(false);
+          }}
         />
       )}
     </div>
   );
 };
 
-// --- Sub-Component: NavButton ---
-const NavButton: React.FC<{ icon: any, label: string, active: boolean, onClick: () => void }> = ({ icon, active, onClick, label }) => (
+// --- Sub-Components ---
+
+const NavButton = ({ icon, active, onClick, title }: any) => (
   <button
     onClick={onClick}
+    title={title}
     className={`
       group relative flex items-center justify-center w-12 h-12 rounded-xl transition-all
-      ${active ? 'bg-[#374248] text-[#00a884]' : 'text-[#8696A0] hover:bg-[#374248] hover:text-[#E9EDEF]'}
+      ${
+        active
+          ? "bg-[#374248] text-[#00a884]"
+          : "text-[#8696A0] hover:bg-[#374248] hover:text-[#E9EDEF]"
+      }
     `}
   >
     {icon}
-    <div className={`absolute left-0 w-1 h-5 bg-[#00a884] rounded-r-full transition-transform ${active ? 'scale-100' : 'scale-0'}`} />
+    <div
+      className={`absolute left-0 w-1 h-5 bg-[#00a884] rounded-r-full transition-transform ${
+        active ? "scale-100" : "scale-0"
+      }`}
+    />
   </button>
 );
 
-// --- Sub-Component: DevicePanel ---
-const DevicePanel: React.FC<{ sessions: any[], activeId: string, onAdd: () => void, onSelect: (s: any) => void }> = ({ sessions, activeId, onAdd, onSelect }) => (
-  <div className="flex-1 bg-[#111B21] p-6 overflow-y-auto">
-    <div className="flex items-center justify-between mb-8">
+const DevicePanel = ({
+  sessions,
+  activeId,
+  onAdd,
+  onSelect,
+  onDelete,
+}: any) => (
+  <div className="flex-1 bg-[#111B21] flex flex-col overflow-hidden">
+    <div className="p-6 border-b border-[#222d34] flex items-center justify-between">
       <div>
-        <h2 className="text-xl font-bold text-[#E9EDEF]">Perangkat</h2>
-        <p className="text-[#8696A0] text-xs mt-1">Multi-account Management</p>
+        <h2 className="text-xl font-bold">Perangkat</h2>
+        <p className="text-[#8696A0] text-xs">Kelola akun WhatsApp Anda</p>
       </div>
-      <button 
+      <button
         onClick={onAdd}
-        className="flex items-center gap-2 px-3 py-2 bg-[#00a884] text-[#0B141A] rounded-lg font-bold text-sm hover:bg-[#008f6f]"
+        className="p-2 bg-[#00a884] text-[#0B141A] rounded-lg hover:bg-[#00c99d] transition-colors"
       >
-        <PlusCircle className="w-4 h-4" />
-        Tambah
+        <PlusCircle className="w-5 h-5" />
       </button>
     </div>
 
-    <div className="space-y-3">
-      {sessions.map((session) => (
-        <div 
-          key={session.id} 
+    <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+      {sessions?.map((session: any) => (
+        <div
+          key={session.id}
           onClick={() => onSelect(session)}
           className={`
-            p-4 rounded-xl border cursor-pointer transition-all
-            ${session.id === activeId ? 'bg-[#2A3942] border-[#00a884]' : 'bg-[#202C33] border-[#313D45] hover:bg-[#26353d]'}
+            p-4 rounded-xl border cursor-pointer transition-all group relative
+            ${
+              session.id === activeId
+                ? "bg-[#2A3942] border-[#00a884]"
+                : "bg-[#202C33] border-[#313D45] hover:border-[#41525d]"
+            }
           `}
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-lg ${session.status === 'connected' ? 'bg-[#00a884]/10 text-[#00a884]' : 'bg-[#8696A0]/10 text-[#8696A0]'}`}>
-                <Smartphone className="w-5 h-5" />
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2.5 rounded-lg ${
+                  session.status === "connected"
+                    ? "bg-[#00a884]/10 text-[#00a884]"
+                    : "bg-red-500/10 text-red-500"
+                }`}
+              >
+                <Smartphone size={20} />
               </div>
-              <div>
-                <p className="text-sm font-medium text-[#E9EDEF]">{session.name || session.id}</p>
-                <p className="text-[11px] text-[#8696A0]">{session.phone_number || 'Belum discan'}</p>
+              <div className="min-w-0">
+                <p className="text-sm font-bold truncate max-w-[150px]">
+                  {session.name || "Unnamed Device"}
+                </p>
+                <p className="text-[11px] text-[#8696A0]">
+                  {session.phone_number || "Disconnected"}
+                </p>
               </div>
             </div>
+
             <div className="flex flex-col items-end gap-2">
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${session.status === 'connected' ? 'bg-[#00a884]/20 text-[#00a884]' : 'bg-orange-500/20 text-orange-500'}`}>
+              <span
+                className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                  session.status === "connected"
+                    ? "bg-[#00a884]/20 text-[#00a884]"
+                    : "bg-orange-500/10 text-orange-500"
+                }`}
+              >
                 {session.status}
               </span>
-              <button className="text-[#8696A0] hover:text-red-400 p-1">
-                <Trash2 className="w-4 h-4" />
+              <button
+                onClick={(e) => onDelete(e, session.id, session.name)}
+                className="opacity-0 group-hover:opacity-100 p-1.5 text-[#8696A0] hover:text-red-500 rounded-md transition-all"
+              >
+                <Trash2 size={16} />
               </button>
             </div>
           </div>
@@ -272,21 +428,8 @@ const DevicePanel: React.FC<{ sessions: any[], activeId: string, onAdd: () => vo
   </div>
 );
 
-// --- Sub-Component: StatsPanel ---
-const StatsPanel: React.FC<{ stats: any, isConnected: boolean }> = ({ stats, isConnected }) => (
-  <div className="flex-1 bg-[#111B21] p-8 overflow-y-auto text-center">
-    <h2 className="text-2xl font-bold text-[#E9EDEF] mb-8 text-left">Ringkasan Sesi</h2>
-    <div className="grid grid-cols-1 gap-6">
-      <StatCard label="Total Pesan" value={stats?.totalMessages ?? 0} color="text-[#00a884]" />
-      <StatCard label="Pesan Hari Ini" value={stats?.todayMessages ?? 0} color="text-blue-400" />
-      <StatCard label="Chat Belum Dibaca" value={stats?.unreadChats ?? 0} color="text-orange-400" />
-    </div>
-  </div>
-);
-
-const StatCard = ({ label, value, color }: any) => (
-  <div className="p-6 rounded-2xl border border-[#313D45] bg-[#202C33] flex flex-col items-center shadow-inner">
-    <p className="text-[#8696A0] text-xs font-bold uppercase tracking-widest">{label}</p>
-    <p className={`text-5xl font-black mt-3 ${color}`}>{value}</p>
+const StatsPanel = ({ stats }: any) => (
+  <div className="flex-1 bg-[#111B21] p-6 overflow-y-auto custom-scrollbar">
+    <h2 className="text-xl font-bold mb-6">Statistik</h2>
   </div>
 );

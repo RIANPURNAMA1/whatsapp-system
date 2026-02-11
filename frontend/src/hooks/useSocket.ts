@@ -54,12 +54,8 @@ export function useSocket(sessionId: string | null) {
     if (!message.is_from_me && !isCurrentChat) {
       incrementUnread(message.chat_jid);
       
-      const sender = message.sender_name || 'Seseorang';
-      toast(`💬 ${sender}: ${message.content?.substring(0, 30)}...`, {
-        duration: 3000,
-        position: 'bottom-right',
-        style: { background: '#202C33', color: '#fff', border: '1px solid #00a884' }
-      });
+
+     
     }
   }, [sessionId, addMessage, updateChat, incrementUnread, selectedChat]);
 
