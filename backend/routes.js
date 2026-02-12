@@ -168,18 +168,28 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
 // STATS ROUTES - DASHBOARD UTAMA
 // ===============================================
 
+// ===============================================
+// STATS ROUTES - DASHBOARD UTAMA
+// ===============================================
+
 router.get("/stats/dashboard", async (req, res) => {
   try {
     const { period = "Hari ini", sessionId } = req.query;
 
-    // Parameter filter untuk query
-    const sessionFilter = sessionId && sessionId !== "Semua Device" ? `AND m.session_id = ?` : "";
-    const sessionParams = sessionId && sessionId !== "Semua Device" ? [sessionId] : [];
+    // 1. Parameter filter untuk query Device
+    const sessionFilter = sessionId && sessionId !== "Semua Device" && sessionId !== "all" 
+      ? `AND m.session_id = ?` 
+      : "";
+    const sessionParams = sessionId && sessionId !== "Semua Device" && sessionId !== "all" 
+      ? [sessionId] 
+      : [];
 
+    // 2. Build Period Filter (Gunakan fungsi helper Anda)
     const periodFilter = buildPeriodFilter(period, "m.timestamp");
 
-    // ── 1. Total pesan masuk (Semua Waktu) ──────────────────────────────
-    const [rowPesanMasuk] = await query(
+    // ── 1. Total pesan masuk (KESELURUHAN / ALL TIME) ────────────────────
+    // Ini digunakan untuk angka besar di "Inbound Total" pada Live Stream
+    const [rowPesanMasukAllTime] = await query(
       `SELECT COUNT(*) AS count
        FROM wa_messages m
        WHERE m.is_from_me = 0
@@ -188,7 +198,8 @@ router.get("/stats/dashboard", async (req, res) => {
       [...sessionParams]
     );
 
-    // ── 2. Pesan masuk periode ini ─────────────────────────
+    // ── 2. Pesan masuk (SESUAI PERIODE) ───────────────────────────────
+    // Digunakan untuk Stat Card "Masuk Periode Ini"
     const [rowPesanMasukPeriod] = await query(
       `SELECT COUNT(*) AS count
        FROM wa_messages m
@@ -199,7 +210,7 @@ router.get("/stats/dashboard", async (req, res) => {
       [...sessionParams]
     );
 
-    // ── 3. Pesan terkirim (is_from_me = 1) ───────────────
+    // ── 3. Pesan terkirim (SESUAI PERIODE) ─────────────────────────────
     const [rowPesanKeluar] = await query(
       `SELECT COUNT(*) AS count
        FROM wa_messages m
@@ -278,7 +289,7 @@ router.get("/stats/dashboard", async (req, res) => {
       [...sessionParams]
     );
 
-    // ── 9. Live Messages Feed (Menggunakan kolom 'content') ─────────────
+    // ── 9. Live Messages Feed (Data Terbaru) ───────────────────────────
     const liveMessages = await query(
       `SELECT
           m.id,
@@ -297,12 +308,46 @@ router.get("/stats/dashboard", async (req, res) => {
       [...sessionParams]
     );
 
-    // Kirim Respon ke Frontend
+    // ── 10. Data Tren Pesan (Line Chart) ──────────────────────────────
+    let groupBy = "DATE_FORMAT(m.timestamp, '%H:00')";
+    if (period === "Minggu" || period === "Bulan") {
+      groupBy = "DATE_FORMAT(m.timestamp, '%d %b')";
+    }
+
+    const trendData = await query(
+      `SELECT 
+          ${groupBy} AS time,
+          SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk,
+          SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar
+       FROM wa_messages m
+       WHERE m.chat_jid NOT LIKE '%@g.us'
+       AND ${periodFilter}
+       ${sessionFilter}
+       GROUP BY time
+       ORDER BY m.timestamp ASC`,
+      [...sessionParams]
+    );
+
+    // ── 11. Data Lead per Device (Bar Chart) ──────────────────────────
+    const devicePerformance = await query(
+      `SELECT 
+          s.name,
+          COUNT(DISTINCT m.chat_jid) AS lead_count
+       FROM wa_sessions s
+       LEFT JOIN wa_messages m ON s.id = m.session_id 
+          AND m.is_from_me = 0 
+          AND m.chat_jid NOT LIKE '%@g.us'
+          AND ${periodFilter.replace(/m\./g, 'm.')}
+       GROUP BY s.id, s.name`,
+      []
+    );
+
+    // ── 12. Kirim Respon ke Frontend ───────────────────────────────────
     res.json({
       success: true,
       stats: {
-        pesanMasuk: rowPesanMasuk?.count ?? 0,
-        pesanMasukToday: rowPesanMasukPeriod?.count ?? 0,
+        pesanMasukAllTime: rowPesanMasukAllTime?.count ?? 0, // Untuk angka besar di Live Stream
+        pesanMasukToday: rowPesanMasukPeriod?.count ?? 0,   // Untuk Stat Card periode
         pesanKeluar: rowPesanKeluar?.count ?? 0,
         totalDevice,
         deviceConnected,
@@ -311,8 +356,10 @@ router.get("/stats/dashboard", async (req, res) => {
         slowResponse: rowSlowResponse?.count ?? 0,
         unanswered: rowUnanswered?.count ?? 0,
       },
-      devices: allSessions, // Untuk mengisi dropdown device di frontend
+      devices: allSessions,
       messages: liveMessages,
+      chartData: trendData,
+      deviceStats: devicePerformance,
     });
   } catch (err) {
     console.error("Error /stats/dashboard:", err);
@@ -749,5 +796,252 @@ router.put("/sessions/:sessionId/groups/:groupJid/read", async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
+// ===============================================
+// LABEL ROUTES - NEW FEATURE
+// ===============================================
+// LABEL ROUTES - NEW FEATURE
+// ===============================================
+
+// GET: Ambil semua label untuk session
+router.get("/sessions/:sessionId/labels", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const labels = await query(
+      `SELECT l.*, 
+              COUNT(DISTINCT cl.chat_jid) as chat_count
+       FROM wa_labels l
+       LEFT JOIN wa_chat_labels cl ON cl.label_id = l.id AND cl.session_id = l.session_id
+       WHERE l.session_id = ?
+       GROUP BY l.id
+       ORDER BY l.sort_order ASC, l.created_at DESC`,
+      [sessionId]
+    );
+    res.json({ success: true, data: labels });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST: Buat label baru
+router.post("/sessions/:sessionId/labels", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { name, color = '#00a884', icon = 'tag', description = '' } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Nama label wajib diisi" 
+      });
+    }
+
+    // Check if label already exists
+    const existing = await queryOne(
+      "SELECT id FROM wa_labels WHERE session_id = ? AND name = ?",
+      [sessionId, name.trim()]
+    );
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Label dengan nama ini sudah ada"
+      });
+    }
+
+    const result = await query(
+      `INSERT INTO wa_labels (session_id, name, color, icon, description) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [sessionId, name.trim(), color, icon, description]
+    );
+
+    const newLabel = await queryOne(
+      "SELECT * FROM wa_labels WHERE id = ?",
+      [result.insertId]
+    );
+
+    res.json({ 
+      success: true, 
+      data: newLabel,
+      message: "Label berhasil dibuat" 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT: Update label
+router.put("/sessions/:sessionId/labels/:labelId", async (req, res) => {
+  try {
+    const { sessionId, labelId } = req.params;
+    const { name, color, icon, description } = req.body;
+
+    const updates = [];
+    const params = [];
+
+    if (name !== undefined) {
+      updates.push("name = ?");
+      params.push(name.trim());
+    }
+    if (color !== undefined) {
+      updates.push("color = ?");
+      params.push(color);
+    }
+    if (icon !== undefined) {
+      updates.push("icon = ?");
+      params.push(icon);
+    }
+    if (description !== undefined) {
+      updates.push("description = ?");
+      params.push(description);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Tidak ada data yang diupdate"
+      });
+    }
+
+    params.push(sessionId, labelId);
+
+    await query(
+      `UPDATE wa_labels SET ${updates.join(", ")}, updated_at = NOW() 
+       WHERE session_id = ? AND id = ?`,
+      params
+    );
+
+    const updated = await queryOne(
+      "SELECT * FROM wa_labels WHERE session_id = ? AND id = ?",
+      [sessionId, labelId]
+    );
+
+    res.json({ 
+      success: true, 
+      data: updated,
+      message: "Label berhasil diupdate" 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE: Hapus label
+router.delete("/sessions/:sessionId/labels/:labelId", async (req, res) => {
+  try {
+    const { sessionId, labelId } = req.params;
+
+    // Delete akan cascade ke wa_chat_labels karena foreign key
+    await query(
+      "DELETE FROM wa_labels WHERE session_id = ? AND id = ?",
+      [sessionId, labelId]
+    );
+
+    res.json({ 
+      success: true, 
+      message: "Label berhasil dihapus" 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET: Ambil label untuk chat tertentu
+router.get("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
+  try {
+    const { sessionId, chatJid } = req.params;
+    const decodedJid = decodeURIComponent(chatJid);
+
+    const labels = await query(
+      `SELECT l.* 
+       FROM wa_labels l
+       INNER JOIN wa_chat_labels cl ON cl.label_id = l.id
+       WHERE cl.session_id = ? AND cl.chat_jid = ?
+       ORDER BY l.sort_order ASC, l.name ASC`,
+      [sessionId, decodedJid]
+    );
+
+    res.json({ success: true, data: labels });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST: Assign label ke chat
+router.post("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
+  try {
+    const { sessionId, chatJid } = req.params;
+    const { labelId } = req.body;
+    const decodedJid = decodeURIComponent(chatJid);
+
+    if (!labelId) {
+      return res.status(400).json({
+        success: false,
+        message: "Label ID wajib diisi"
+      });
+    }
+
+    // Check if label exists
+    const label = await queryOne(
+      "SELECT id FROM wa_labels WHERE session_id = ? AND id = ?",
+      [sessionId, labelId]
+    );
+
+    if (!label) {
+      return res.status(404).json({
+        success: false,
+        message: "Label tidak ditemukan"
+      });
+    }
+
+    // Check if already assigned
+    const existing = await queryOne(
+      "SELECT id FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND label_id = ?",
+      [sessionId, decodedJid, labelId]
+    );
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Label sudah ditambahkan ke chat ini"
+      });
+    }
+
+    await query(
+      "INSERT INTO wa_chat_labels (session_id, chat_jid, label_id) VALUES (?, ?, ?)",
+      [sessionId, decodedJid, labelId]
+    );
+
+    res.json({ 
+      success: true, 
+      message: "Label berhasil ditambahkan ke chat" 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE: Remove label dari chat
+router.delete("/sessions/:sessionId/chats/:chatJid/labels/:labelId", async (req, res) => {
+  try {
+    const { sessionId, chatJid, labelId } = req.params;
+    const decodedJid = decodeURIComponent(chatJid);
+
+    await query(
+      "DELETE FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND label_id = ?",
+      [sessionId, decodedJid, labelId]
+    );
+
+    res.json({ 
+      success: true, 
+      message: "Label berhasil dihapus dari chat" 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
 
 export default router;

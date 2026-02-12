@@ -82,34 +82,52 @@ export const MainApp: React.FC = () => {
     setIsSidebarOpen(false); // Tutup sidebar setelah pilih device
   };
 
-  const handleDeleteDevice = async (
-    e: React.MouseEvent,
-    sessionId: string,
-    deviceName: string,
-  ) => {
-    e.stopPropagation();
-    const result = await Swal.fire({
-      title: "Hapus Perangkat?",
-      text: `Seluruh data chat dan koneksi untuk "${deviceName || sessionId}" akan dihapus permanen.`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Ya, Hapus!",
-      background: "#202C33",
-      color: "#E9EDEF",
-    });
+const handleDeleteDevice = async (
+  e: React.MouseEvent,
+  sessionId: string,
+  deviceName: string,
+) => {
+  e.stopPropagation();
 
-    if (result.isConfirmed) {
-      const loadingToast = toast.loading("Menghapus sesi...");
-      try {
-        await deleteSession(sessionId);
-        toast.success(`Berhasil dihapus`, { id: loadingToast });
-      } catch (err: any) {
-        toast.error(`Gagal: ${err.message}`, { id: loadingToast });
-      }
+  // 1. Tampilkan Konfirmasi
+  const result = await Swal.fire({
+    title: "Hapus Perangkat?",
+    text: `Seluruh data chat dan koneksi untuk "${deviceName || sessionId}" akan dihapus permanen.`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#EF4444", // Warna merah Tailwind (destructive)
+    cancelButtonColor: "#374151", // Warna abu-abu gelap
+    confirmButtonText: "Ya, Hapus!",
+    cancelButtonText: "Batal",
+    background: "#202C33",
+    color: "#E9EDEF",
+    // Menambahkan backdrop filter agar lebih cantik (opsional)
+    backdrop: `rgba(0,0,0,0.4)`
+  });
+
+  // 2. Jika User Klik "Ya"
+  if (result.isConfirmed) {
+    const loadingToast = toast.loading("Sedang menghapus sesi...");
+    
+    try {
+      await deleteSession(sessionId);
+      
+      // Berikan feedback sukses
+      toast.success(`Sesi "${deviceName || sessionId}" berhasil dihapus`, { 
+        id: loadingToast 
+      });
+
+      // Tips: Jika Anda menggunakan state lokal atau React Query, 
+      // jangan lupa untuk refresh/invalidate data di sini agar UI terupdate.
+      
+    } catch (err: any) {
+      // Tangani error jika API gagal
+      toast.error(`Gagal menghapus: ${err.message || 'Terjadi kesalahan'}`, { 
+        id: loadingToast 
+      });
     }
-  };
+  }
+};
 
   const isConnected = activeSession?.status === "connected";
   const currentSessionId =

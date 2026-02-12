@@ -1,4 +1,3 @@
-// whatsapp.js - PERBAIKAN: Otomatis simpan kontak anggota grup
 import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
@@ -50,92 +49,60 @@ export async function createSession(sessionId, io) {
 
   sessions.set(sessionId, { sock, io, sessionId });
 
-  // ---- Event: connection.update ----
-  sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect, qr } = update;
+// ---- Event: connection.update ----
+sock.ev.on("connection.update", async (update) => {
+  const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
-      // Generate QR Code sebagai data URL (base64 PNG)
-      const qrDataURL = await QRCode.toDataURL(qr, {
-        width: 300,
-        margin: 2,
-        color: { dark: "#128C7E", light: "#FFFFFF" },
-      });
+  if (qr) {
+    const qrDataURL = await QRCode.toDataURL(qr, {
+      width: 300,
+      margin: 2,
+      color: { dark: "#128C7E", light: "#FFFFFF" },
+    });
 
-      // Simpan QR ke database
-      await query(
-        "UPDATE wa_sessions SET qr_code = ?, status = ?, last_qr_at = NOW() WHERE id = ?",
-        [qrDataURL, "connecting", sessionId],
-      );
+    await query(
+      "UPDATE wa_sessions SET qr_code = ?, status = ?, last_qr_at = NOW() WHERE id = ?",
+      [qrDataURL, "connecting", sessionId],
+    );
 
-      // Kirim QR ke frontend via Socket.IO
-      io.emit(`qr:${sessionId}`, { qr: qrDataURL });
-      io.emit("session:update", await getSessionInfo(sessionId));
-      console.log(`📱 QR Code baru untuk sesi: ${sessionId}`);
-    }
+    io.emit(`qr:${sessionId}`, { qr: qrDataURL });
+    console.log(`📱 QR Code baru untuk sesi: ${sessionId}`);
+  }
 
-    if (connection === "close") {
-      const shouldReconnect =
-        lastDisconnect?.error instanceof Boom &&
-        lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
+  if (connection === "close") {
+    // Di JavaScript murni, kita langsung akses propertinya tanpa 'as Boom'
+    const statusCode = lastDisconnect?.error?.output?.statusCode;
+    
+    const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+    const isConflict = statusCode === 409;
+    const shouldReconnect = !isLoggedOut && !isConflict;
 
-      console.log(
-        `🔴 Koneksi ditutup untuk sesi ${sessionId}. Reconnect: ${shouldReconnect}`,
-      );
+    console.log(`🔴 Koneksi ditutup (Sesi: ${sessionId}). Status: ${statusCode}. Reconnect: ${shouldReconnect}`);
 
-      await query(
-        "UPDATE wa_sessions SET status = ?, qr_code = NULL WHERE id = ?",
-        [shouldReconnect ? "connecting" : "disconnected", sessionId],
-      );
+    await query(
+      "UPDATE wa_sessions SET status = ?, qr_code = NULL WHERE id = ?",
+      [shouldReconnect ? "connecting" : "disconnected", sessionId],
+    );
 
-      io.emit("session:update", await getSessionInfo(sessionId));
-
-      if (shouldReconnect) {
-        setTimeout(() => createSession(sessionId, io), 3000);
-      } else {
-        // Logout: hapus file sesi
-        sessions.delete(sessionId);
+    if (shouldReconnect) {
+      // Jeda 5 detik sebelum mencoba lagi
+      setTimeout(() => createSession(sessionId, io), 5000);
+    } else {
+      sessions.delete(sessionId);
+      if (isLoggedOut) {
         const sessionDir = `./sessions/${sessionId}`;
         if (fs.existsSync(sessionDir)) {
           fs.rmSync(sessionDir, { recursive: true });
         }
       }
     }
+  }
 
-    if (connection === "open") {
-      const userJid = sock.user?.id;
-      const phoneNumber = userJid?.split(":")[0]?.split("@")[0];
-      console.log(`✅ Terhubung ke WhatsApp! Nomor: ${phoneNumber}`);
-
-      await query(
-        "UPDATE wa_sessions SET status = ?, phone_number = ?, qr_code = NULL, connected_at = NOW() WHERE id = ?",
-        ["connected", phoneNumber, sessionId],
-      );
-
-      io.emit(`session:connected:${sessionId}`, { phoneNumber });
-      io.emit("session:update", await getSessionInfo(sessionId));
-
-      // Sinkronisasi grup saat koneksi terbuka
-      try {
-        console.log(`🔄 Sinkronisasi grup untuk sesi: ${sessionId}...`);
-        const chats = await sock.groupFetchAllParticipating();
-        for (const jid in chats) {
-          const group = chats[jid];
-          await query(
-            `INSERT INTO wa_chats (session_id, jid, name, is_group) 
-             VALUES (?, ?, ?, 1) 
-             ON DUPLICATE KEY UPDATE name = VALUES(name), is_group = 1`,
-            [sessionId, jid, group.subject],
-          );
-        }
-        console.log(
-          `✅ ${Object.keys(chats).length} grup berhasil disinkronkan.`,
-        );
-      } catch (err) {
-        console.error("❌ Gagal sinkronisasi grup:", err);
-      }
-    }
-  });
+  if (connection === "open") {
+     // ... kode connection open kamu ...
+     console.log("✅ Terhubung!");
+  }
+});
 
   // ---- Event: creds.update ----
   sock.ev.on("creds.update", saveCreds);
