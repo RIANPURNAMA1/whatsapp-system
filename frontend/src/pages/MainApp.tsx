@@ -10,7 +10,10 @@ import {
   Trash2,
   Inbox,
   Users,
-  Menu, // Icon Menu untuk Mobile
+  Menu,
+  LogOut,
+  ShieldCheck,
+  UserPlus, // Icon Menu untuk Mobile
 } from "lucide-react";
 import useStore from "../store/useStore";
 import ChatList from "../components/ChatList";
@@ -43,8 +46,15 @@ export const MainApp: React.FC = () => {
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<
-    "chats" | "stats" | "devices" | "all-messages" | "groups" | "dashboard"
-  >("chats");
+    | "chats"
+    | "stats"
+    | "devices"
+    | "all-messages"
+    | "groups"
+    | "dashboard"
+    | "role-management" // Tambahkan ini
+    | "user-management" // Tambahkan ini
+  >("dashboard"); // Saya sarankan defaultnya ke dashboard agar lebih profesional
 
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State baru untuk sidebar mobile
@@ -82,52 +92,111 @@ export const MainApp: React.FC = () => {
     setIsSidebarOpen(false); // Tutup sidebar setelah pilih device
   };
 
-const handleDeleteDevice = async (
-  e: React.MouseEvent,
-  sessionId: string,
-  deviceName: string,
-) => {
-  e.stopPropagation();
-
-  // 1. Tampilkan Konfirmasi
-  const result = await Swal.fire({
-    title: "Hapus Perangkat?",
-    text: `Seluruh data chat dan koneksi untuk "${deviceName || sessionId}" akan dihapus permanen.`,
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: "#EF4444", // Warna merah Tailwind (destructive)
-    cancelButtonColor: "#374151", // Warna abu-abu gelap
-    confirmButtonText: "Ya, Hapus!",
-    cancelButtonText: "Batal",
-    background: "#202C33",
-    color: "#E9EDEF",
-    // Menambahkan backdrop filter agar lebih cantik (opsional)
-    backdrop: `rgba(0,0,0,0.4)`
-  });
-
-  // 2. Jika User Klik "Ya"
-  if (result.isConfirmed) {
-    const loadingToast = toast.loading("Sedang menghapus sesi...");
-    
+  const handleReconnect = async (sessionId: string) => {
     try {
-      await deleteSession(sessionId);
-      
-      // Berikan feedback sukses
-      toast.success(`Sesi "${deviceName || sessionId}" berhasil dihapus`, { 
-        id: loadingToast 
-      });
+      // 1. Tampilkan loading toast agar user tahu proses dimulai
+      const loadingToast = toast.loading("Menyiapkan koneksi WhatsApp...");
 
-      // Tips: Jika Anda menggunakan state lokal atau React Query, 
-      // jangan lupa untuk refresh/invalidate data di sini agar UI terupdate.
-      
-    } catch (err: any) {
-      // Tangani error jika API gagal
-      toast.error(`Gagal menghapus: ${err.message || 'Terjadi kesalahan'}`, { 
-        id: loadingToast 
-      });
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/sessions/reconnect/${sessionId}`,
+        {
+          method: "POST",
+        },
+      );
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success("Silakan scan QR Code yang muncul", { id: loadingToast });
+
+        // 2. TENTUKAN SESSION YANG AKAN DI-SCAN
+        // Ini agar QRModal tahu ID mana yang harus didengarkan socket-nya
+        setAddDeviceSessionId(sessionId);
+
+        // 3. PAKSA MODAL QR TERBUKA
+        setShowQRModal(true);
+
+        // 4. Refresh list agar status di UI berubah jadi 'connecting'
+        fetchSessions();
+      } else {
+        toast.error(data.message || "Gagal reconnect", { id: loadingToast });
+      }
+    } catch (error) {
+      toast.error("Gagal melakukan reconnect");
     }
-  }
-};
+  };
+  const handleLogout = async (sessionId: string) => {
+    if (
+      !confirm(
+        "Apakah Anda yakin ingin logout? Koneksi di ponsel akan terputus.",
+      )
+    )
+      return;
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/sessions/logout/${sessionId}`,
+        {
+          method: "POST",
+        },
+      );
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success("Berhasil logout dari WhatsApp");
+        fetchSessions(); // Refresh list agar status berubah jadi disconnected
+      } else {
+        toast.error(data.message || "Gagal logout");
+      }
+    } catch (error) {
+      toast.error("Terjadi kesalahan koneksi");
+    }
+  };
+
+  const handleDeleteDevice = async (
+    e: React.MouseEvent,
+    sessionId: string,
+    deviceName: string,
+  ) => {
+    e.stopPropagation();
+
+    // 1. Tampilkan Konfirmasi
+    const result = await Swal.fire({
+      title: "Hapus Perangkat?",
+      text: `Seluruh data chat dan koneksi untuk "${deviceName || sessionId}" akan dihapus permanen.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#EF4444", // Warna merah Tailwind (destructive)
+      cancelButtonColor: "#374151", // Warna abu-abu gelap
+      confirmButtonText: "Ya, Hapus!",
+      cancelButtonText: "Batal",
+      background: "#202C33",
+      color: "#E9EDEF",
+      // Menambahkan backdrop filter agar lebih cantik (opsional)
+      backdrop: `rgba(0,0,0,0.4)`,
+    });
+
+    // 2. Jika User Klik "Ya"
+    if (result.isConfirmed) {
+      const loadingToast = toast.loading("Sedang menghapus sesi...");
+
+      try {
+        await deleteSession(sessionId);
+
+        // Berikan feedback sukses
+        toast.success(`Sesi "${deviceName || sessionId}" berhasil dihapus`, {
+          id: loadingToast,
+        });
+
+        // Tips: Jika Anda menggunakan state lokal atau React Query,
+        // jangan lupa untuk refresh/invalidate data di sini agar UI terupdate.
+      } catch (err: any) {
+        // Tangani error jika API gagal
+        toast.error(`Gagal menghapus: ${err.message || "Terjadi kesalahan"}`, {
+          id: loadingToast,
+        });
+      }
+    }
+  };
 
   const isConnected = activeSession?.status === "connected";
   const currentSessionId =
@@ -137,7 +206,6 @@ const handleDeleteDevice = async (
   return (
     <div className="h-screen bg-[#0B141A] text-[#E9EDEF] flex overflow-hidden font-sans relative">
       <Toaster position="bottom-right" />
-
       {/* OVERLAY MOBILE */}
       {isSidebarOpen && (
         <div
@@ -146,110 +214,135 @@ const handleDeleteDevice = async (
         />
       )}
 
-      {/* SIDEBAR RAIL */}
       <aside
         className={`
-        fixed md:relative z-50 flex flex-col w-[68px] h-full bg-[#202C33] border-r border-[#313D45] py-5 items-center justify-between 
-        transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-      `}
+    fixed md:relative z-50 flex flex-col w-[68px] h-full bg-[#202C33] border-r border-[#313D45] py-5 items-center justify-between 
+    transition-transform duration-300 ease-in-out
+    ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+  `}
       >
-        <div className="flex flex-col gap-6 items-center w-full">
-          <div className="w-10 h-10 bg-[#00a884] rounded-xl flex items-center justify-center shadow-lg shadow-[#00a884]/20 mb-2">
+        <div className="flex flex-col gap-4 items-center w-full">
+          {/* LOGO UTAMA */}
+          <button
+            onClick={() => window.location.reload()}
+            className="w-10 h-10 bg-[#00a884] rounded-xl flex items-center justify-center shadow-lg shadow-[#00a884]/20 mb-4 hover:bg-[#00c99d] transition-all active:scale-95"
+            title="Satu Pintu Home"
+          >
             <MessageSquare className="w-6 h-6 text-white" />
-          </div>
+          </button>
 
           <div className="flex flex-col gap-3 w-full items-center">
+            {/* GROUP 1: ROLE MANAGEMENT (DINAMIS - PALING ATAS) */}
+
+            <div className="flex flex-col items-center w-full gap-1">
+              {/* Label kecil penanda grup (Opsional, sangat halus) */}
+              <span className="text-[9px] font-bold text-[#54656f] mb-1 uppercase tracking-widest">
+                Admin
+              </span>
+
+              <NavButton
+                icon={<ShieldCheck className="w-5 h-5" />}
+                active={activeTab === "role-management"}
+                onClick={() => setActiveTab("role-management")}
+                title="Manajemen Role"
+              />
+              <NavButton
+                icon={<UserPlus className="w-5 h-5" />}
+                active={activeTab === "user-management"}
+                onClick={() => setActiveTab("user-management")}
+                title="Kelola User/Admin"
+              />
+
+              {/* Garis pemisah tipis */}
+            </div>
+
+            <div className="w-8 h-[1px] bg-[#313D45] my-1" />
+
+            {/* GROUP 2: MONITORING (DROPDOWN GROUP STYLE) */}
             <NavButton
               icon={<BarChart2 className="w-5 h-5" />}
               active={activeTab === "dashboard"}
-              onClick={() => {
-                setActiveTab("dashboard");
-                setIsSidebarOpen(false);
-              }}
-              title="Dashboard"
+              onClick={() => setActiveTab("dashboard")}
+              title="Dashboard Statisitik"
             />
+
+            {/* GROUP 3: CHAT & MESSAGING */}
+            <div className="flex flex-col gap-2 items-center">
+              <NavButton
+                icon={<LayoutDashboard className="w-5 h-5" />}
+                active={activeTab === "chats"}
+                onClick={() => setActiveTab("chats")}
+                title="Chat WhatsApp"
+              />
+              <NavButton
+                icon={<Inbox className="w-5 h-5" />}
+                active={activeTab === "all-messages"}
+                onClick={() => setActiveTab("all-messages")}
+                title="Riwayat Pesan Global"
+              />
+              <NavButton
+                icon={<Users className="w-5 h-5" />}
+                active={activeTab === "groups"}
+                onClick={() => setActiveTab("groups")}
+                title="Manajemen Grup"
+              />
+            </div>
+
+            <div className="w-8 h-[1px] bg-[#313D45] my-1" />
+
+            {/* GROUP 4: SYSTEM / DEVICES */}
             <NavButton
-              icon={<LayoutDashboard className="w-5 h-5" />}
-              active={activeTab === "chats"}
-              onClick={() => {
-                setActiveTab("chats");
-                setIsSidebarOpen(false);
-              }}
-              title="Chat"
-            />
-            <NavButton
-              icon={<Inbox className="w-5 h-5" />}
-              active={activeTab === "all-messages"}
-              onClick={() => {
-                setActiveTab("all-messages");
-                setIsSidebarOpen(false);
-              }}
-              title="Global Inbox"
-            />
-            <NavButton
-              icon={<Users className="w-5 h-5" />}
-              active={activeTab === "groups"}
-              onClick={() => {
-                setActiveTab("groups");
-                setIsSidebarOpen(false);
-              }}
-              title="Grup"
-            />
-            <div className="w-8 h-[1px] bg-[#313D45] my-2" />
-            <NavButton
-              icon={<PlusCircle className="w-5 h-5" />}
+              icon={<PlusCircle className="w-5 h-5 text-emerald-400" />}
               active={activeTab === "devices"}
-              onClick={() => {
-                setActiveTab("devices");
-                setIsSidebarOpen(false);
-              }}
-              title="Perangkat"
+              onClick={() => setActiveTab("devices")}
+              title="Tambah Perangkat"
             />
           </div>
         </div>
 
-        <div className="flex flex-col gap-5 items-center">
+        {/* BAGIAN BAWAH: STATUS & SETTINGS */}
+        <div className="flex flex-col gap-4 items-center">
           {!isConnected && activeSession && (
             <button
               onClick={() => setShowQRModal(true)}
-              className="p-3 text-orange-400 animate-pulse"
+              className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500/10 text-orange-400 animate-pulse hover:bg-orange-500/20 transition-all"
+              title="Scan QR Code"
             >
-              <QrCode className="w-6 h-6" />
+              <QrCode className="w-5 h-5" />
             </button>
           )}
-          <button className="p-3 text-[#8696A0] hover:text-white transition-colors">
-            <Settings className="w-5 h-5" />
-          </button>
+
+          <div className="w-10 h-10 rounded-xl hover:bg-[#313D45] flex items-center justify-center cursor-pointer transition-colors group">
+            <Settings className="w-5 h-5 text-[#8696A0] group-hover:text-white transition-colors" />
+          </div>
         </div>
       </aside>
-
       {/* MAIN CONTENT AREA */}
       <main className="flex flex-1 overflow-hidden relative">
-        {activeTab === "dashboard" ? (
-          /* 1. TAMPILAN DASHBOARD (FULL SCREEN) */
+        {/* 1. TAMPILAN FULL SCREEN (Dashboard, Groups, Role, User Management) */}
+        {activeTab === "dashboard" ||
+        activeTab === "groups" ||
+        activeTab === "role-management" ||
+        activeTab === "user-management" ? (
           <div className="flex flex-1 overflow-hidden relative">
+            {/* Tombol Menu untuk Mobile */}
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="md:hidden absolute top-4 left-4 z-40 p-2 bg-[#202C33] rounded-lg border border-[#313D45] text-[#00a884]"
             >
               <Menu size={20} />
             </button>
-            <StatDashboard stats={stats} />
-          </div>
-        ) : activeTab === "groups" ? (
-          /* 2. TAMPILAN GRUP (FULL SCREEN) */
-          <div className="flex flex-1 overflow-hidden relative">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden absolute top-4 left-4 z-40 p-2 bg-[#202C33] rounded-lg border border-[#313D45] text-[#00a884]"
-            >
-              <Menu size={20} />
-            </button>
-            <GroupsPage sessionId={currentSessionId} />
+
+            {/* Konten berdasarkan Tab */}
+            {activeTab === "dashboard" && <StatDashboard stats={stats} />}
+            {activeTab === "groups" && (
+              <GroupsPage sessionId={currentSessionId} />
+            )}
+            {activeTab === "role-management" && <RoleManagementView />}
+            {activeTab === "user-management" && <UserManagementView />}
           </div>
         ) : (
-          /* 3. TAMPILAN STANDAR (LEFT LIST + RIGHT CHAT) */
+          /* 2. TAMPILAN STANDAR (LEFT LIST + RIGHT CHAT) */
           <>
             {/* LEFT COLUMN: List Chat, Inbox, Devices, Stats Panel */}
             <section
@@ -291,6 +384,8 @@ const handleDeleteDevice = async (
                     onAdd={handleAddNewDevice}
                     onSelect={handleSwitchDevice}
                     onDelete={handleDeleteDevice}
+                    onReconnect={handleReconnect}
+                    onLogout={handleLogout}
                   />
                 )}
               </div>
@@ -311,7 +406,6 @@ const handleDeleteDevice = async (
           </>
         )}
       </main>
-
       {/* MODALS */}
       {showQRModal && (
         <QRModal
@@ -323,7 +417,6 @@ const handleDeleteDevice = async (
           }}
         />
       )}
-
       {showNewChatModal && (
         <NewChatModal
           sessionId={currentSessionId}
@@ -366,12 +459,18 @@ const NavButton = ({ icon, active, onClick, title }: any) => (
   </button>
 );
 
+import { RefreshCw } from "lucide-react"; // Tambahkan RefreshCw
+import RoleManagementView from "../components/RoleManagementView";
+import UserManagementView from "../components/UserManagementView";
+
 const DevicePanel = ({
   sessions,
   activeId,
   onAdd,
   onSelect,
   onDelete,
+  onReconnect,
+  onLogout, // Tambahkan props ini
 }: any) => (
   <div className="flex-1 bg-[#111B21] flex flex-col overflow-hidden">
     <div className="p-6 border-b border-[#222d34] flex items-center justify-between">
@@ -432,12 +531,45 @@ const DevicePanel = ({
               >
                 {session.status}
               </span>
-              <button
-                onClick={(e) => onDelete(e, session.id, session.name)}
-                className="opacity-0 group-hover:opacity-100 p-1.5 text-[#8696A0] hover:text-red-500 rounded-md transition-all"
-              >
-                <Trash2 size={16} />
-              </button>
+
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                {/* TOMBOL RECONNECT */}
+                {session.status !== "connected" && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReconnect(session.id);
+                    }}
+                    title="Reconnect Account"
+                    className="p-1.5 text-[#8696A0] hover:text-[#00a884] hover:bg-[#111B21] rounded-md transition-all"
+                  >
+                    <RefreshCw size={16} />
+                  </button>
+                )}
+
+                {/* TOMBOL LOGOUT */}
+                {session.status === "connected" && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLogout(session.id);
+                    }}
+                    title="Logout Device"
+                    className="p-1.5 text-[#8696A0] hover:text-orange-500 hover:bg-[#111B21] rounded-md transition-all"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                )}
+
+                {/* TOMBOL DELETE */}
+                <button
+                  onClick={(e) => onDelete(e, session.id, session.name)}
+                  title="Delete Device"
+                  className="p-1.5 text-[#8696A0] hover:text-red-500 hover:bg-[#111B21] rounded-md transition-all"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -445,7 +577,6 @@ const DevicePanel = ({
     </div>
   </div>
 );
-
 const StatsPanel = ({ stats }: any) => (
   <div className="flex-1 bg-[#111B21] p-6 overflow-y-auto custom-scrollbar">
     <h2 className="text-xl font-bold mb-6">Statistik</h2>

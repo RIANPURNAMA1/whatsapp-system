@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import routes from './routes.js';
 import { createSession, getSessionInfo, isSessionConnected } from './whatsapp.js';
-import { query } from './db.js';
+import { query, ensureDbReady } from './db.js'; // Tambahkan ensureDbReady di sini
 
 dotenv.config();
 
@@ -86,22 +86,26 @@ io.on('connection', (socket) => {
 // ===============================================
 async function startActiveSessions() {
   try {
+    // Query ini akan otomatis menunggu ensureDbReady karena fungsi query di db.js sudah kita modifikasi
     const activeSessions = await query(
       "SELECT id FROM wa_sessions WHERE status IN ('connected', 'connecting')"
     );
 
-    console.log(`🔄 Mencoba reconnect ${activeSessions.length} sesi aktif...`);
-
-    for (const session of activeSessions) {
-      console.log(`  → Memulai sesi: ${session.id}`);
-      await createSession(session.id, io).catch(err => {
-        console.error(`  ✗ Gagal reconnect sesi ${session.id}:`, err.message);
-      });
-      // Delay antar sesi
-      await new Promise(r => setTimeout(r, 2000));
+    if (activeSessions.length > 0) {
+      console.log(`🔄 Mencoba reconnect ${activeSessions.length} sesi aktif...`);
+      for (const session of activeSessions) {
+        console.log(`  → Memulai sesi: ${session.id}`);
+        await createSession(session.id, io).catch(err => {
+          console.error(`  ✗ Gagal reconnect sesi ${session.id}:`, err.message);
+        });
+        // Delay antar sesi agar tidak membebani sistem
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    } else {
+      console.log('✅ Tidak ada sesi aktif yang perlu di-reconnect.');
     }
   } catch (err) {
-    console.error('Error startup sesi:', err);
+    console.error('❌ Error startup sesi:', err.message);
   }
 }
 
@@ -109,18 +113,31 @@ async function startActiveSessions() {
 // Mulai server
 // ===============================================
 const PORT = process.env.PORT || 3001;
+
 httpServer.listen(PORT, async () => {
   console.log('');
   console.log('╔════════════════════════════════════════╗');
   console.log('║     WhatsApp System - Backend API      ║');
   console.log('╚════════════════════════════════════════╝');
-  console.log(`🚀 Server berjalan di: http://localhost:${PORT}`);
-  console.log(`📡 Socket.IO aktif`);
-  console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
-  console.log('');
+  
+  try {
+    // LANGKAH KRUSIAL: Tunggu Database & Tabel Siap
+    console.log('⏳ Menyiapkan database...');
+    await ensureDbReady();
+    
+    console.log(`🚀 Server berjalan di: http://localhost:${PORT}`);
+    console.log(`📡 Socket.IO aktif`);
+    console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+    console.log('');
 
-  // Reconnect sesi aktif
-  await startActiveSessions();
+    // Jalankan reconnect setelah database dipastikan siap
+    await startActiveSessions();
+
+  } catch (error) {
+    console.error('💥 GAGAL MEMULAI SERVER:');
+    console.error(error.message);
+    process.exit(1); // Matikan aplikasi jika database gagal
+  }
 });
 
 export default app;

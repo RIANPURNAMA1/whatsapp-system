@@ -104,33 +104,37 @@ const GroupChatWindow: React.FC<GroupChatWindowProps> = ({
     };
   }, [sessionId, group.jid]);
 
-  // ── Terima pesan real-time via Socket.IO ────────────────────
-  useEffect(() => {
-    const socket = getSocket();
+// ── Terima pesan real-time via Socket.IO ────────────────────
+useEffect(() => {
+  const socket = getSocket();
 
-    const handleNewMessage = (msg: GroupMessage) => {
-      if (msg.chat_jid !== group.jid) return;
+  const handleNewMessage = (msg: any) => {
+    // Cek apakah pesan untuk grup ini
+    if (msg.chat_jid !== group.jid) return;
 
-      setMessages((prev) => {
-        // Hindari duplikat
-        if (prev.some((m) => m.message_id === msg.message_id)) return prev;
-        return [...prev, msg];
-      });
+    setMessages((prev) => {
+      // Hindari duplikat
+      if (prev.some((m) => m.message_id === msg.message_id)) return prev;
+      return [...prev, msg as GroupMessage];
+    });
 
-      // Scroll ke bawah kalau sudah di bawah
-      const el = containerRef.current;
-      if (el) {
-        const nearBottom =
-          el.scrollHeight - el.scrollTop - el.clientHeight < 200;
-        if (nearBottom) setTimeout(() => scrollToBottom("smooth"), 60);
-      }
-    };
+    // Scroll ke bawah kalau sudah di bawah
+    const el = containerRef.current;
+    if (el) {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200;
+      if (nearBottom) setTimeout(() => scrollToBottom("smooth"), 60);
+    }
+  };
 
-    socket.on(`message:new:${sessionId}`, handleNewMessage);
-    return () => {
-      socket.off(`message:new:${sessionId}`, handleNewMessage);
-    };
-  }, [sessionId, group.jid]);
+  // ✅ PERBAIKAN: Listen ke 2 event (backward compatibility)
+  socket.on(`message:new:${sessionId}`, handleNewMessage);
+  socket.on(`group:message:${sessionId}`, handleNewMessage);
+  
+  return () => {
+    socket.off(`message:new:${sessionId}`, handleNewMessage);
+    socket.off(`group:message:${sessionId}`, handleNewMessage);
+  };
+}, [sessionId, group.jid]);
 
   // ── Load lebih banyak pesan (scroll ke atas) ────────────────
   const loadMore = useCallback(async () => {

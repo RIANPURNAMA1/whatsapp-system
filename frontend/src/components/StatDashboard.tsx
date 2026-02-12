@@ -131,6 +131,61 @@ const StatDashboard: React.FC = () => {
         </div>
       </div>
 
+
+           {/* --- SECTION GRAFIK --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto mb-5">
+        
+        {/* Tren Aktivitas */}
+        <div className="lg:col-span-2 bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[400px] shadow-xl">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-6">Aktivitas Pesan Perjam</h3>
+          <div className="h-[300px] w-full"> {/* Container Fix untuk ResponsiveContainer */}
+            <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#313D45" vertical={false} />
+                <XAxis dataKey="time" stroke="#8696A0" fontSize={10} tickLine={false} axisLine={false} dy={10} />
+                <YAxis stroke="#8696A0" fontSize={10} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: '#202C33', border: '1px solid #313D45', borderRadius: '8px' }} />
+                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '10px', paddingBottom: '20px' }} />
+                <Line type="monotone" dataKey="masuk" name="Masuk" stroke="#00a884" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="keluar" name="Keluar" stroke="#f97316" strokeWidth={3} dot={false} />
+                </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* SLA Status */}
+        <div className="bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[400px] shadow-xl flex flex-col">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-4"> Respon</h3>
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={slaData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                  {slaData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                </Pie>
+                <Tooltip />
+                <Legend layout="vertical" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '10px' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Lead per Device */}
+        <div className="lg:col-span-3 bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[350px] shadow-xl">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-6">Performa Lead per Device</h3>
+          <div className="h-[240px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={deviceStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#313D45" vertical={false} />
+                <XAxis dataKey="name" stroke="#8696A0" fontSize={10} tickLine={false} />
+                <YAxis stroke="#8696A0" fontSize={10} tickLine={false} />
+                <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} />
+                <Bar dataKey="lead_count" name="Total Lead" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
       {/* Grid Utama (Live Message & Stat Cards) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5 max-w-7xl mx-auto mb-10">
         
@@ -180,60 +235,6 @@ const StatDashboard: React.FC = () => {
         <StatCard title="Tak Terjawab" value={stats.unanswered} subValue="Batas > 24 Jam" icon={AlertCircle} color="text-gray-400" />
         <StatCard title="Device Online" value={stats.deviceConnected} subValue={`Dari ${stats.totalDevice} Device`} icon={Smartphone} color="text-indigo-400" />
         <StatCard title="Status Koneksi" value={stats.deviceConnected > 0 ? "Stabil" : "Offline"} subValue="Network Status" icon={CheckCircle} color="text-[#00a884]" />
-      </div>
-
-      {/* --- SECTION GRAFIK --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-        
-        {/* Tren Aktivitas */}
-        <div className="lg:col-span-2 bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[400px] shadow-xl">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-6">Tren Aktivitas Pesan</h3>
-          <div className="h-[300px] w-full"> {/* Container Fix untuk ResponsiveContainer */}
-            <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#313D45" vertical={false} />
-                <XAxis dataKey="time" stroke="#8696A0" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-                <YAxis stroke="#8696A0" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#202C33', border: '1px solid #313D45', borderRadius: '8px' }} />
-                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '10px', paddingBottom: '20px' }} />
-                <Line type="monotone" dataKey="masuk" name="Masuk" stroke="#00a884" strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="keluar" name="Keluar" stroke="#f97316" strokeWidth={3} dot={false} />
-                </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* SLA Status */}
-        <div className="bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[400px] shadow-xl flex flex-col">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-4">Komposisi Respon</h3>
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={slaData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {slaData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                </Pie>
-                <Tooltip />
-                <Legend layout="vertical" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '10px' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Lead per Device */}
-        <div className="lg:col-span-3 bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[350px] shadow-xl">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-6">Performa Lead per Device</h3>
-          <div className="h-[240px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={deviceStats}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#313D45" vertical={false} />
-                <XAxis dataKey="name" stroke="#8696A0" fontSize={10} tickLine={false} />
-                <YAxis stroke="#8696A0" fontSize={10} tickLine={false} />
-                <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} />
-                <Bar dataKey="lead_count" name="Total Lead" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
-                </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
       </div>
     </div>
   );

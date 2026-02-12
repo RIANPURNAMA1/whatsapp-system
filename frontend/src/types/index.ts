@@ -29,6 +29,13 @@ export interface Chat {
   muted: number;
   profile_pic_url: string | null;
   created_at: string;
+  // tambahkan ini:
+  labels?: Array<{
+    id: number;
+    name: string;
+    color: string;
+    icon?: string;
+  }> | null;
 }
 
 export type MessageType = 

@@ -10,6 +10,8 @@ import {
   deleteMessage,
   logoutSession,
   isSessionConnected,
+  getSessionInfo,  // ⭐ TAMBAHKAN INI
+  sessions,         // ⭐ TAMBAHKAN INI
 } from "./whatsapp.js";
 
 const router = express.Router();
@@ -46,6 +48,93 @@ const buildPeriodFilter = (period, columnName) => {
       return "1=1"; // Tampilkan semua jika tidak cocok
   }
 };
+
+
+
+// role
+// ===============================================
+// ROLE MANAGEMENT ROUTES
+// ===============================================
+
+// GET: Ambil semua role dan jumlah user-nya
+router.get("/roles", async (req, res) => {
+  try {
+    const roles = await query(`
+      SELECT r.*, 
+      (SELECT COUNT(*) FROM wa_users u WHERE u.role_id = r.id) as users 
+      FROM sys_roles r 
+      ORDER BY r.type ASC, r.name ASC
+    `);
+    res.json({ success: true, data: roles });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST: Tambah Role Baru
+router.post("/roles", async (req, res) => {
+  const { name, description } = req.body;
+  if (!name) return res.status(400).json({ success: false, message: "Nama role wajib diisi" });
+
+  try {
+    const result = await query(
+      "INSERT INTO sys_roles (name, description, type) VALUES (?, ?, 'custom')",
+      [name, description]
+    );
+    res.json({ success: true, message: "Role berhasil ditambahkan", id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Role sudah ada atau error database" });
+  }
+});
+
+// DELETE: Hapus Role
+router.delete("/roles/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const role = await queryOne("SELECT type FROM sys_roles WHERE id = ?", [id]);
+    if (!role) return res.status(404).json({ success: false, message: "Role tidak ditemukan" });
+    if (role.type === 'system') return res.status(403).json({ success: false, message: "Role sistem tidak boleh dihapus" });
+
+    await query("DELETE FROM sys_roles WHERE id = ?", [id]);
+    res.json({ success: true, message: "Role berhasil dihapus" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ===============================================
+// USER MANAGEMENT ROUTES (Untuk Admin Cabang/Pusat)
+// ===============================================
+
+// GET: Daftar semua user/admin
+router.get("/users", async (req, res) => {
+  try {
+    const users = await query(`
+      SELECT u.id, u.username, u.full_name, u.branch, u.last_login, r.name as role_name 
+      FROM wa_users u
+      LEFT JOIN sys_roles r ON u.role_id = r.id
+      ORDER BY u.created_at DESC
+    `);
+    res.json({ success: true, data: users });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST: Tambah User Baru
+router.post("/users", async (req, res) => {
+  const { username, password, full_name, role_id, branch } = req.body;
+  // Catatan: Di produksi, gunakan bcrypt untuk hash password!
+  try {
+    await query(
+      "INSERT INTO wa_users (username, password, full_name, role_id, branch) VALUES (?, ?, ?, ?, ?)",
+      [username, password, full_name, role_id, branch]
+    );
+    res.json({ success: true, message: "User berhasil didaftarkan" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Username sudah digunakan" });
+  }
+});
 
 // ===============================================
 // SESSION ROUTES
@@ -114,36 +203,182 @@ router.post("/sessions", async (req, res) => {
   }
 });
 
+
+
+// ✅ PERBAIKAN ENDPOINT RECONNECT
+router.post("/sessions/reconnect/:sessionId", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    console.log(`🔄 [RECONNECT] Menerima request untuk session: ${sessionId}`);
+    
+    // 1. Cek apakah session ada di database
+    const sessionData = await getSessionInfo(sessionId);
+    
+    if (!sessionData) {
+      console.error(`❌ [RECONNECT] Session ${sessionId} tidak ditemukan di database`);
+      return res.status(404).json({ 
+        success: false, 
+        message: "Session tidak ditemukan di database" 
+      });
+    }
+
+    // 2. Ambil Socket.IO instance - COBA KEDUA NAMA
+    let io = req.app.get('socketio') || req.app.get('io');
+    
+    if (!io) {
+      console.error("❌ [RECONNECT] Socket.IO instance tidak ditemukan di app!");
+      return res.status(500).json({ 
+        success: false, 
+        message: "Socket.IO tidak tersedia di server. Pastikan server sudah diinisialisasi dengan benar." 
+      });
+    }
+
+    console.log(`✅ [RECONNECT] Socket.IO instance ditemukan`);
+
+    // 3. Hapus session lama dari memori (jika ada)
+    if (sessions.has(sessionId)) {
+      console.log(`🗑️ [RECONNECT] Menghapus session lama dari memori: ${sessionId}`);
+      const oldSession = sessions.get(sessionId);
+      
+      try {
+        if (oldSession?.sock) {
+          // Gunakan end() atau ws.terminate() tergantung versi Baileys
+          if (typeof oldSession.sock.end === 'function') {
+            await oldSession.sock.end();
+          } else if (oldSession.sock.ws) {
+            oldSession.sock.ws.terminate();
+          }
+          console.log(`✅ [RECONNECT] Socket lama berhasil ditutup`);
+        }
+      } catch (endError) {
+        console.error(`⚠️ [RECONNECT] Error saat menutup socket lama:`, endError.message);
+        // Lanjutkan proses meskipun gagal menutup
+      }
+      
+      sessions.delete(sessionId);
+      console.log(`✅ [RECONNECT] Session ${sessionId} dihapus dari Map`);
+    }
+
+    // 4. Update status di database
+    await query(
+      "UPDATE wa_sessions SET status = 'connecting', qr_code = NULL, updated_at = NOW() WHERE id = ?",
+      [sessionId]
+    );
+    
+    console.log(`✅ [RECONNECT] Status database diupdate ke 'connecting'`);
+
+    // 5. Buat session baru (non-blocking)
+    console.log(`🔄 [RECONNECT] Memulai createSession untuk ${sessionId}...`);
+    
+    // Jalankan createSession secara async
+    createSession(sessionId, io)
+      .then(() => {
+        console.log(`✅ [RECONNECT] createSession berhasil untuk ${sessionId}`);
+      })
+      .catch(err => {
+        console.error(`❌ [RECONNECT] Error saat createSession(${sessionId}):`, err);
+        // Update status error ke database
+        query(
+          "UPDATE wa_sessions SET status = 'error', updated_at = NOW() WHERE id = ?",
+          [sessionId]
+        ).catch(dbErr => console.error("Error update status:", dbErr));
+      });
+
+    // 6. Response sukses
+    res.json({ 
+      success: true, 
+      message: "Proses reconnect dimulai. Silakan tunggu beberapa saat.",
+      sessionId: sessionId,
+      status: 'connecting'
+    });
+
+    console.log(`✅ [RECONNECT] Response sukses dikirim untuk ${sessionId}`);
+
+  } catch (error) {
+    console.error("❌ [RECONNECT] ERROR:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || "Terjadi kesalahan saat reconnect",
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Di file routes backend Anda
+router.post("/sessions/logout/:sessionId", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    // Panggil fungsi logoutSession dari file whatsapp.js Anda
+    // Fungsi ini akan melakukan sock.logout() dan menghapus folder auth
+    await logoutSession(sessionId);
+
+    res.json({ success: true, message: "Logout berhasil" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // DELETE: Hapus Sesi Permanen
+
 router.delete("/sessions/:sessionId", async (req, res) => {
   const { sessionId } = req.params;
+
   try {
+    console.log(`[System] Memulai penghapusan permanen sesi: ${sessionId}`);
+
+    // 1. Matikan koneksi WhatsApp & Bersihkan dari Memory/Socket
+    // Pastikan fungsi logoutSession Anda juga menghapus instance dari map/objek global
     try {
       await logoutSession(sessionId);
     } catch (e) {
-      console.log(
-        "Socket sudah tidak aktif atau gagal logout, lanjut hapus data.",
-      );
+      console.log(`[Warn] Sesi ${sessionId} mungkin sudah tidak aktif secara socket, lanjut penghapusan data.`);
     }
 
-    await query("DELETE FROM wa_sessions WHERE id = ?", [sessionId]);
+    // 2. Hapus Sesi dari Database
+    // Karena kita pakai FOREIGN KEY ... ON DELETE CASCADE, 
+    // semua data di tabel wa_messages, wa_chats, wa_contacts, dll 
+    // yang memiliki session_id ini akan otomatis DIHAPUS oleh MySQL.
+    const result = await query("DELETE FROM wa_sessions WHERE id = ?", [sessionId]);
 
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Sesi tidak ditemukan di database."
+      });
+    }
+
+    // 3. Hapus Folder File Session (Auth Info / MD Baileys Data)
+    // Kita lakukan secara dinamis agar folder benar-benar hilang dari storage
     const fs = await import("fs");
     const path = await import("path");
     const sessionDir = path.join(process.cwd(), "sessions", sessionId);
 
     if (fs.existsSync(sessionDir)) {
-      fs.rmSync(sessionDir, { recursive: true, force: true });
-      console.log(`Folder sessions/${sessionId} dihapus.`);
+      try {
+        fs.rmSync(sessionDir, { recursive: true, force: true });
+        console.log(`[Storage] Folder auth 'sessions/${sessionId}' berhasil dihapus.`);
+      } catch (fsErr) {
+        console.error(`[Error] Gagal menghapus folder fisik: ${fsErr.message}`);
+        // Kita tidak menghentikan respon sukses karena data di DB sudah terhapus
+      }
     }
 
+    // 4. Berikan Respon Sukses
     res.json({
       success: true,
-      message: "Perangkat dan semua data berhasil dihapus",
+      message: `Sesi '${sessionId}' dan seluruh riwayat (pesan, chat, kontak) berhasil dihapus secara permanen dari sistem.`
     });
+
   } catch (err) {
-    console.error("Error delete session:", err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error("Critical Error during session deletion:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Terjadi kesalahan internal saat menghapus sesi.",
+      error: err.message 
+    });
   }
 });
 
@@ -438,41 +673,147 @@ router.get("/all-global-messages", async (req, res) => {
 });
 
 // GET: Daftar semua chat
+// GET: Daftar semua chat personal (non-group) + labels dengan GROUP_CONCAT fallback
 router.get("/sessions/:sessionId/chats", async (req, res) => {
   const { sessionId } = req.params;
-  const { search = "", page = 1, limit = 50 } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const { search = "", page = "1", limit = "50" } = req.query;
 
-  let sql = `
-    SELECT c.*, 
-           COALESCE(ct.name, ct.push_name, c.name) AS display_name,
-           ct.profile_pic_url
-    FROM wa_chats c
-    LEFT JOIN wa_contacts ct ON ct.session_id = c.session_id AND ct.jid = c.jid
-    WHERE c.session_id = ? 
-    AND c.is_group = 0
-    AND EXISTS (
-      SELECT 1 FROM wa_messages m 
-      WHERE m.session_id = c.session_id 
-      AND m.chat_jid = c.jid 
-      AND m.is_from_me = 0
-    )
-  `;
-  const params = [sessionId];
-
-  if (search) {
-    sql += " AND (c.name LIKE ? OR c.jid LIKE ? OR ct.name LIKE ?)";
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-  }
-
-  sql += " ORDER BY c.pinned DESC, c.last_message_time DESC LIMIT ? OFFSET ?";
-  params.push(parseInt(limit), offset);
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+  const offset = (pageNum - 1) * limitNum;
 
   try {
+    let sql = `
+      SELECT 
+        c.jid,
+        c.session_id,
+        c.name AS chat_name,
+        c.last_message_time,
+        c.last_message,
+        c.unread_count,
+        c.pinned,
+        c.archived,
+        c.muted,
+        c.is_group,
+        COALESCE(ct.name, ct.push_name, c.name, c.jid) AS display_name,
+        ct.profile_pic_url,
+        -- Labels menggunakan GROUP_CONCAT + JSON_OBJECT (kompatibel MariaDB < 10.5)
+        COALESCE(
+          CONCAT(
+            '[',
+            GROUP_CONCAT(
+              CASE 
+                WHEN l.id IS NOT NULL THEN 
+                  JSON_OBJECT(
+                    'id', l.id,
+                    'name', l.name,
+                    'color', l.color,
+                    'icon', l.icon,
+                    'description', l.description,
+                    'sort_order', l.sort_order
+                  )
+                ELSE NULL
+              END
+              SEPARATOR ','
+            ),
+            ']'
+          ),
+          '[]'
+        ) AS labels
+      FROM wa_chats c
+      LEFT JOIN wa_contacts ct 
+        ON ct.session_id = c.session_id 
+        AND ct.jid = c.jid
+      LEFT JOIN wa_chat_labels cl 
+        ON cl.session_id = c.session_id 
+        AND cl.chat_jid = c.jid
+      LEFT JOIN wa_labels l 
+        ON l.id = cl.label_id 
+        AND l.session_id = c.session_id
+      WHERE c.session_id = ?
+        AND c.is_group = 0
+      GROUP BY c.jid, c.session_id
+      ORDER BY c.pinned DESC, c.last_message_time DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    let params = [sessionId, limitNum, offset];
+
+    if (search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      sql = sql.replace(
+        'WHERE c.session_id = ?',
+        `WHERE c.session_id = ?
+         AND (
+           COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
+           OR c.jid LIKE ?
+         )`
+      );
+      params.splice(1, 0, searchTerm, searchTerm);
+    }
+
     const chats = await query(sql, params);
-    res.json({ success: true, data: chats });
+
+    // Parse labels (GROUP_CONCAT menghasilkan string JSON array)
+    const parsedChats = chats.map(chat => {
+      let labels = [];
+      try {
+        if (chat.labels && chat.labels !== '[]') {
+          labels = JSON.parse(chat.labels);
+        }
+      } catch (e) {
+        console.warn("Gagal parse labels untuk chat", chat.jid, e);
+      }
+      return {
+        ...chat,
+        labels,
+        unread_count: Number(chat.unread_count || 0),
+        pinned: Number(chat.pinned || 0),
+        archived: Number(chat.archived || 0),
+        muted: Number(chat.muted || 0),
+        is_group: Boolean(chat.is_group || 0),
+      };
+    });
+
+    // Hitung total (sama seperti sebelumnya)
+    let countSql = `
+      SELECT COUNT(DISTINCT c.jid) as total 
+      FROM wa_chats c
+      LEFT JOIN wa_contacts ct ON ct.session_id = c.session_id AND ct.jid = c.jid
+      WHERE c.session_id = ? AND c.is_group = 0
+    `;
+    let countParams = [sessionId];
+
+    if (search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      countSql += `
+        AND (
+          COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
+          OR c.jid LIKE ?
+        )
+      `;
+      countParams.push(searchTerm, searchTerm);
+    }
+
+    const [totalRow] = await query(countSql, countParams);
+
+    res.json({
+      success: true,
+      data: parsedChats,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalRow?.total || 0,
+        totalPages: Math.ceil((totalRow?.total || 0) / limitNum)
+      }
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error("Error fetching chats:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Gagal memuat daftar chat",
+      error: err.message 
+    });
   }
 });
 
@@ -635,36 +976,55 @@ router.get("/sessions/:sessionId/contacts", async (req, res) => {
 // GROUP ROUTES
 // ===============================================
 
-router.get("/sessions/:sessionId/groups", async (req, res) => {
+router.get('/sessions/:sessionId/groups', async (req, res) => {
   const { sessionId } = req.params;
-  const { search = "" } = req.query;
+  const { search = '' } = req.query;
 
   let sql = `
     SELECT 
-      c.*,
-      COALESCE(NULLIF(TRIM(c.name), ''), g.subject, REPLACE(c.jid, '@g.us', '')) AS display_name,
-      COALESCE(ct.name, ct.push_name, c.last_message_from) AS last_message_from_name,
-      g.subject AS group_subject,
+      c.id,
+      c.session_id,
+      c.jid,
+      c.name,
+      c.is_group,
+      c.unread_count,
+      c.last_message,
+      c.last_message_time,
+      c.last_message_from,
+      c.pinned,
+      c.archived,
+      c.muted,
+      c.created_at,
+      g.subject        AS group_subject,
+      g.description    AS group_description,
+      g.owner_jid      AS group_owner,
+      g.participant_count,
       g.profile_pic_url,
-      g.participant_count
+      COALESCE(g.subject, c.name) AS display_name
     FROM wa_chats c
-    LEFT JOIN wa_groups g ON g.session_id = c.session_id AND g.jid = c.jid
-    LEFT JOIN wa_contacts ct ON ct.session_id = c.session_id AND ct.jid = c.last_message_from
+    LEFT JOIN wa_groups g 
+           ON g.session_id = c.session_id AND g.jid = c.jid
     WHERE c.session_id = ? 
-      AND (c.is_group = 1 OR c.jid LIKE '%@g.us')
+      AND c.is_group = 1
   `;
-
   const params = [sessionId];
+
   if (search) {
-    sql += ` AND (c.name LIKE ? OR g.subject LIKE ?)`;
-    params.push(`%${search}%`, `%${search}%`);
+    sql += ` AND (
+      c.name LIKE ? OR 
+      c.jid  LIKE ? OR 
+      g.subject LIKE ?
+    )`;
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
-  sql += " ORDER BY c.pinned DESC, c.last_message_time DESC";
+
+  sql += ' ORDER BY c.pinned DESC, c.last_message_time DESC';
 
   try {
     const groups = await query(sql, params);
     res.json({ success: true, data: groups });
   } catch (err) {
+    console.error('Error fetch groups:', err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });

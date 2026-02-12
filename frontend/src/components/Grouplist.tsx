@@ -1,6 +1,6 @@
 // components/GroupList.tsx
 // FILE BARU — tidak mengubah file lain apapun
-
+import { getSocket } from "../services/socket";
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Search,
@@ -47,14 +47,80 @@ const GroupList: React.FC<GroupListProps> = ({
         setIsRefreshing(false);
       }
     },
-    [sessionId, search]
+    [sessionId, search],
   );
 
+  // Load saat pertama kali & saat search berubah
   // Load saat pertama kali & saat search berubah
   useEffect(() => {
     const timer = setTimeout(() => loadGroups(), 300);
     return () => clearTimeout(timer);
   }, [loadGroups]);
+
+  // ✅ TAMBAHAN BARU: Real-time update list grup saat ada pesan baru
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleGroupUpdate = (data: any) => {
+      // Update grup yang terkait dalam daftar
+      setGroups((prevGroups) => {
+        return (
+          prevGroups
+            .map((g) => {
+              // Jika ini grup yang menerima pesan
+              if (g.jid === data.chat_jid || g.jid === data.chatJid) {
+                return {
+                  ...g,
+                  last_message: data.content || g.last_message,
+                  last_message_time: data.timestamp || g.last_message_time,
+                  last_message_from:
+                    data.from_jid || data.fromJid || g.last_message_from,
+                  last_message_type:
+                    data.message_type ||
+                    data.messageType ||
+                    g.last_message_type,
+                  // Tambah unread jika bukan dari saya & grup tidak sedang terpilih
+                  unread_count:
+                    (data.is_from_me === 0 || data.isFromMe === false) &&
+                    data.chat_jid !== selectedGroupJid
+                      ? g.unread_count + 1
+                      : g.unread_count,
+                };
+              }
+              return g;
+            })
+            // Sort ulang: grup dengan pesan terbaru di atas
+            .sort((a, b) => {
+              const timeA = a.last_message_time
+                ? new Date(a.last_message_time).getTime()
+                : 0;
+              const timeB = b.last_message_time
+                ? new Date(b.last_message_time).getTime()
+                : 0;
+              return timeB - timeA;
+            })
+        );
+      });
+    };
+
+    const handleChatUpdate = (data: { chatJid: string }) => {
+      // Refresh daftar jika ada update chat/grup
+      if (data.chatJid && data.chatJid.endsWith("@g.us")) {
+        loadGroups(false);
+      }
+    };
+
+    // Listen ke 3 event untuk update real-time
+    socket.on(`message:new:${sessionId}`, handleGroupUpdate);
+    socket.on(`group:message:${sessionId}`, handleGroupUpdate);
+    socket.on(`chat:update:${sessionId}`, handleChatUpdate);
+
+    return () => {
+      socket.off(`message:new:${sessionId}`, handleGroupUpdate);
+      socket.off(`group:message:${sessionId}`, handleGroupUpdate);
+      socket.off(`chat:update:${sessionId}`, handleChatUpdate);
+    };
+  }, [sessionId, selectedGroupJid, loadGroups]);
 
   const getPreview = (g: GroupChat) => {
     if (!g.last_message) return "Belum ada pesan";
@@ -70,7 +136,9 @@ const GroupList: React.FC<GroupListProps> = ({
             <Users className="w-4 h-4 text-[#00a884]" />
           </div>
           <div>
-            <p className="text-[#E9EDEF] text-sm font-semibold">Grup WhatsApp</p>
+            <p className="text-[#E9EDEF] text-sm font-semibold">
+              Grup WhatsApp
+            </p>
             <p className="text-[#8696A0] text-[11px]">
               {groups.length > 0 ? `${groups.length} grup` : "Memuat..."}
             </p>

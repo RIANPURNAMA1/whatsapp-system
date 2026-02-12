@@ -12,10 +12,12 @@
     "@hapi/boom": "^10.0.1",
     "@whiskeysockets/baileys": "^6.7.21",
     "axios": "^1.7.2",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
     "jimp": "^1.6.0",
+    "jsonwebtoken": "^9.0.3",
     "link-preview-js": "^3.0.5",
     "mime-types": "^2.1.35",
     "multer": "^2.0.2",
@@ -24,9 +26,11 @@
     "pino-pretty": "^11.2.1",
     "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",
+    "sequelize": "^6.37.7",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "sequelize-cli": "^6.6.5"
   }
 }

@@ -57,6 +57,22 @@ export const chatApi = {
 
   markRead: (sessionId: string, chatJid: string) =>
     api.put(`/sessions/${sessionId}/chats/${encodeURIComponent(chatJid)}/read`).then(r => r.data),
+  // services/api.ts — tambahkan di dalam chatApi = { ... }
+
+  getAllWithLabels: async (sessionId: string, search = '', page = 1) => {
+    try {
+      const res = await api.get<{ success: boolean; data: Chat[] }>(
+        `/sessions/${sessionId}/chats`,
+        {
+          params: { search, page, limit: 50, with_labels: true }  // flag opsional
+        }
+      );
+      return res.data.data;
+    } catch (err) {
+      console.error("Gagal fetch chats with labels:", err);
+      throw err;
+    }
+  },
 };
 
 // ===============================================

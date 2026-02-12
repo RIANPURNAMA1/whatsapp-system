@@ -123,9 +123,43 @@ const useStore = create<AppState>((set, get) => ({
   fetchChats: async (sessionId: string) => {
     set({ isLoadingChats: true });
     try {
-      const chats = await chatApi.getAll(sessionId, get().chatSearch);
-      set({ chats, isLoadingChats: false });
-    } catch { set({ isLoadingChats: false }); }
+      // Pakai method baru yang support labels
+      const chats = await chatApi.getAllWithLabels(
+        sessionId,
+        get().chatSearch || '',
+        1  // page pertama, bisa di-expand nanti jika pakai infinite scroll
+      );
+
+      // Jika backend belum support labels, fallback ke cara manual (kurang efisien)
+      // const chatsWithLabels = await Promise.all(
+      //   chats.map(async (chat) => {
+      //     try {
+      //       const labelRes = await api.get(
+      //         `/sessions/${sessionId}/chats/${encodeURIComponent(chat.jid)}/labels`
+      //       );
+      //       return { ...chat, labels: labelRes.data.success ? labelRes.data.data : [] };
+      //     } catch {
+      //       return { ...chat, labels: [] };
+      //     }
+      //   })
+      // );
+
+      // Sort ulang berdasarkan waktu terbaru (aman)
+      const sortedChats = [...chats].sort((a, b) => {
+        const timeA = a.last_message_time ? new Date(a.last_message_time).getTime() : 0;
+        const timeB = b.last_message_time ? new Date(b.last_message_time).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      set({ 
+        chats: sortedChats,
+        isLoadingChats: false 
+      });
+    } catch (err) {
+      console.error("Fetch chats failed:", err);
+      set({ isLoadingChats: false });
+      // toast.error("Gagal memuat daftar chat") — jika pakai react-hot-toast
+    }
   },
 
   selectChat: (chat) => set({ selectedChat: chat, messages: [], hasMoreMessages: true, replyTo: null }),
