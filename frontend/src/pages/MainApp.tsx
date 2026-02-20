@@ -28,7 +28,21 @@ import { NoSessionSelected } from "../components/NoSessionSelected";
 import GroupsPage from "./GroupsPage";
 import StatDashboard from "../components/StatDashboard";
 
-export const MainApp: React.FC = () => {
+
+// 1. Sesuaikan Interface
+interface UserData {
+  id: number;
+  username: string;
+  role_type: 'system' | 'custom'; // Sesuai ENUM di database
+  branch: string;
+}
+
+// Tambahkan interface props di atas komponen
+
+
+export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({ user, onLogout }) => {
+  // DEBUG: Buka inspect element di browser dan cek console
+  console.log("Data User Login:", user);
   const {
     activeSession,
     sessions,
@@ -62,6 +76,8 @@ export const MainApp: React.FC = () => {
     null,
   );
 
+
+
   useSocket(activeSession?.id || null);
 
   useEffect(() => {
@@ -90,6 +106,34 @@ export const MainApp: React.FC = () => {
     setActiveSession(session);
     setActiveTab("chats");
     setIsSidebarOpen(false); // Tutup sidebar setelah pilih device
+  };
+
+
+// 2. Tentukan akses (Hanya true jika type di sys_roles adalah 'system')
+  const isSystemAdmin = user?.role_type === 'system';
+  // logout
+  // Fungsi untuk Logout dari Sistem/Aplikasi
+  const handleSystemLogout = async () => {
+    const result = await Swal.fire({
+      title: "Keluar Aplikasi?",
+      text: "Anda akan diarahkan kembali ke halaman login.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#00a884",
+      cancelButtonColor: "#313D45",
+      confirmButtonText: "Ya, Keluar",
+      cancelButtonText: "Batal",
+      background: "#202C33",
+      color: "#E9EDEF",
+    });
+
+    if (result.isConfirmed) {
+      toast.success("Berhasil keluar");
+      // Menunggu sebentar agar toast terlihat sebelum redirect
+      setTimeout(() => {
+        onLogout(); 
+      }, 800);
+    }
   };
 
   const handleReconnect = async (sessionId: string) => {
@@ -214,116 +258,123 @@ export const MainApp: React.FC = () => {
         />
       )}
 
-      <aside
-        className={`
-    fixed md:relative z-50 flex flex-col w-[68px] h-full bg-[#202C33] border-r border-[#313D45] py-5 items-center justify-between 
-    transition-transform duration-300 ease-in-out
-    ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-  `}
-      >
-        <div className="flex flex-col gap-4 items-center w-full">
-          {/* LOGO UTAMA */}
-          <button
-            onClick={() => window.location.reload()}
-            className="w-10 h-10 bg-[#00a884] rounded-xl flex items-center justify-center shadow-lg shadow-[#00a884]/20 mb-4 hover:bg-[#00c99d] transition-all active:scale-95"
-            title="Satu Pintu Home"
-          >
-            <MessageSquare className="w-6 h-6 text-white" />
-          </button>
+   <aside
+      className={`
+        fixed md:relative z-50 flex flex-col w-[68px] h-full bg-[#202C33] border-r border-[#313D45] py-5 items-center justify-between 
+        transition-transform duration-300 ease-in-out
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}
+    >
+      <div className="flex flex-col gap-4 items-center w-full">
+        {/* LOGO UTAMA */}
+        <button
+          onClick={() => window.location.reload()}
+          className="w-10 h-10 bg-[#00a884] rounded-xl flex items-center justify-center shadow-lg shadow-[#00a884]/20 mb-4 hover:bg-[#00c99d] transition-all active:scale-95"
+          title="Satu Pintu Home"
+        >
+          <MessageSquare className="w-6 h-6 text-white" />
+        </button>
 
-          <div className="flex flex-col gap-3 w-full items-center">
-            {/* GROUP 1: ROLE MANAGEMENT (DINAMIS - PALING ATAS) */}
+        <div className="flex flex-col gap-3 w-full items-center">
+          
+          {/* GROUP 1: ADMIN & USER MANAGEMENT (Hanya muncul jika TYPE = SYSTEM) */}
+          {isSystemAdmin && (
+            <>
+              <div className="flex flex-col items-center w-full gap-1">
+                <span className="text-[9px] font-bold text-[#54656f] mb-1 uppercase tracking-widest">
+                  Admin
+                </span>
+                <NavButton
+                  icon={<ShieldCheck className="w-5 h-5" />}
+                  active={activeTab === "role-management"}
+                  onClick={() => setActiveTab("role-management")}
+                  title="Manajemen Role"
+                />
+                <NavButton
+                  icon={<UserPlus className="w-5 h-5" />}
+                  active={activeTab === "user-management"}
+                  onClick={() => setActiveTab("user-management")}
+                  title="Kelola User/Admin"
+                />
+              </div>
+              <div className="w-8 h-[1px] bg-[#313D45] my-1" />
+            </>
+          )}
 
-            <div className="flex flex-col items-center w-full gap-1">
-              {/* Label kecil penanda grup (Opsional, sangat halus) */}
-              <span className="text-[9px] font-bold text-[#54656f] mb-1 uppercase tracking-widest">
-                Admin
-              </span>
-
-              <NavButton
-                icon={<ShieldCheck className="w-5 h-5" />}
-                active={activeTab === "role-management"}
-                onClick={() => setActiveTab("role-management")}
-                title="Manajemen Role"
-              />
-              <NavButton
-                icon={<UserPlus className="w-5 h-5" />}
-                active={activeTab === "user-management"}
-                onClick={() => setActiveTab("user-management")}
-                title="Kelola User/Admin"
-              />
-
-              {/* Garis pemisah tipis */}
-            </div>
-
-            <div className="w-8 h-[1px] bg-[#313D45] my-1" />
-
-            {/* GROUP 2: MONITORING (DROPDOWN GROUP STYLE) */}
+          {/* GROUP 2: MONITORING (Hanya muncul jika TYPE = SYSTEM) */}
+          {isSystemAdmin && (
             <NavButton
               icon={<BarChart2 className="w-5 h-5" />}
               active={activeTab === "dashboard"}
               onClick={() => setActiveTab("dashboard")}
-              title="Dashboard Statisitik"
+              title="Dashboard Statistik"
             />
+          )}
 
-            {/* GROUP 3: CHAT & MESSAGING */}
-            <div className="flex flex-col gap-2 items-center">
-              <NavButton
-                icon={<LayoutDashboard className="w-5 h-5" />}
-                active={activeTab === "chats"}
-                onClick={() => setActiveTab("chats")}
-                title="Chat WhatsApp"
-              />
+          {/* GROUP 3: CHAT & MESSAGING (Bisa diakses SYSTEM & CUSTOM) */}
+          <div className="flex flex-col gap-2 items-center">
+            <NavButton
+              icon={<LayoutDashboard className="w-5 h-5" />}
+              active={activeTab === "chats"}
+              onClick={() => setActiveTab("chats")}
+              title="Chat WhatsApp"
+            />
+            
+            {/* Riwayat Pesan Global mungkin hanya untuk System? Jika tidak, hapus pembungkus ini */}
+            {isSystemAdmin && (
               <NavButton
                 icon={<Inbox className="w-5 h-5" />}
                 active={activeTab === "all-messages"}
                 onClick={() => setActiveTab("all-messages")}
                 title="Riwayat Pesan Global"
               />
-              <NavButton
-                icon={<Users className="w-5 h-5" />}
-                active={activeTab === "groups"}
-                onClick={() => setActiveTab("groups")}
-                title="Manajemen Grup"
-              />
-            </div>
+            )}
 
-            <div className="w-8 h-[1px] bg-[#313D45] my-1" />
-
-            {/* GROUP 4: SYSTEM / DEVICES */}
             <NavButton
-              icon={<PlusCircle className="w-5 h-5 text-emerald-400" />}
-              active={activeTab === "devices"}
-              onClick={() => setActiveTab("devices")}
-              title="Tambah Perangkat"
+              icon={<Users className="w-5 h-5" />}
+              active={activeTab === "groups"}
+              onClick={() => setActiveTab("groups")}
+              title="Manajemen Grup"
             />
           </div>
+
+          <div className="w-8 h-[1px] bg-[#313D45] my-1" />
+
+          {/* GROUP 4: SYSTEM / DEVICES (Bisa diakses SYSTEM & CUSTOM) */}
+          <NavButton
+            icon={<PlusCircle className="w-5 h-5 text-emerald-400" />}
+            active={activeTab === "devices"}
+            onClick={() => setActiveTab("devices")}
+            title="Tambah Perangkat"
+          />
         </div>
+      </div>
 
-        {/* BAGIAN BAWAH: STATUS & SETTINGS */}
-        <div className="flex flex-col gap-4 items-center">
-          {!isConnected && activeSession && (
-            <button
-              onClick={() => setShowQRModal(true)}
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500/10 text-orange-400 animate-pulse hover:bg-orange-500/20 transition-all"
-              title="Scan QR Code"
-            >
-              <QrCode className="w-5 h-5" />
-            </button>
-          )}
-
+      {/* BAGIAN BAWAH: STATUS & SETTINGS */}
+      <div className="flex flex-col gap-4 items-center pb-6">
+        {/* Tombol Settings (Mungkin hanya untuk System Admin?) */}
+        {isSystemAdmin && (
           <div className="w-10 h-10 rounded-xl hover:bg-[#313D45] flex items-center justify-center cursor-pointer transition-colors group">
             <Settings className="w-5 h-5 text-[#8696A0] group-hover:text-white transition-colors" />
           </div>
-        </div>
-      </aside>
+        )}
+
+        <button
+          onClick={handleSystemLogout}
+          className="w-10 h-10 rounded-xl hover:bg-red-500/10 flex items-center justify-center cursor-pointer transition-colors group"
+          title="Keluar Aplikasi"
+        >
+          <LogOut className="w-5 h-5 text-[#8696A0] group-hover:text-red-500 transition-colors" />
+        </button>
+      </div>
+    </aside>
       {/* MAIN CONTENT AREA */}
       <main className="flex flex-1 overflow-hidden relative">
         {/* 1. TAMPILAN FULL SCREEN (Dashboard, Groups, Role, User Management) */}
         {activeTab === "dashboard" ||
-        activeTab === "groups" ||
-        activeTab === "role-management" ||
-        activeTab === "user-management" ? (
+          activeTab === "groups" ||
+          activeTab === "role-management" ||
+          activeTab === "user-management" ? (
           <div className="flex flex-1 overflow-hidden relative">
             {/* Tombol Menu untuk Mobile */}
             <button
@@ -443,18 +494,16 @@ const NavButton = ({ icon, active, onClick, title }: any) => (
     title={title}
     className={`
       group relative flex items-center justify-center w-12 h-12 rounded-xl transition-all
-      ${
-        active
-          ? "bg-[#374248] text-[#00a884]"
-          : "text-[#8696A0] hover:bg-[#374248] hover:text-[#E9EDEF]"
+      ${active
+        ? "bg-[#374248] text-[#00a884]"
+        : "text-[#8696A0] hover:bg-[#374248] hover:text-[#E9EDEF]"
       }
     `}
   >
     {icon}
     <div
-      className={`absolute left-0 w-1 h-5 bg-[#00a884] rounded-r-full transition-transform ${
-        active ? "scale-100" : "scale-0"
-      }`}
+      className={`absolute left-0 w-1 h-5 bg-[#00a884] rounded-r-full transition-transform ${active ? "scale-100" : "scale-0"
+        }`}
     />
   </button>
 );
@@ -471,112 +520,135 @@ const DevicePanel = ({
   onDelete,
   onReconnect,
   onLogout, // Tambahkan props ini
-}: any) => (
-  <div className="flex-1 bg-[#111B21] flex flex-col overflow-hidden">
-    <div className="p-6 border-b border-[#222d34] flex items-center justify-between">
-      <div>
-        <h2 className="text-xl font-bold">Perangkat</h2>
-        <p className="text-[#8696A0] text-xs">Kelola akun WhatsApp Anda</p>
-      </div>
-      <button
-        onClick={onAdd}
-        className="p-2 bg-[#00a884] text-[#0B141A] rounded-lg hover:bg-[#00c99d] transition-colors"
-      >
-        <PlusCircle className="w-5 h-5" />
-      </button>
-    </div>
+  user, // Tambahkan props user di sini
+}: any) => {
 
-    <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-      {sessions?.map((session: any) => (
-        <div
-          key={session.id}
-          onClick={() => onSelect(session)}
-          className={`
-            p-4 rounded-xl border cursor-pointer transition-all group relative
-            ${
-              session.id === activeId
-                ? "bg-[#2A3942] border-[#00a884]"
-                : "bg-[#202C33] border-[#313D45] hover:border-[#41525d]"
-            }
-          `}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className={`p-2.5 rounded-lg ${
-                  session.status === "connected"
-                    ? "bg-[#00a884]/10 text-[#00a884]"
-                    : "bg-red-500/10 text-red-500"
-                }`}
-              >
-                <Smartphone size={20} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold truncate max-w-[150px]">
-                  {session.name || "Unnamed Device"}
-                </p>
-                <p className="text-[11px] text-[#8696A0]">
-                  {session.phone_number || "Disconnected"}
-                </p>
-              </div>
-            </div>
 
-            <div className="flex flex-col items-end gap-2">
-              <span
-                className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                  session.status === "connected"
-                    ? "bg-[#00a884]/20 text-[#00a884]"
-                    : "bg-orange-500/10 text-orange-500"
-                }`}
-              >
-                {session.status}
-              </span>
+  
+// LOGIKA FILTER: 
+  // Jika 'system', tampilkan semua. 
+  // Jika 'custom', hanya tampilkan session yang user_id-nya cocok dengan id user login.
+  const filteredSessions = sessions?.filter((session: any) => {
+    if (user?.role_type === 'system') return true;
+    return session.user_id === user?.id;
+  });
 
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                {/* TOMBOL RECONNECT */}
-                {session.status !== "connected" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onReconnect(session.id);
-                    }}
-                    title="Reconnect Account"
-                    className="p-1.5 text-[#8696A0] hover:text-[#00a884] hover:bg-[#111B21] rounded-md transition-all"
-                  >
-                    <RefreshCw size={16} />
-                  </button>
-                )}
-
-                {/* TOMBOL LOGOUT */}
-                {session.status === "connected" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLogout(session.id);
-                    }}
-                    title="Logout Device"
-                    className="p-1.5 text-[#8696A0] hover:text-orange-500 hover:bg-[#111B21] rounded-md transition-all"
-                  >
-                    <LogOut size={16} />
-                  </button>
-                )}
-
-                {/* TOMBOL DELETE */}
-                <button
-                  onClick={(e) => onDelete(e, session.id, session.name)}
-                  title="Delete Device"
-                  className="p-1.5 text-[#8696A0] hover:text-red-500 hover:bg-[#111B21] rounded-md transition-all"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
+  return (
+    <div className="flex-1 bg-[#111B21] flex flex-col overflow-hidden">
+      <div className="p-6 border-b border-[#222d34] flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold">Perangkat</h2>
+          <p className="text-[#8696A0] text-xs">
+            {user?.role_type === 'system' 
+              ? "Semua perangkat sistem aktif" 
+              : `Perangkat milik ${user?.full_name}`}
+          </p>
         </div>
-      ))}
+        <button
+          onClick={onAdd}
+          className="p-2 bg-[#00a884] text-[#0B141A] rounded-lg hover:bg-[#00c99d] transition-colors"
+        >
+          <PlusCircle className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+        {/* Gunakan filteredSessions, bukan sessions langsung */}
+        {filteredSessions?.length > 0 ? (
+          filteredSessions.map((session: any) => (
+            <div
+              key={session.id}
+              onClick={() => onSelect(session)}
+              className={`
+                p-4 rounded-xl border cursor-pointer transition-all group relative
+                ${session.id === activeId
+                  ? "bg-[#2A3942] border-[#00a884]"
+                  : "bg-[#202C33] border-[#313D45] hover:border-[#41525d]"
+                }
+              `}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-2.5 rounded-lg ${session.status === "connected"
+                        ? "bg-[#00a884]/10 text-[#00a884]"
+                        : "bg-red-500/10 text-red-500"
+                      }`}
+                  >
+                    <Smartphone size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold truncate max-w-[150px]">
+                      {session.name || "Unnamed Device"}
+                    </p>
+                    <p className="text-[11px] text-[#8696A0]">
+                      {session.phone_number || "Disconnected"}
+                    </p>
+                    {/* Label tambahan untuk Admin agar tahu ini punya siapa */}
+                    {user?.role_type === 'system' && session.user_name && (
+                       <p className="text-[9px] text-emerald-500 mt-1 italic">
+                         Owner: {session.user_name}
+                       </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                  <span
+                    className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${session.status === "connected"
+                        ? "bg-[#00a884]/20 text-[#00a884]"
+                        : "bg-orange-500/10 text-orange-500"
+                      }`}
+                  >
+                    {session.status}
+                  </span>
+
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    {session.status !== "connected" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReconnect(session.id);
+                        }}
+                        className="p-1.5 text-[#8696A0] hover:text-[#00a884] hover:bg-[#111B21] rounded-md"
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                    )}
+
+                    {session.status === "connected" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLogout(session.id);
+                        }}
+                        className="p-1.5 text-[#8696A0] hover:text-orange-500 hover:bg-[#111B21] rounded-md"
+                      >
+                        <LogOut size={16} />
+                      </button>
+                    )}
+
+                    <button
+                      onClick={(e) => onDelete(e, session.id, session.name)}
+                      className="p-1.5 text-[#8696A0] hover:text-red-500 hover:bg-[#111B21] rounded-md"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-10">
+            <p className="text-[#8696A0] text-sm">Belum ada perangkat yang tertaut.</p>
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
+
 const StatsPanel = ({ stats }: any) => (
   <div className="flex-1 bg-[#111B21] p-6 overflow-y-auto custom-scrollbar">
     <h2 className="text-xl font-bold mb-6">Statistik</h2>

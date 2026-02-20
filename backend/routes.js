@@ -15,6 +15,9 @@ import {
 } from "./whatsapp.js";
 
 const router = express.Router();
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
@@ -48,6 +51,64 @@ const buildPeriodFilter = (period, columnName) => {
       return "1=1"; // Tampilkan semua jika tidak cocok
   }
 };
+
+
+const JWT_SECRET = "918cfb63fffbbc45a16b96beb5fca0deb9a33f0b2180997cc2f15b2affeab1e393c1630e3e9cb02aaf3fe5ae64fbaad1e5c03df2bbe29ca4ba9792c5c1f7ad0a";
+
+
+
+// login
+
+// POST: Login User
+router.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    // JOIN wa_users dengan sys_roles
+    const user = await queryOne(`
+      SELECT 
+        u.id, u.username, u.password, u.full_name, u.branch,
+        r.name as role_name, 
+        r.type as role_type  -- Mengambil ENUM('system', 'custom') dari tabel sys_roles
+      FROM wa_users u
+      LEFT JOIN sys_roles r ON u.role_id = r.id
+      WHERE u.username = ?
+    `, [username]);
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Password salah" });
+    }
+
+    // Buat Token JWT
+    const token = jwt.sign(
+      { id: user.id, role_type: user.role_type }, 
+      JWT_SECRET, 
+      { expiresIn: '24h' }
+    );
+
+    // Kirim objek user yang bersih ke frontend
+    res.json({
+      success: true,
+      token: token,
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        role: user.role_name,
+        role_type: user.role_type, // Ini akan berisi 'system' atau 'custom'
+        branch: user.branch
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 
 
 
@@ -122,17 +183,41 @@ router.get("/users", async (req, res) => {
 });
 
 // POST: Tambah User Baru
+// POST: Tambah User Baru (Registration)
 router.post("/users", async (req, res) => {
   const { username, password, full_name, role_id, branch } = req.body;
-  // Catatan: Di produksi, gunakan bcrypt untuk hash password!
+
+  // 1. Validasi Input
+  if (!username || !password) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Username dan password wajib diisi" 
+    });
+  }
+
   try {
+    // 2. Hash password (Keamanan: Password tidak disimpan sebagai teks biasa)
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // 3. Simpan ke Database
     await query(
       "INSERT INTO wa_users (username, password, full_name, role_id, branch) VALUES (?, ?, ?, ?, ?)",
-      [username, password, full_name, role_id, branch]
+      [username, hashedPassword, full_name, role_id, branch]
     );
-    res.json({ success: true, message: "User berhasil didaftarkan" });
+
+    res.json({ 
+      success: true, 
+      message: "User berhasil didaftarkan dengan password aman" 
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Username sudah digunakan" });
+    // Cek jika error karena username duplikat
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: "Username sudah digunakan" });
+    }
+    
+    console.error("Error Registration:", err);
+    res.status(500).json({ success: false, message: "Terjadi kesalahan pada database" });
   }
 });
 
@@ -209,28 +294,28 @@ router.post("/sessions", async (req, res) => {
 router.post("/sessions/reconnect/:sessionId", async (req, res) => {
   try {
     const { sessionId } = req.params;
-    
+
     console.log(`🔄 [RECONNECT] Menerima request untuk session: ${sessionId}`);
-    
+
     // 1. Cek apakah session ada di database
     const sessionData = await getSessionInfo(sessionId);
-    
+
     if (!sessionData) {
       console.error(`❌ [RECONNECT] Session ${sessionId} tidak ditemukan di database`);
-      return res.status(404).json({ 
-        success: false, 
-        message: "Session tidak ditemukan di database" 
+      return res.status(404).json({
+        success: false,
+        message: "Session tidak ditemukan di database"
       });
     }
 
     // 2. Ambil Socket.IO instance - COBA KEDUA NAMA
     let io = req.app.get('socketio') || req.app.get('io');
-    
+
     if (!io) {
       console.error("❌ [RECONNECT] Socket.IO instance tidak ditemukan di app!");
-      return res.status(500).json({ 
-        success: false, 
-        message: "Socket.IO tidak tersedia di server. Pastikan server sudah diinisialisasi dengan benar." 
+      return res.status(500).json({
+        success: false,
+        message: "Socket.IO tidak tersedia di server. Pastikan server sudah diinisialisasi dengan benar."
       });
     }
 
@@ -240,7 +325,7 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
     if (sessions.has(sessionId)) {
       console.log(`🗑️ [RECONNECT] Menghapus session lama dari memori: ${sessionId}`);
       const oldSession = sessions.get(sessionId);
-      
+
       try {
         if (oldSession?.sock) {
           // Gunakan end() atau ws.terminate() tergantung versi Baileys
@@ -255,7 +340,7 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
         console.error(`⚠️ [RECONNECT] Error saat menutup socket lama:`, endError.message);
         // Lanjutkan proses meskipun gagal menutup
       }
-      
+
       sessions.delete(sessionId);
       console.log(`✅ [RECONNECT] Session ${sessionId} dihapus dari Map`);
     }
@@ -265,12 +350,12 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
       "UPDATE wa_sessions SET status = 'connecting', qr_code = NULL, updated_at = NOW() WHERE id = ?",
       [sessionId]
     );
-    
+
     console.log(`✅ [RECONNECT] Status database diupdate ke 'connecting'`);
 
     // 5. Buat session baru (non-blocking)
     console.log(`🔄 [RECONNECT] Memulai createSession untuk ${sessionId}...`);
-    
+
     // Jalankan createSession secara async
     createSession(sessionId, io)
       .then(() => {
@@ -286,8 +371,8 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
       });
 
     // 6. Response sukses
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: "Proses reconnect dimulai. Silakan tunggu beberapa saat.",
       sessionId: sessionId,
       status: 'connecting'
@@ -297,8 +382,8 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
 
   } catch (error) {
     console.error("❌ [RECONNECT] ERROR:", error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: error.message || "Terjadi kesalahan saat reconnect",
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -309,7 +394,7 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
 router.post("/sessions/logout/:sessionId", async (req, res) => {
   try {
     const { sessionId } = req.params;
-    
+
     // Panggil fungsi logoutSession dari file whatsapp.js Anda
     // Fungsi ini akan melakukan sock.logout() dan menghapus folder auth
     await logoutSession(sessionId);
@@ -374,10 +459,10 @@ router.delete("/sessions/:sessionId", async (req, res) => {
 
   } catch (err) {
     console.error("Critical Error during session deletion:", err);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Terjadi kesalahan internal saat menghapus sesi.",
-      error: err.message 
+      error: err.message
     });
   }
 });
@@ -412,11 +497,11 @@ router.get("/stats/dashboard", async (req, res) => {
     const { period = "Hari ini", sessionId } = req.query;
 
     // 1. Parameter filter untuk query Device
-    const sessionFilter = sessionId && sessionId !== "Semua Device" && sessionId !== "all" 
-      ? `AND m.session_id = ?` 
+    const sessionFilter = sessionId && sessionId !== "Semua Device" && sessionId !== "all"
+      ? `AND m.session_id = ?`
       : "";
-    const sessionParams = sessionId && sessionId !== "Semua Device" && sessionId !== "all" 
-      ? [sessionId] 
+    const sessionParams = sessionId && sessionId !== "Semua Device" && sessionId !== "all"
+      ? [sessionId]
       : [];
 
     // 2. Build Period Filter (Gunakan fungsi helper Anda)
@@ -809,10 +894,10 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching chats:", err);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Gagal memuat daftar chat",
-      error: err.message 
+      error: err.message
     });
   }
 });
@@ -1191,9 +1276,9 @@ router.post("/sessions/:sessionId/labels", async (req, res) => {
     const { name, color = '#00a884', icon = 'tag', description = '' } = req.body;
 
     if (!name || !name.trim()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Nama label wajib diisi" 
+      return res.status(400).json({
+        success: false,
+        message: "Nama label wajib diisi"
       });
     }
 
@@ -1221,10 +1306,10 @@ router.post("/sessions/:sessionId/labels", async (req, res) => {
       [result.insertId]
     );
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: newLabel,
-      message: "Label berhasil dibuat" 
+      message: "Label berhasil dibuat"
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -1277,10 +1362,10 @@ router.put("/sessions/:sessionId/labels/:labelId", async (req, res) => {
       [sessionId, labelId]
     );
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: updated,
-      message: "Label berhasil diupdate" 
+      message: "Label berhasil diupdate"
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -1298,9 +1383,9 @@ router.delete("/sessions/:sessionId/labels/:labelId", async (req, res) => {
       [sessionId, labelId]
     );
 
-    res.json({ 
-      success: true, 
-      message: "Label berhasil dihapus" 
+    res.json({
+      success: true,
+      message: "Label berhasil dihapus"
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -1373,9 +1458,9 @@ router.post("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
       [sessionId, decodedJid, labelId]
     );
 
-    res.json({ 
-      success: true, 
-      message: "Label berhasil ditambahkan ke chat" 
+    res.json({
+      success: true,
+      message: "Label berhasil ditambahkan ke chat"
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -1393,9 +1478,9 @@ router.delete("/sessions/:sessionId/chats/:chatJid/labels/:labelId", async (req,
       [sessionId, decodedJid, labelId]
     );
 
-    res.json({ 
-      success: true, 
-      message: "Label berhasil dihapus dari chat" 
+    res.json({
+      success: true,
+      message: "Label berhasil dihapus dari chat"
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

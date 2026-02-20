@@ -3,46 +3,58 @@ import { MainApp } from './pages/MainApp';
 import LoginPage from './components/LoginPage';
 
 function App() {
-  // Simpan status login di state
+  // 1. Tambahkan state untuk menyimpan data User (id, nama, role, branch)
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Cek apakah user sudah pernah login sebelumnya (simpan di localStorage)
-    const authStatus = localStorage.getItem('isLoggedIn');
-    if (authStatus === 'true') {
+    // 2. Cek apakah ada token dan data user di localStorage saat pertama kali buka web
+    const token = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+
+    if (token && savedUser) {
       setIsLoggedIn(true);
+      setUser(JSON.parse(savedUser));
     }
     setLoading(false);
   }, []);
 
-  const handleLogin = (data: any) => {
-    // Contoh validasi sederhana (Ganti dengan API Call jika perlu)
-    if (data.username === 'admin' && data.password === 'admin123') {
-      localStorage.setItem('isLoggedIn', 'true');
-      setIsLoggedIn(true);
-    } else {
-      alert('Username atau Password salah!');
-    }
+  // 3. Fungsi ini akan dipanggil oleh LoginPage setelah Fetch ke API berhasil
+  const handleLogin = (userData: any) => {
+    // Karena Fetch sudah dilakukan di LoginPage, 
+    // di sini kita tinggal set status login ke true
+    setUser(userData);
+    setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
+    // 4. Hapus semua jejak login
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
     setIsLoggedIn(false);
   };
 
-  if (loading) return null; // Atau spinner loading
+  // Tampilkan loading sebentar saat mengecek localStorage
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <>
-    <MainApp />
-      {/* {isLoggedIn ? (
-        // Jika sudah login, tampilkan aplikasi utama
-        // Anda bisa mempassing fungsi logout ke MainApp jika butuh tombol logout di sana
+      {isLoggedIn ? (
+        // Jika sudah login, tampilkan MainApp
+        // Kita passing data user dan fungsi logout agar bisa digunakan di dashboard
+        <MainApp user={user} onLogout={handleLogout} />
       ) : (
-        // Jika belum, tampilkan halaman login
+        // Jika belum login, tampilkan halaman login
         <LoginPage onLogin={handleLogin} />
-      )} */}
+      )}
     </>
   );
 }
