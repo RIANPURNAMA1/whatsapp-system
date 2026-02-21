@@ -33,7 +33,7 @@ import StatDashboard from "../components/StatDashboard";
 interface UserData {
   id: number;
   username: string;
-  role_type: 'system' | 'custom'; // Sesuai ENUM di database
+  role_type: 'system' | 'manager' | 'custom'; 
   branch: string;
 }
 
@@ -59,16 +59,20 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({ us
     deleteSession,
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<
-    | "chats"
-    | "stats"
-    | "devices"
-    | "all-messages"
-    | "groups"
-    | "dashboard"
-    | "role-management" // Tambahkan ini
-    | "user-management" // Tambahkan ini
-  >("dashboard"); // Saya sarankan defaultnya ke dashboard agar lebih profesional
+const [activeTab, setActiveTab] = useState<
+  | "chats"
+  | "stats"
+  | "devices"
+  | "all-messages"
+  | "groups"
+  | "dashboard"
+  | "role-management"
+  | "user-management"
+>(
+  user?.role_type === 'system' || user?.role_type === 'manager' 
+    ? "dashboard" 
+    : "chats"
+);
 
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State baru untuk sidebar mobile
@@ -109,8 +113,10 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({ us
   };
 
 
-// 2. Tentukan akses (Hanya true jika type di sys_roles adalah 'system')
-  const isSystemAdmin = user?.role_type === 'system';
+
+  // Cek apakah user adalah System atau Manager
+const canSeeDashboard = user?.role_type === 'system' || user?.role_type === 'manager';
+const isSystemAdmin = user?.role_type === 'system';
   // logout
   // Fungsi untuk Logout dari Sistem/Aplikasi
   const handleSystemLogout = async () => {
@@ -258,116 +264,119 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({ us
         />
       )}
 
-   <aside
-      className={`
-        fixed md:relative z-50 flex flex-col w-[68px] h-full bg-[#202C33] border-r border-[#313D45] py-5 items-center justify-between 
-        transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-      `}
+<aside
+  className={`
+    fixed md:relative z-50 flex flex-col w-[68px] h-full bg-[#202C33] border-r border-[#313D45] py-5 items-center justify-between 
+    transition-transform duration-300 ease-in-out
+    ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+  `}
+>
+  <div className="flex flex-col gap-4 items-center w-full">
+    {/* LOGO UTAMA */}
+    <button
+      onClick={() => window.location.reload()}
+      className="w-10 h-10 bg-[#00a884] rounded-xl flex items-center justify-center shadow-lg shadow-[#00a884]/20 mb-4 hover:bg-[#00c99d] transition-all active:scale-95"
+      title="Satu Pintu Home"
     >
-      <div className="flex flex-col gap-4 items-center w-full">
-        {/* LOGO UTAMA */}
-        <button
-          onClick={() => window.location.reload()}
-          className="w-10 h-10 bg-[#00a884] rounded-xl flex items-center justify-center shadow-lg shadow-[#00a884]/20 mb-4 hover:bg-[#00c99d] transition-all active:scale-95"
-          title="Satu Pintu Home"
-        >
-          <MessageSquare className="w-6 h-6 text-white" />
-        </button>
+      <MessageSquare className="w-6 h-6 text-white" />
+    </button>
 
-        <div className="flex flex-col gap-3 w-full items-center">
-          
-          {/* GROUP 1: ADMIN & USER MANAGEMENT (Hanya muncul jika TYPE = SYSTEM) */}
-          {isSystemAdmin && (
-            <>
-              <div className="flex flex-col items-center w-full gap-1">
-                <span className="text-[9px] font-bold text-[#54656f] mb-1 uppercase tracking-widest">
-                  Admin
-                </span>
-                <NavButton
-                  icon={<ShieldCheck className="w-5 h-5" />}
-                  active={activeTab === "role-management"}
-                  onClick={() => setActiveTab("role-management")}
-                  title="Manajemen Role"
-                />
-                <NavButton
-                  icon={<UserPlus className="w-5 h-5" />}
-                  active={activeTab === "user-management"}
-                  onClick={() => setActiveTab("user-management")}
-                  title="Kelola User/Admin"
-                />
-              </div>
-              <div className="w-8 h-[1px] bg-[#313D45] my-1" />
-            </>
-          )}
-
-          {/* GROUP 2: MONITORING (Hanya muncul jika TYPE = SYSTEM) */}
-          {isSystemAdmin && (
-            <NavButton
-              icon={<BarChart2 className="w-5 h-5" />}
-              active={activeTab === "dashboard"}
-              onClick={() => setActiveTab("dashboard")}
-              title="Dashboard Statistik"
-            />
-          )}
-
-          {/* GROUP 3: CHAT & MESSAGING (Bisa diakses SYSTEM & CUSTOM) */}
-          <div className="flex flex-col gap-2 items-center">
-            <NavButton
-              icon={<LayoutDashboard className="w-5 h-5" />}
-              active={activeTab === "chats"}
-              onClick={() => setActiveTab("chats")}
-              title="Chat WhatsApp"
-            />
-            
-            {/* Riwayat Pesan Global mungkin hanya untuk System? Jika tidak, hapus pembungkus ini */}
+    <div className="flex flex-col gap-3 w-full items-center">
+      
+      {/* GROUP 1: ADMIN & USER MANAGEMENT */}
+      {/* Manager biasanya boleh akses User Management untuk mendaftarkan CS/Admin-nya sendiri */}
+      {(isSystemAdmin || user?.role_type === 'manager') && (
+        <>
+          <div className="flex flex-col items-center w-full gap-1">
+            <span className="text-[9px] font-bold text-[#54656f] mb-1 uppercase tracking-widest text-center">
+              Staff
+            </span>
+            {/* Role Management mungkin tetap HANYA untuk System Admin */}
             {isSystemAdmin && (
               <NavButton
-                icon={<Inbox className="w-5 h-5" />}
-                active={activeTab === "all-messages"}
-                onClick={() => setActiveTab("all-messages")}
-                title="Riwayat Pesan Global"
+                icon={<ShieldCheck className="w-5 h-5" />}
+                active={activeTab === "role-management"}
+                onClick={() => setActiveTab("role-management")}
+                title="Manajemen Role"
               />
             )}
-
             <NavButton
-              icon={<Users className="w-5 h-5" />}
-              active={activeTab === "groups"}
-              onClick={() => setActiveTab("groups")}
-              title="Manajemen Grup"
+              icon={<UserPlus className="w-5 h-5" />}
+              active={activeTab === "user-management"}
+              onClick={() => setActiveTab("user-management")}
+              title="Kelola User/Admin"
             />
           </div>
-
           <div className="w-8 h-[1px] bg-[#313D45] my-1" />
+        </>
+      )}
 
-          {/* GROUP 4: SYSTEM / DEVICES (Bisa diakses SYSTEM & CUSTOM) */}
+      {/* GROUP 2: MONITORING - Sekarang bisa diakses Manager */}
+      {canSeeDashboard && (
+        <NavButton
+          icon={<BarChart2 className="w-5 h-5" />}
+          active={activeTab === "dashboard"}
+          onClick={() => setActiveTab("dashboard")}
+          title="Dashboard Statistik"
+        />
+      )}
+
+      {/* GROUP 3: CHAT & MESSAGING */}
+      <div className="flex flex-col gap-2 items-center">
+        <NavButton
+          icon={<LayoutDashboard className="w-5 h-5" />}
+          active={activeTab === "chats"}
+          onClick={() => setActiveTab("chats")}
+          title="Chat WhatsApp"
+        />
+        
+        {/* Riwayat Pesan Global: Manager juga butuh ini untuk memantau chat staffnya */}
+        {canSeeDashboard && (
           <NavButton
-            icon={<PlusCircle className="w-5 h-5 text-emerald-400" />}
-            active={activeTab === "devices"}
-            onClick={() => setActiveTab("devices")}
-            title="Tambah Perangkat"
+            icon={<Inbox className="w-5 h-5" />}
+            active={activeTab === "all-messages"}
+            onClick={() => setActiveTab("all-messages")}
+            title="Riwayat Pesan Global"
           />
-        </div>
-      </div>
-
-      {/* BAGIAN BAWAH: STATUS & SETTINGS */}
-      <div className="flex flex-col gap-4 items-center pb-6">
-        {/* Tombol Settings (Mungkin hanya untuk System Admin?) */}
-        {isSystemAdmin && (
-          <div className="w-10 h-10 rounded-xl hover:bg-[#313D45] flex items-center justify-center cursor-pointer transition-colors group">
-            <Settings className="w-5 h-5 text-[#8696A0] group-hover:text-white transition-colors" />
-          </div>
         )}
 
-        <button
-          onClick={handleSystemLogout}
-          className="w-10 h-10 rounded-xl hover:bg-red-500/10 flex items-center justify-center cursor-pointer transition-colors group"
-          title="Keluar Aplikasi"
-        >
-          <LogOut className="w-5 h-5 text-[#8696A0] group-hover:text-red-500 transition-colors" />
-        </button>
+        <NavButton
+          icon={<Users className="w-5 h-5" />}
+          active={activeTab === "groups"}
+          onClick={() => setActiveTab("groups")}
+          title="Manajemen Grup"
+        />
       </div>
-    </aside>
+
+      <div className="w-8 h-[1px] bg-[#313D45] my-1" />
+
+      {/* GROUP 4: SYSTEM / DEVICES */}
+      <NavButton
+        icon={<PlusCircle className="w-5 h-5 text-emerald-400" />}
+        active={activeTab === "devices"}
+        onClick={() => setActiveTab("devices")}
+        title="Tambah Perangkat"
+      />
+    </div>
+  </div>
+
+  {/* BAGIAN BAWAH: STATUS & SETTINGS */}
+  <div className="flex flex-col gap-4 items-center pb-6">
+    {isSystemAdmin && (
+      <div className="w-10 h-10 rounded-xl hover:bg-[#313D45] flex items-center justify-center cursor-pointer transition-colors group">
+        <Settings className="w-5 h-5 text-[#8696A0] group-hover:text-white transition-colors" />
+      </div>
+    )}
+
+    <button
+      onClick={handleSystemLogout}
+      className="w-10 h-10 rounded-xl hover:bg-red-500/10 flex items-center justify-center cursor-pointer transition-colors group"
+      title="Keluar Aplikasi"
+    >
+      <LogOut className="w-5 h-5 text-[#8696A0] group-hover:text-red-500 transition-colors" />
+    </button>
+  </div>
+</aside>
       {/* MAIN CONTENT AREA */}
       <main className="flex flex-1 overflow-hidden relative">
         {/* 1. TAMPILAN FULL SCREEN (Dashboard, Groups, Role, User Management) */}
@@ -513,35 +522,31 @@ import RoleManagementView from "../components/RoleManagementView";
 import UserManagementView from "../components/UserManagementView";
 
 const DevicePanel = ({
-  sessions,
+  sessions = [], // Beri default array kosong agar tidak error .length
   activeId,
   onAdd,
   onSelect,
   onDelete,
   onReconnect,
-  onLogout, // Tambahkan props ini
-  user, // Tambahkan props user di sini
+  onLogout,
+  user,
 }: any) => {
 
-
-  
-// LOGIKA FILTER: 
-  // Jika 'system', tampilkan semua. 
-  // Jika 'custom', hanya tampilkan session yang user_id-nya cocok dengan id user login.
-  const filteredSessions = sessions?.filter((session: any) => {
-    if (user?.role_type === 'system') return true;
-    return session.user_id === user?.id;
-  });
+  // KUNCI PERBAIKAN: 
+  // Kita tidak perlu memfilter lagi di sini karena Backend sudah memfilter lewat SQL.
+  // Cukup gunakan sessions yang diterima dari props.
+  const displaySessions = sessions;
 
   return (
     <div className="flex-1 bg-[#111B21] flex flex-col overflow-hidden">
+      {/* Header Panel */}
       <div className="p-6 border-b border-[#222d34] flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold">Perangkat</h2>
           <p className="text-[#8696A0] text-xs">
             {user?.role_type === 'system' 
               ? "Semua perangkat sistem aktif" 
-              : `Perangkat milik ${user?.full_name}`}
+              : `Perangkat milik ${user?.full_name || 'Staff'}`}
           </p>
         </div>
         <button
@@ -552,10 +557,10 @@ const DevicePanel = ({
         </button>
       </div>
 
+      {/* List Perangkat */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-        {/* Gunakan filteredSessions, bukan sessions langsung */}
-        {filteredSessions?.length > 0 ? (
-          filteredSessions.map((session: any) => (
+        {displaySessions && displaySessions.length > 0 ? (
+          displaySessions.map((session: any) => (
             <div
               key={session.id}
               onClick={() => onSelect(session)}
@@ -570,39 +575,36 @@ const DevicePanel = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`p-2.5 rounded-lg ${session.status === "connected"
+                    className={`p-2.5 rounded-lg ${
+                      session.status === "connected"
                         ? "bg-[#00a884]/10 text-[#00a884]"
                         : "bg-red-500/10 text-red-500"
-                      }`}
+                    }`}
                   >
                     <Smartphone size={20} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold truncate max-w-[150px]">
-                      {session.name || "Unnamed Device"}
+                      {session.name || "Perangkat Tanpa Nama"}
                     </p>
                     <p className="text-[11px] text-[#8696A0]">
-                      {session.phone_number || "Disconnected"}
+                      {session.phone_number || "Belum Terhubung"}
                     </p>
-                    {/* Label tambahan untuk Admin agar tahu ini punya siapa */}
-                    {user?.role_type === 'system' && session.user_name && (
-                       <p className="text-[9px] text-emerald-500 mt-1 italic">
-                         Owner: {session.user_name}
-                       </p>
-                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
                   <span
-                    className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${session.status === "connected"
+                    className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                      session.status === "connected"
                         ? "bg-[#00a884]/20 text-[#00a884]"
                         : "bg-orange-500/10 text-orange-500"
-                      }`}
+                    }`}
                   >
                     {session.status}
                   </span>
 
+                  {/* Tombol Aksi */}
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                     {session.status !== "connected" && (
                       <button
@@ -641,13 +643,19 @@ const DevicePanel = ({
           ))
         ) : (
           <div className="text-center py-10">
+            <div className="bg-[#202C33] w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Smartphone className="text-[#8696A0] w-6 h-6" />
+            </div>
             <p className="text-[#8696A0] text-sm">Belum ada perangkat yang tertaut.</p>
+            <p className="text-[#8696A0] text-[10px] mt-1">Gunakan tombol + untuk menambah.</p>
           </div>
         )}
       </div>
     </div>
   );
 };
+
+export default DevicePanel;
 
 const StatsPanel = ({ stats }: any) => (
   <div className="flex-1 bg-[#111B21] p-6 overflow-y-auto custom-scrollbar">

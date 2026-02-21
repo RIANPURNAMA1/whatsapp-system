@@ -13,6 +13,7 @@ import pino from "pino";
 import fs from "fs";
 import path from "path";
 import { query, queryOne } from "./db.js";
+import qrcodeTerminal from "qrcode-terminal"; // Tambahkan ini
 
 
 const logger = pino({ level: "silent" });
@@ -52,9 +53,16 @@ export async function createSession(sessionId, io) {
 
   // ---- Event: connection.update ----
   sock.ev.on("connection.update", async (update) => {
+    
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
+
+ // ⭐ TAMBAHKAN BARIS INI UNTUK TERMINAL ⭐
+          console.log(`\n📱 SCAN QR CODE UNTUK SESI: ${sessionId}`);
+          qrcodeTerminal.generate(qr, { small: true }); 
+          // ------------------------------------------
+
       const qrDataURL = await QRCode.toDataURL(qr, {
         width: 300,
         margin: 2,

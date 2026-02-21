@@ -33,7 +33,7 @@ export async function ensureDbReady() {
       return true;
     } catch (err) {
       console.error("❌ Database Readiness Error:", err.message);
-      initPromise = null; // Reset agar bisa dicoba lagi jika gagal
+      initPromise = null; 
       throw err;
     }
   })();
@@ -41,8 +41,7 @@ export async function ensureDbReady() {
   return initPromise;
 }
 
-// 3. HELPER FUNCTIONS (Export agar bisa digunakan di whatsapp.js & server.js)
-// Fungsi ini otomatis menunggu database siap sebelum mengeksekusi SQL
+// 3. HELPER FUNCTIONS
 export const query = async (sql, params) => {
   await ensureDbReady();
   const [results] = await db.promise().query(sql, params);
@@ -55,30 +54,57 @@ export const queryOne = async (sql, params) => {
   return results[0] || null;
 };
 
+/**
+ * MENGAMBIL SESSION BERDASARKAN ROLE USER
+ * - Jika role type 'system': Tampilkan semua session.
+ * - Jika role type 'custom': Hanya tampilkan session yang terdaftar di wa_user_sessions.
+ */
+export const getUserSessions = async (userId) => {
+  const sql = `
+    SELECT DISTINCT s.* FROM wa_sessions s
+    JOIN wa_users u ON u.id = ?
+    JOIN sys_roles r ON u.role_id = r.id
+    LEFT JOIN wa_user_sessions us ON s.id = us.session_id AND us.user_id = u.id
+    WHERE r.type = 'system' 
+       OR (r.type = 'custom' AND us.user_id = ?)
+    ORDER BY s.created_at DESC
+  `;
+  return await query(sql, [userId, userId]);
+};
+
+/**
+ * MENDAFTARKAN AKSES SESSION KE USER TERTENTU
+ */
+export const assignSessionToUser = async (userId, sessionId) => {
+  const sql = `INSERT IGNORE INTO wa_user_sessions (user_id, session_id) VALUES (?, ?)`;
+  return await query(sql, [userId, sessionId]);
+};
+
 // 4. LOGIKA AUTO-MIGRATE / INIT TABEL
 async function initDatabase() {
   const tables = [
     // Tabel Role
     `CREATE TABLE IF NOT EXISTS sys_roles (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(50) NOT NULL UNIQUE,
-  description TEXT,
-  type ENUM('system', 'custom') DEFAULT 'custom',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)`,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(50) NOT NULL UNIQUE,
+      description TEXT,
+      type ENUM('system','manager', 'custom') DEFAULT 'custom',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
 
-    // Tabel User (Admin)
+    // Tabel User
     `CREATE TABLE IF NOT EXISTS wa_users (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(50) NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL,
-  full_name VARCHAR(100),
-  role_id INT,
-  branch VARCHAR(100),
-  last_login DATETIME,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (role_id) REFERENCES sys_roles(id) ON DELETE SET NULL
-)`,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(50) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL,
+      full_name VARCHAR(100),
+      role_id INT,
+      branch VARCHAR(100),
+      last_login DATETIME,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (role_id) REFERENCES sys_roles(id) ON DELETE SET NULL
+    )`,
+
     // wa_sessions
     `CREATE TABLE IF NOT EXISTS wa_sessions (
       id VARCHAR(50) PRIMARY KEY NOT NULL,
@@ -90,6 +116,15 @@ async function initDatabase() {
       connected_at DATETIME DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
+
+    // TABEL PIVOT: Relasi User ke Session (Kunci untuk Role Custom)
+    `CREATE TABLE IF NOT EXISTS wa_user_sessions (
+      user_id INT,
+      session_id VARCHAR(50),
+      PRIMARY KEY (user_id, session_id),
+      FOREIGN KEY (user_id) REFERENCES wa_users(id) ON DELETE CASCADE,
+      FOREIGN KEY (session_id) REFERENCES wa_sessions(id) ON DELETE CASCADE
     )`,
 
     // wa_contacts
@@ -113,24 +148,25 @@ async function initDatabase() {
 
     // wa_chats
     `CREATE TABLE IF NOT EXISTS wa_chats (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  session_id VARCHAR(50) NOT NULL,
-  jid VARCHAR(100) NOT NULL,
-  name VARCHAR(200) DEFAULT NULL,
-  is_group TINYINT(1) DEFAULT 0,
-  unread_count INT DEFAULT 0,
-  last_message TEXT DEFAULT NULL,
-  last_message_time DATETIME DEFAULT NULL,
-  last_message_from VARCHAR(100) DEFAULT NULL,
-  last_message_type VARCHAR(50) DEFAULT 'text', -- TAMBAHKAN BARIS INI
-  pinned TINYINT(1) DEFAULT 0,
-  archived TINYINT(1) DEFAULT 0,
-  muted TINYINT(1) DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY unique_chat (session_id, jid),
-  INDEX idx_session (session_id)
-)`,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      session_id VARCHAR(50) NOT NULL,
+      jid VARCHAR(100) NOT NULL,
+      name VARCHAR(200) DEFAULT NULL,
+      is_group TINYINT(1) DEFAULT 0,
+      unread_count INT DEFAULT 0,
+      last_message TEXT DEFAULT NULL,
+      last_message_time DATETIME DEFAULT NULL,
+      last_message_from VARCHAR(100) DEFAULT NULL,
+      last_message_type VARCHAR(50) DEFAULT 'text',
+      pinned TINYINT(1) DEFAULT 0,
+      archived TINYINT(1) DEFAULT 0,
+      muted TINYINT(1) DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_chat (session_id, jid),
+      INDEX idx_session (session_id)
+    )`,
+
     // wa_messages
     `CREATE TABLE IF NOT EXISTS wa_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -159,7 +195,7 @@ async function initDatabase() {
       INDEX idx_timestamp (timestamp DESC)
     )`,
 
-    // wa_groups
+ // wa_groups
     `CREATE TABLE IF NOT EXISTS wa_groups (
       id INT AUTO_INCREMENT PRIMARY KEY,
       session_id VARCHAR(50) NOT NULL,
@@ -216,13 +252,22 @@ async function initDatabase() {
       await db.promise().query(queryStr);
     }
 
-    // Insert Default Session
+    // --- SEEDING DEFAULT DATA ---
+
+    // 1. Insert Default Roles
+    await db.promise().query(`
+      INSERT IGNORE INTO sys_roles (id, name, type, description) VALUES 
+      (1, 'Super Admin', 'system', 'Akses penuh ke seluruh sistem'),
+      (2, 'Client', 'custom', 'Akses terbatas pada session yang didaftarkan')
+    `);
+
+    // 2. Insert Default Session
     await db.promise().query(`
       INSERT IGNORE INTO wa_sessions (id, name, status) 
       VALUES ('default', 'Session Utama', 'disconnected')
     `);
 
-    // Insert Default Labels
+    // 3. Insert Default Labels
     const defaultLabels = [
       ["default", "Hot Lead", "#ef4444", "flame"],
       ["default", "Follow Up", "#f59e0b", "clock"],
@@ -231,19 +276,16 @@ async function initDatabase() {
 
     for (const label of defaultLabels) {
       await db.promise().query(
-        `
-        INSERT IGNORE INTO wa_labels (session_id, name, color, icon) 
-        VALUES (?, ?, ?, ?)`,
+        `INSERT IGNORE INTO wa_labels (session_id, name, color, icon) VALUES (?, ?, ?, ?)`,
         label,
       );
     }
 
-    console.log("✅ Semua tabel WhatsApp System siap digunakan");
+    console.log("✅ Semua tabel dan data awal WhatsApp System siap digunakan");
   } catch (err) {
     console.error("❌ Gagal inisialisasi tabel:", err.message);
-    throw err; // Lempar ke ensureDbReady
+    throw err;
   }
 }
 
-// Export default pool
 export default db;

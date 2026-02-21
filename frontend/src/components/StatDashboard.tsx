@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   MessageSquare, Users, CheckCircle, AlertCircle,
-  Smartphone, Send, Clock, Activity, ChevronDown, Loader2
+  Smartphone, Send, Clock, Activity, ChevronDown, Loader2, Calendar
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie,
@@ -31,12 +31,17 @@ const FILTER_MAP: Record<string, string> = {
   "Kemarin": "Kemarin",
   "Minggu": "Minggu",
   "Bulan": "Bulan",
+  "Custom": "Custom"
 };
 
 const StatDashboard: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState("Hari ini");
   const [selectedDevice, setSelectedDevice] = useState("all");
   const [loading, setLoading] = useState(true);
+
+  // State untuk Custom Range Tanggal
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
   const [stats, setStats] = useState<any>({
     pesanMasukAllTime: 0,
@@ -58,9 +63,18 @@ const StatDashboard: React.FC = () => {
   const fetchDashboard = async () => {
     try {
       const period = FILTER_MAP[activeFilter];
-      const sessionParam = selectedDevice !== "all" ? `&sessionId=${selectedDevice}` : "";
+      let url = `${API_URL}?period=${period}`;
+
+      if (selectedDevice !== "all") {
+        url += `&sessionId=${selectedDevice}`;
+      }
+
+      // Tambahkan parameter tanggal jika filter Custom dipilih
+      if (activeFilter === "Custom") {
+        url += `&startDate=${startDate}&endDate=${endDate}`;
+      }
       
-      const res = await fetch(`${API_URL}?period=${period}${sessionParam}`);
+      const res = await fetch(url);
       const json = await res.json();
 
       if (json.success) {
@@ -79,9 +93,9 @@ const StatDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboard();
-    const interval = setInterval(fetchDashboard, 15000);
+    const interval = setInterval(fetchDashboard, 30000); // Naikkan ke 30s agar tidak terlalu berat saat filter custom
     return () => clearInterval(interval);
-  }, [activeFilter, selectedDevice]);
+  }, [activeFilter, selectedDevice, startDate, endDate]);
 
   const slaData = useMemo(() => [
     { name: 'Sesuai SLA', value: Math.max(0, stats.pesanMasukToday - stats.slowResponse), color: '#00a884' },
@@ -99,29 +113,60 @@ const StatDashboard: React.FC = () => {
 
   return (
     <div className="flex-1 bg-[#0B141A] p-4 md:p-8 overflow-y-auto custom-scrollbar">
+      
       {/* Header Dropdown & Filter */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-10 max-w-7xl mx-auto gap-6">
-        <div className="relative">
-          <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8696A0]" size={16} />
-          <select
-            value={selectedDevice}
-            onChange={(e) => setSelectedDevice(e.target.value)}
-            className="pl-10 pr-10 py-2.5 bg-[#202C33] border border-[#313D45] rounded-xl text-sm text-white focus:ring-1 focus:ring-[#00a884] outline-none appearance-none cursor-pointer shadow-lg min-w-[220px]"
-          >
-            <option value="all">Semua Device</option>
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8696A0] pointer-events-none" size={14} />
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 max-w-7xl mx-auto gap-6">
+        
+        <div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto">
+          {/* Device Selector */}
+          <div className="relative">
+            <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8696A0]" size={16} />
+            <select
+              value={selectedDevice}
+              onChange={(e) => setSelectedDevice(e.target.value)}
+              className="pl-10 pr-10 py-2.5 bg-[#202C33] border border-[#313D45] rounded-xl text-sm text-white focus:ring-1 focus:ring-[#00a884] outline-none appearance-none cursor-pointer shadow-lg min-w-[220px] w-full"
+            >
+              <option value="all">Semua Device</option>
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8696A0] pointer-events-none" size={14} />
+          </div>
+
+          {/* Date Range Inputs (Muncul hanya jika filter 'Custom') */}
+          {activeFilter === "Custom" && (
+            <div className="flex items-center gap-2 bg-[#202C33] border border-[#313D45] p-1.5 rounded-xl shadow-lg">
+              <div className="relative flex items-center">
+                <Calendar className="absolute left-2 text-[#8696A0]" size={14} />
+                <input 
+                  type="date" 
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="bg-transparent text-[11px] text-white pl-8 pr-2 outline-none cursor-pointer"
+                />
+              </div>
+              <span className="text-[#8696A0] text-xs">s/d</span>
+              <div className="relative flex items-center">
+                <Calendar className="absolute left-2 text-[#8696A0]" size={14} />
+                <input 
+                  type="date" 
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="bg-transparent text-[11px] text-white pl-8 pr-2 outline-none cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="flex bg-[#202C33] p-1.5 rounded-xl border border-[#313D45] text-[10px] shadow-lg">
+        {/* Filter Period Buttons */}
+        <div className="flex bg-[#202C33] p-1.5 rounded-xl border border-[#313D45] text-[10px] shadow-lg overflow-x-auto w-full md:w-auto">
           {Object.keys(FILTER_MAP).map((item) => (
             <button
               key={item}
               onClick={() => setActiveFilter(item)}
-              className={`px-5 py-2 rounded-lg font-bold transition-all uppercase tracking-wider ${
+              className={`px-5 py-2 rounded-lg font-bold transition-all uppercase tracking-wider whitespace-nowrap ${
                 activeFilter === item ? "bg-[#00a884] text-[#0B141A]" : "text-[#8696A0] hover:text-white"
               }`}
             >
@@ -131,14 +176,13 @@ const StatDashboard: React.FC = () => {
         </div>
       </div>
 
-
-           {/* --- SECTION GRAFIK --- */}
+      {/* --- SECTION GRAFIK --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto mb-5">
         
         {/* Tren Aktivitas */}
         <div className="lg:col-span-2 bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[400px] shadow-xl">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-6">Aktivitas Pesan Perjam</h3>
-          <div className="h-[300px] w-full"> {/* Container Fix untuk ResponsiveContainer */}
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-6">Aktivitas Pesan</h3>
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#313D45" vertical={false} />
@@ -155,7 +199,7 @@ const StatDashboard: React.FC = () => {
 
         {/* SLA Status */}
         <div className="bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[400px] shadow-xl flex flex-col">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-4"> Respon</h3>
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-4">Efisiensi Respon</h3>
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -189,7 +233,7 @@ const StatDashboard: React.FC = () => {
       {/* Grid Utama (Live Message & Stat Cards) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5 max-w-7xl mx-auto mb-10">
         
-        {/* KOTAK LIVE STREAM (TOTAL KESELURUHAN) */}
+        {/* KOTAK LIVE STREAM */}
         <div className="md:col-span-2 md:row-span-2 bg-[#202C33] border border-[#313D45] p-6 rounded-2xl min-h-[450px] flex flex-col shadow-xl">
           <div className="flex justify-between items-start mb-6 pb-4 border-b border-[#313D45]/50">
             <div className="flex flex-col">
@@ -200,7 +244,6 @@ const StatDashboard: React.FC = () => {
               </div>
             </div>
             <div className="text-right">
-                {/* MENGGUNAKAN PESAN MASUK ALL TIME */}
                 <div className="text-4xl font-black text-white">
                     {(stats.pesanMasukAllTime || 0).toLocaleString("id-ID")}
                 </div>
@@ -226,7 +269,7 @@ const StatDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* KARTU STATISTIK BERDASARKAN FILTER PERIODE */}
+        {/* KARTU STATISTIK */}
         <StatCard title={`Masuk ${activeFilter}`} value={stats.pesanMasukToday} subValue="Berdasarkan Filter" icon={MessageSquare} color="text-[#00a884]" />
         <StatCard title="Pesan Terkirim" value={stats.pesanKeluar} subValue="Output WhatsApp" icon={Send} color="text-orange-400" />
         <StatCard title="Lead Masuk" value={stats.leadMasuk} subValue="Database Prospek" icon={Users} color="text-green-500" />

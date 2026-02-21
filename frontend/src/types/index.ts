@@ -3,6 +3,7 @@
 export interface Session {
   id: string;
   name: string;
+  user_id : number,
   phone_number: string | null;
   status: 'disconnected' | 'connecting' | 'connected' | 'banned';
   qr_code: string | null;

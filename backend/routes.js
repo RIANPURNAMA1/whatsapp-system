@@ -33,7 +33,17 @@ const upload = multer({
  * @param {string} column - nama kolom timestamp, default "timestamp"
  */
 // --- Helper: Membangun filter tanggal berdasarkan periode ---
-const buildPeriodFilter = (period, columnName) => {
+
+
+
+/**
+ * HELPER: Membangun filter SQL berdasarkan periode atau custom date
+ * Disesuaikan dengan struktur switch-case milik Anda
+ */
+/**
+ * HELPER: Membangun filter SQL berdasarkan periode atau custom date
+ */
+const buildPeriodFilter = (period, columnName, startDate, endDate) => {
   switch (period) {
     case "Hari ini":
     case "today":
@@ -47,14 +57,34 @@ const buildPeriodFilter = (period, columnName) => {
     case "Bulan":
     case "month":
       return `MONTH(${columnName}) = MONTH(CURDATE()) AND YEAR(${columnName}) = YEAR(CURDATE())`;
+    case "Custom":
+      if (startDate && endDate) {
+        return `${columnName} BETWEEN '${startDate} 00:00:00' AND '${endDate} 23:59:59'`;
+      }
+      return `DATE(${columnName}) = CURDATE()`;
     default:
-      return "1=1"; // Tampilkan semua jika tidak cocok
+      return "1=1";
   }
 };
 
 
 const JWT_SECRET = "918cfb63fffbbc45a16b96beb5fca0deb9a33f0b2180997cc2f15b2affeab1e393c1630e3e9cb02aaf3fe5ae64fbaad1e5c03df2bbe29ca4ba9792c5c1f7ad0a";
 
+
+// --- LETAKKAN DI SINI ---
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.status(401).json({ success: false, message: "Akses ditolak" });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ success: false, message: "Token tidak valid" });
+    req.user = user; // Data user dari JWT disimpan di sini agar bisa dipakai di route
+    next();
+  });
+};
+// -----------------------
 
 
 // login
@@ -86,8 +116,8 @@ router.post("/login", async (req, res) => {
 
     // Buat Token JWT
     const token = jwt.sign(
-      { id: user.id, role_type: user.role_type }, 
-      JWT_SECRET, 
+      { id: user.id, role_type: user.role_type },
+      JWT_SECRET,
       { expiresIn: '24h' }
     );
 
@@ -189,9 +219,9 @@ router.post("/users", async (req, res) => {
 
   // 1. Validasi Input
   if (!username || !password) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "Username dan password wajib diisi" 
+    return res.status(400).json({
+      success: false,
+      message: "Username dan password wajib diisi"
     });
   }
 
@@ -206,16 +236,16 @@ router.post("/users", async (req, res) => {
       [username, hashedPassword, full_name, role_id, branch]
     );
 
-    res.json({ 
-      success: true, 
-      message: "User berhasil didaftarkan dengan password aman" 
+    res.json({
+      success: true,
+      message: "User berhasil didaftarkan dengan password aman"
     });
   } catch (err) {
     // Cek jika error karena username duplikat
     if (err.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ success: false, message: "Username sudah digunakan" });
     }
-    
+
     console.error("Error Registration:", err);
     res.status(500).json({ success: false, message: "Terjadi kesalahan pada database" });
   }
@@ -225,14 +255,33 @@ router.post("/users", async (req, res) => {
 // SESSION ROUTES
 // ===============================================
 
-// GET: Ambil semua sesi
-router.get("/sessions", async (req, res) => {
-  const sessions = await query(
-    "SELECT id, name, phone_number, status, connected_at, created_at FROM wa_sessions ORDER BY created_at DESC",
-  );
-  res.json({ success: true, data: sessions });
-});
+router.get("/sessions", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const roleType = req.user.role_type.toLowerCase().trim(); // Standarisasi role
 
+    let sessionsData;
+
+    if (roleType === 'system') {
+      sessionsData = await query("SELECT * FROM wa_sessions ORDER BY created_at DESC");
+    } else {
+      // Query ini mencakup Manager & Custom sekaligus
+      // Mengambil semua session yang terhubung dengan user ini di tabel pivot
+      sessionsData = await query(
+        `SELECT s.* FROM wa_sessions s
+         INNER JOIN wa_user_sessions us ON s.id = us.session_id
+         WHERE us.user_id = ?
+         ORDER BY s.created_at DESC`,
+        [userId]
+      );
+    }
+
+    console.log(`[DEBUG] User ${userId} (${roleType}) menemukan ${sessionsData.length} sesi`);
+    res.json({ success: true, data: sessionsData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 // GET: Info sesi spesifik
 router.get("/sessions/:sessionId", async (req, res) => {
   const { sessionId } = req.params;
@@ -248,45 +297,128 @@ router.get("/sessions/:sessionId", async (req, res) => {
 });
 
 // POST: Buat sesi baru
-router.post("/sessions", async (req, res) => {
-  const { sessionId, name } = req.body;
-  const io = req.app.get("io");
+// ===============================================
+// SESSION MANAGEMENT ROUTES (System, Manager, Custom)
+// ===============================================
 
+/**
+ * POST: Buat atau Hubungkan Sesi Baru
+ * Mendukung role-based access control untuk System, Manager, dan Custom.
+ */
+router.post("/sessions", authenticateToken, async (req, res) => {
+  const { sessionId, name } = req.body;
+  const userId = req.user.id; // Dari JWT payload
+  const roleType = req.user.role_type; // Dari JWT payload
+  const io = req.app.get("io") || req.app.get("socketio");
+
+  // 1. Validasi Input
   if (!sessionId || !name) {
     return res.status(400).json({
       success: false,
-      message: "Session ID dan Nama Perangkat wajib diisi",
+      message: "Session ID dan Nama Perangkat wajib diisi"
     });
   }
 
   try {
-    const existing = await queryOne("SELECT id FROM wa_sessions WHERE id = ?", [
-      sessionId,
-    ]);
+    // 2. Cek apakah session ID sudah ada di database
+    const existing = await queryOne("SELECT id FROM wa_sessions WHERE id = ?", [sessionId]);
 
     if (!existing) {
+      // --- A. LOGIKA SESSION BARU ---
+
+      // Simpan ke tabel utama
       await query(
-        "INSERT INTO wa_sessions (id, name, status, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
-        [sessionId, name, "connecting"],
+        "INSERT INTO wa_sessions (id, name, status, created_at, updated_at) VALUES (?, ?, 'connecting', NOW(), NOW())",
+        [sessionId, name]
       );
+
+      // Jika pendaftar adalah Manager atau Custom, ikat ke tabel pivot
+      if (roleType === 'manager' || roleType === 'custom') {
+        await query(
+          "INSERT IGNORE INTO wa_user_sessions (user_id, session_id) VALUES (?, ?)",
+          [userId, sessionId]
+        );
+        console.log(`[Auth] Akses session ${sessionId} diberikan kepada ${roleType}: ${userId}`);
+      }
+
     } else {
+      // --- B. LOGIKA UPDATE / RECONNECT ---
+
+      // Proteksi: Manager dan Custom hanya boleh mengupdate session miliknya sendiri
+      if (roleType === 'manager' || roleType === 'custom') {
+        const ownership = await queryOne(
+          "SELECT * FROM wa_user_sessions WHERE user_id = ? AND session_id = ?",
+          [userId, sessionId]
+        );
+
+        if (!ownership) {
+          return res.status(403).json({
+            success: false,
+            message: "Akses ditolak. Anda bukan pemilik perangkat ini."
+          });
+        }
+      }
+
+      // Update status menjadi connecting
       await query(
-        "UPDATE wa_sessions SET name = ?, status = ?, updated_at = NOW() WHERE id = ?",
-        [name, "connecting", sessionId],
+        "UPDATE wa_sessions SET name = ?, status = 'connecting', updated_at = NOW() WHERE id = ?",
+        [name, sessionId]
       );
     }
 
-    await createSession(sessionId, io);
+    // 3. Inisialisasi Baileys (Async)
+    createSession(sessionId, io)
+      .then(() => console.log(`[WhatsApp] ${sessionId} mulai menghubungkan...`))
+      .catch((e) => console.error(`[WhatsApp] Gagal inisialisasi ${sessionId}:`, e.message));
 
     res.json({
       success: true,
       sessionId,
-      message: `Sesi ${name} diinisialisasi.`,
+      message: `Sesi ${name} sedang diproses...`,
     });
+
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error("Error pada POST /sessions:", err);
+    res.status(500).json({ success: false, message: "Terjadi kesalahan server" });
   }
 });
+
+/**
+ * GET: Ambil Semua Sesi yang Berhak Diakses
+ */
+// router.get("/sessions", authenticateToken, async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const roleType = req.user.role_type;
+
+//     let sessionsData;
+
+//     if (roleType === 'system') {
+//       // System Admin melihat SEMUA perangkat tanpa kecuali
+//       sessionsData = await query(
+//         `SELECT id, name, phone_number, status, connected_at, created_at 
+//          FROM wa_sessions 
+//          ORDER BY created_at DESC`
+//       );
+//     } else {
+//       // Manager dan Custom hanya melihat perangkat yang terdaftar di wa_user_sessions
+//       // Pastikan fungsi ini tersedia di db.js Anda
+//       sessionsData = await query(
+//         `SELECT s.id, s.name, s.phone_number, s.status, s.connected_at, s.created_at 
+//          FROM wa_sessions s
+//          JOIN wa_user_sessions us ON s.id = us.session_id
+//          WHERE us.user_id = ?
+//          ORDER BY s.created_at DESC`,
+//         [userId]
+//       );
+//     }
+
+//     res.json({ success: true, data: sessionsData || [] });
+//   } catch (err) {
+//     console.error("Error pada GET /sessions:", err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// });
 
 
 
@@ -492,200 +624,364 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
 // STATS ROUTES - DASHBOARD UTAMA
 // ===============================================
 
+// router.get("/stats/dashboard", async (req, res) => {
+//   try {
+//     const { period = "Hari ini", sessionId } = req.query;
+
+//     // 1. Parameter filter untuk query Device
+//     const sessionFilter = sessionId && sessionId !== "Semua Device" && sessionId !== "all"
+//       ? `AND m.session_id = ?`
+//       : "";
+//     const sessionParams = sessionId && sessionId !== "Semua Device" && sessionId !== "all"
+//       ? [sessionId]
+//       : [];
+
+//     // 2. Build Period Filter (Gunakan fungsi helper Anda)
+//     const periodFilter = buildPeriodFilter(period, "m.timestamp");
+
+//     // ── 1. Total pesan masuk (KESELURUHAN / ALL TIME) ────────────────────
+//     // Ini digunakan untuk angka besar di "Inbound Total" pada Live Stream
+//     const [rowPesanMasukAllTime] = await query(
+//       `SELECT COUNT(*) AS count
+//        FROM wa_messages m
+//        WHERE m.is_from_me = 0
+//        AND m.chat_jid NOT LIKE '%@g.us'
+//        ${sessionFilter}`,
+//       [...sessionParams]
+//     );
+
+//     // ── 2. Pesan masuk (SESUAI PERIODE) ───────────────────────────────
+//     // Digunakan untuk Stat Card "Masuk Periode Ini"
+//     const [rowPesanMasukPeriod] = await query(
+//       `SELECT COUNT(*) AS count
+//        FROM wa_messages m
+//        WHERE m.is_from_me = 0
+//        AND m.chat_jid NOT LIKE '%@g.us'
+//        AND ${periodFilter}
+//        ${sessionFilter}`,
+//       [...sessionParams]
+//     );
+
+//     // ── 3. Pesan terkirim (SESUAI PERIODE) ─────────────────────────────
+//     const [rowPesanKeluar] = await query(
+//       `SELECT COUNT(*) AS count
+//        FROM wa_messages m
+//        WHERE m.is_from_me = 1
+//        AND m.chat_jid NOT LIKE '%@g.us'
+//        AND ${periodFilter}
+//        ${sessionFilter}`,
+//       [...sessionParams]
+//     );
+
+//     // ── 4. Info device ──────────────────────────────────────────────────
+//     const allSessions = await query(
+//       `SELECT id, name, status FROM wa_sessions ORDER BY created_at DESC`
+//     );
+//     const totalDevice = allSessions.length;
+//     const deviceConnected = allSessions.filter((s) => s.status === "connected").length;
+
+//     // ── 5. Lead Masuk (Kontak baru di periode ini) ─────────────────────
+//     const [rowLeadMasuk] = await query(
+//       `SELECT COUNT(DISTINCT m.chat_jid) AS count
+//        FROM wa_messages m
+//        WHERE m.is_from_me = 0
+//        AND m.chat_jid NOT LIKE '%@g.us'
+//        AND ${periodFilter}
+//        ${sessionFilter}
+//        AND NOT EXISTS (
+//          SELECT 1 FROM wa_messages older
+//          WHERE older.chat_jid = m.chat_jid
+//          AND older.timestamp < DATE(NOW())
+//        )`,
+//       [...sessionParams]
+//     );
+
+//     // ── 6. Lead Aktif (Pesan masuk dalam 30 menit terakhir) ─────────────
+//     const [rowLeadAktif] = await query(
+//       `SELECT COUNT(DISTINCT chat_jid) AS count
+//        FROM wa_messages m
+//        WHERE is_from_me = 0
+//        AND chat_jid NOT LIKE '%@g.us'
+//        AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+//        ${sessionFilter}`,
+//       [...sessionParams]
+//     );
+
+//     // ── 7. Slow Response (> 10 menit belum dibalas) ───────────────────
+//     const [rowSlowResponse] = await query(
+//       `SELECT COUNT(DISTINCT inc.chat_jid) AS count
+//        FROM wa_messages inc
+//        WHERE inc.is_from_me = 0
+//        AND inc.chat_jid NOT LIKE '%@g.us'
+//        AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+//        ${sessionFilter.replace('m.', 'inc.')}
+//        AND NOT EXISTS (
+//          SELECT 1 FROM wa_messages reply
+//          WHERE reply.chat_jid = inc.chat_jid
+//          AND reply.is_from_me = 1
+//          AND reply.timestamp > inc.timestamp
+//        )`,
+//       [...sessionParams]
+//     );
+
+//     // ── 8. Tak Terjawab (> 24 jam belum dibalas) ──────────────────────
+//     const [rowUnanswered] = await query(
+//       `SELECT COUNT(DISTINCT inc.chat_jid) AS count
+//        FROM wa_messages inc
+//        WHERE inc.is_from_me = 0
+//        AND inc.chat_jid NOT LIKE '%@g.us'
+//        AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+//        ${sessionFilter.replace('m.', 'inc.')}
+//        AND NOT EXISTS (
+//          SELECT 1 FROM wa_messages reply
+//          WHERE reply.chat_jid = inc.chat_jid
+//          AND reply.is_from_me = 1
+//          AND reply.timestamp > inc.timestamp
+//        )`,
+//       [...sessionParams]
+//     );
+
+//     // ── 9. Live Messages Feed (Data Terbaru) ───────────────────────────
+//     const liveMessages = await query(
+//       `SELECT
+//           m.id,
+//           COALESCE(ct.name, ct.push_name, m.from_jid, m.chat_jid) AS sender,
+//           COALESCE(m.content, m.caption, '[Media]') AS message_text,
+//           s.name AS received_via,
+//           DATE_FORMAT(m.timestamp, '%Y-%m-%d %H:%i:%s') AS received_at
+//        FROM wa_messages m
+//        LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
+//        LEFT JOIN wa_sessions s ON s.id = m.session_id
+//        WHERE m.is_from_me = 0
+//        AND m.chat_jid NOT LIKE '%@g.us'
+//        ${sessionFilter}
+//        ORDER BY m.timestamp DESC
+//        LIMIT 20`,
+//       [...sessionParams]
+//     );
+
+//     // ── 10. Data Tren Pesan (Line Chart) ──────────────────────────────
+//     let groupBy = "DATE_FORMAT(m.timestamp, '%H:00')";
+//     if (period === "Minggu" || period === "Bulan") {
+//       groupBy = "DATE_FORMAT(m.timestamp, '%d %b')";
+//     }
+
+//     const trendData = await query(
+//       `SELECT 
+//           ${groupBy} AS time,
+//           SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk,
+//           SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar
+//        FROM wa_messages m
+//        WHERE m.chat_jid NOT LIKE '%@g.us'
+//        AND ${periodFilter}
+//        ${sessionFilter}
+//        GROUP BY time
+//        ORDER BY m.timestamp ASC`,
+//       [...sessionParams]
+//     );
+
+//     // ── 11. Data Lead per Device (Bar Chart) ──────────────────────────
+//     const devicePerformance = await query(
+//       `SELECT 
+//           s.name,
+//           COUNT(DISTINCT m.chat_jid) AS lead_count
+//        FROM wa_sessions s
+//        LEFT JOIN wa_messages m ON s.id = m.session_id 
+//           AND m.is_from_me = 0 
+//           AND m.chat_jid NOT LIKE '%@g.us'
+//           AND ${periodFilter.replace(/m\./g, 'm.')}
+//        GROUP BY s.id, s.name`,
+//       []
+//     );
+
+//     // ── 12. Kirim Respon ke Frontend ───────────────────────────────────
+//     res.json({
+//       success: true,
+//       stats: {
+//         pesanMasukAllTime: rowPesanMasukAllTime?.count ?? 0, // Untuk angka besar di Live Stream
+//         pesanMasukToday: rowPesanMasukPeriod?.count ?? 0,   // Untuk Stat Card periode
+//         pesanKeluar: rowPesanKeluar?.count ?? 0,
+//         totalDevice,
+//         deviceConnected,
+//         leadMasuk: rowLeadMasuk?.count ?? 0,
+//         leadAktif: rowLeadAktif?.count ?? 0,
+//         slowResponse: rowSlowResponse?.count ?? 0,
+//         unanswered: rowUnanswered?.count ?? 0,
+//       },
+//       devices: allSessions,
+//       messages: liveMessages,
+//       chartData: trendData,
+//       deviceStats: devicePerformance,
+//     });
+//   } catch (err) {
+//     console.error("Error /stats/dashboard:", err);
+//     res.status(500).json({
+//       success: false,
+//       message: err.message,
+//     });
+//   }
+// });
+
+
+
+/**
+ * HELPER: Membangun filter SQL berdasarkan periode atau custom date
+ */
+
+
 router.get("/stats/dashboard", async (req, res) => {
   try {
-    const { period = "Hari ini", sessionId } = req.query;
+    const { period = "Hari ini", sessionId, startDate, endDate } = req.query;
 
-    // 1. Parameter filter untuk query Device
-    const sessionFilter = sessionId && sessionId !== "Semua Device" && sessionId !== "all"
-      ? `AND m.session_id = ?`
-      : "";
-    const sessionParams = sessionId && sessionId !== "Semua Device" && sessionId !== "all"
-      ? [sessionId]
-      : [];
+    // 1. Parameter filter untuk Device
+    const isSpecificDevice = sessionId && sessionId !== "Semua Device" && sessionId !== "all";
+    const sessionFilter = isSpecificDevice ? `AND m.session_id = ?` : "";
+    const sessionParams = isSpecificDevice ? [sessionId] : [];
 
-    // 2. Build Period Filter (Gunakan fungsi helper Anda)
-    const periodFilter = buildPeriodFilter(period, "m.timestamp");
+    // 2. Build Period Filter
+    const periodFilter = buildPeriodFilter(period, "m.timestamp", startDate, endDate);
 
-    // ── 1. Total pesan masuk (KESELURUHAN / ALL TIME) ────────────────────
-    // Ini digunakan untuk angka besar di "Inbound Total" pada Live Stream
+    // Helper untuk Alias inc (Query No 7 & 8)
+    // Gunakan regex global agar semua instance m. diganti
+    const periodFilterInc = periodFilter.replace(/m\./g, 'inc.');
+    const sessionFilterInc = sessionFilter.replace(/m\./g, 'inc.');
+
+    // --- EXECUTE QUERIES ---
+
+    // 1. Total pesan masuk (ALL TIME)
     const [rowPesanMasukAllTime] = await query(
-      `SELECT COUNT(*) AS count
-       FROM wa_messages m
-       WHERE m.is_from_me = 0
-       AND m.chat_jid NOT LIKE '%@g.us'
-       ${sessionFilter}`,
+      `SELECT COUNT(*) AS count FROM wa_messages m 
+       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter}`,
       [...sessionParams]
     );
 
-    // ── 2. Pesan masuk (SESUAI PERIODE) ───────────────────────────────
-    // Digunakan untuk Stat Card "Masuk Periode Ini"
+    // 2. Pesan masuk (PERIODE)
     const [rowPesanMasukPeriod] = await query(
-      `SELECT COUNT(*) AS count
-       FROM wa_messages m
-       WHERE m.is_from_me = 0
-       AND m.chat_jid NOT LIKE '%@g.us'
-       AND ${periodFilter}
-       ${sessionFilter}`,
+      `SELECT COUNT(*) AS count FROM wa_messages m 
+       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
       [...sessionParams]
     );
 
-    // ── 3. Pesan terkirim (SESUAI PERIODE) ─────────────────────────────
+    // 3. Pesan terkirim (PERIODE)
     const [rowPesanKeluar] = await query(
-      `SELECT COUNT(*) AS count
-       FROM wa_messages m
-       WHERE m.is_from_me = 1
-       AND m.chat_jid NOT LIKE '%@g.us'
-       AND ${periodFilter}
-       ${sessionFilter}`,
+      `SELECT COUNT(*) AS count FROM wa_messages m 
+       WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
       [...sessionParams]
     );
 
-    // ── 4. Info device ──────────────────────────────────────────────────
-    const allSessions = await query(
-      `SELECT id, name, status FROM wa_sessions ORDER BY created_at DESC`
-    );
+    // 4. Info device
+    const allSessions = await query(`SELECT id, name, status FROM wa_sessions ORDER BY created_at DESC`);
     const totalDevice = allSessions.length;
     const deviceConnected = allSessions.filter((s) => s.status === "connected").length;
 
-    // ── 5. Lead Masuk (Kontak baru di periode ini) ─────────────────────
+    // 5. Lead Masuk
+    let leadBaseDate = 'CURDATE()';
+    if (period === "Custom" && startDate) leadBaseDate = `'${startDate}'`;
     const [rowLeadMasuk] = await query(
-      `SELECT COUNT(DISTINCT m.chat_jid) AS count
-       FROM wa_messages m
-       WHERE m.is_from_me = 0
-       AND m.chat_jid NOT LIKE '%@g.us'
-       AND ${periodFilter}
-       ${sessionFilter}
-       AND NOT EXISTS (
-         SELECT 1 FROM wa_messages older
-         WHERE older.chat_jid = m.chat_jid
-         AND older.timestamp < DATE(NOW())
-       )`,
+      `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m 
+       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}
+       AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m.chat_jid AND older.timestamp < ${leadBaseDate})`,
       [...sessionParams]
     );
 
-    // ── 6. Lead Aktif (Pesan masuk dalam 30 menit terakhir) ─────────────
+    // 6. Lead Aktif (30 Menit Terakhir)
     const [rowLeadAktif] = await query(
-      `SELECT COUNT(DISTINCT chat_jid) AS count
-       FROM wa_messages m
-       WHERE is_from_me = 0
-       AND chat_jid NOT LIKE '%@g.us'
-       AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)
-       ${sessionFilter}`,
+      `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m 
+       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' 
+       AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`,
       [...sessionParams]
     );
 
-    // ── 7. Slow Response (> 10 menit belum dibalas) ───────────────────
+    // 7. Slow Response (> 10 mnt belum balas)
     const [rowSlowResponse] = await query(
-      `SELECT COUNT(DISTINCT inc.chat_jid) AS count
-       FROM wa_messages inc
-       WHERE inc.is_from_me = 0
-       AND inc.chat_jid NOT LIKE '%@g.us'
+      `SELECT COUNT(DISTINCT inc.chat_jid) AS count FROM wa_messages inc
+       WHERE inc.is_from_me = 0 AND inc.chat_jid NOT LIKE '%@g.us' 
        AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-       ${sessionFilter.replace('m.', 'inc.')}
+       AND ${periodFilterInc} ${sessionFilterInc}
        AND NOT EXISTS (
-         SELECT 1 FROM wa_messages reply
-         WHERE reply.chat_jid = inc.chat_jid
-         AND reply.is_from_me = 1
-         AND reply.timestamp > inc.timestamp
+         SELECT 1 FROM wa_messages reply 
+         WHERE reply.chat_jid = inc.chat_jid AND reply.is_from_me = 1 AND reply.timestamp > inc.timestamp
        )`,
       [...sessionParams]
     );
 
-    // ── 8. Tak Terjawab (> 24 jam belum dibalas) ──────────────────────
+    // 8. Tak Terjawab (> 24 jam belum balas)
     const [rowUnanswered] = await query(
-      `SELECT COUNT(DISTINCT inc.chat_jid) AS count
-       FROM wa_messages inc
-       WHERE inc.is_from_me = 0
-       AND inc.chat_jid NOT LIKE '%@g.us'
+      `SELECT COUNT(DISTINCT inc.chat_jid) AS count FROM wa_messages inc
+       WHERE inc.is_from_me = 0 AND inc.chat_jid NOT LIKE '%@g.us' 
        AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-       ${sessionFilter.replace('m.', 'inc.')}
+       AND ${periodFilterInc} ${sessionFilterInc}
        AND NOT EXISTS (
-         SELECT 1 FROM wa_messages reply
-         WHERE reply.chat_jid = inc.chat_jid
-         AND reply.is_from_me = 1
-         AND reply.timestamp > inc.timestamp
+         SELECT 1 FROM wa_messages reply 
+         WHERE reply.chat_jid = inc.chat_jid AND reply.is_from_me = 1 AND reply.timestamp > inc.timestamp
        )`,
       [...sessionParams]
     );
 
-    // ── 9. Live Messages Feed (Data Terbaru) ───────────────────────────
+    // 9. Live Messages Feed
     const liveMessages = await query(
-      `SELECT
-          m.id,
-          COALESCE(ct.name, ct.push_name, m.from_jid, m.chat_jid) AS sender,
-          COALESCE(m.content, m.caption, '[Media]') AS message_text,
-          s.name AS received_via,
-          DATE_FORMAT(m.timestamp, '%Y-%m-%d %H:%i:%s') AS received_at
-       FROM wa_messages m
+      `SELECT m.id, COALESCE(ct.name, ct.push_name, m.from_jid, m.chat_jid) AS sender, 
+       COALESCE(m.content, m.caption, '[Media]') AS message_text, s.name AS received_via, 
+       DATE_FORMAT(m.timestamp, '%Y-%m-%d %H:%i:%s') AS received_at
+       FROM wa_messages m 
        LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
        LEFT JOIN wa_sessions s ON s.id = m.session_id
-       WHERE m.is_from_me = 0
-       AND m.chat_jid NOT LIKE '%@g.us'
-       ${sessionFilter}
-       ORDER BY m.timestamp DESC
-       LIMIT 20`,
+       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter}
+       ORDER BY m.timestamp DESC LIMIT 20`,
       [...sessionParams]
     );
 
-    // ── 10. Data Tren Pesan (Line Chart) ──────────────────────────────
+    // 10. Data Tren (Line Chart)
     let groupBy = "DATE_FORMAT(m.timestamp, '%H:00')";
-    if (period === "Minggu" || period === "Bulan") {
-      groupBy = "DATE_FORMAT(m.timestamp, '%d %b')";
+    if (["Minggu", "week", "Bulan", "month", "Custom"].includes(period)) {
+      groupBy = "DATE(m.timestamp)";
     }
 
     const trendData = await query(
-      `SELECT 
-          ${groupBy} AS time,
-          SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk,
-          SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar
-       FROM wa_messages m
-       WHERE m.chat_jid NOT LIKE '%@g.us'
-       AND ${periodFilter}
-       ${sessionFilter}
-       GROUP BY time
-       ORDER BY m.timestamp ASC`,
+      `SELECT ${groupBy} AS time, 
+       SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk, 
+       SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar
+       FROM wa_messages m WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}
+       GROUP BY time ORDER BY m.timestamp ASC`,
       [...sessionParams]
     );
 
-    // ── 11. Data Lead per Device (Bar Chart) ──────────────────────────
+    // 11. Data Lead per Device (Bar Chart)
     const devicePerformance = await query(
-      `SELECT 
-          s.name,
-          COUNT(DISTINCT m.chat_jid) AS lead_count
+      `SELECT s.name, COUNT(DISTINCT m.chat_jid) AS lead_count 
        FROM wa_sessions s
        LEFT JOIN wa_messages m ON s.id = m.session_id 
-          AND m.is_from_me = 0 
-          AND m.chat_jid NOT LIKE '%@g.us'
-          AND ${periodFilter.replace(/m\./g, 'm.')}
+       AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter}
        GROUP BY s.id, s.name`,
       []
     );
 
-    // ── 12. Kirim Respon ke Frontend ───────────────────────────────────
+    // --- 12. Response ---
     res.json({
       success: true,
       stats: {
-        pesanMasukAllTime: rowPesanMasukAllTime?.count ?? 0, // Untuk angka besar di Live Stream
-        pesanMasukToday: rowPesanMasukPeriod?.count ?? 0,   // Untuk Stat Card periode
-        pesanKeluar: rowPesanKeluar?.count ?? 0,
+        pesanMasukAllTime: rowPesanMasukAllTime?.count || 0,
+        pesanMasukToday: rowPesanMasukPeriod?.count || 0,
+        pesanKeluar: rowPesanKeluar?.count || 0,
         totalDevice,
         deviceConnected,
-        leadMasuk: rowLeadMasuk?.count ?? 0,
-        leadAktif: rowLeadAktif?.count ?? 0,
-        slowResponse: rowSlowResponse?.count ?? 0,
-        unanswered: rowUnanswered?.count ?? 0,
+        leadMasuk: rowLeadMasuk?.count || 0,
+        leadAktif: rowLeadAktif?.count || 0,
+        slowResponse: rowSlowResponse?.count || 0,
+        unanswered: rowUnanswered?.count || 0,
       },
       devices: allSessions,
-      messages: liveMessages,
-      chartData: trendData,
-      deviceStats: devicePerformance,
+      messages: liveMessages || [],
+      chartData: trendData || [],
+      deviceStats: devicePerformance || [],
     });
+
   } catch (err) {
-    console.error("Error /stats/dashboard:", err);
+    console.error("Critical Dashboard Error:", err);
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Terjadi kesalahan pada server saat memuat dashboard",
+      error: err.message
     });
   }
 });
@@ -947,6 +1243,9 @@ router.put("/sessions/:sessionId/chats/:chatJid/read", async (req, res) => {
 // ===============================================
 
 // POST: Kirim pesan teks
+// 1. Fungsi pembantu untuk jeda (letakkan di luar route)
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 router.post("/sessions/:sessionId/messages/text", async (req, res) => {
   const { sessionId } = req.params;
   const { to, text, quotedMsgId } = req.body;
@@ -959,8 +1258,31 @@ router.post("/sessions/:sessionId/messages/text", async (req, res) => {
   }
 
   try {
+    // --- STRATEGI ANTI-BLOKIR ---
+
+    // 2. Berikan delay acak (Misal: antara 2 sampai 5 detik)
+    // Tujuannya agar pola pengiriman tidak kaku/robotik
+    const randomDelay = Math.floor(Math.random() * (5000 - 2000 + 1) + 2000);
+    console.log(`[WhatsApp] Menunggu ${randomDelay}ms sebelum mengirim ke ${to}...`);
+    await delay(randomDelay);
+
+    // 3. (Opsional) Kirim status 'composing' (mengetik)
+    // Anda perlu akses ke object 'sock' (socket) di dalam sendTextMessage 
+    // atau panggil fungsi update kehadiran jika library Anda mendukungnya.
+    // Contoh jika menggunakan instance langsung:
+    // await socket.sendPresenceUpdate('composing', to); 
+    // await delay(2000); // Simulasi mengetik selama 2 detik
+
+    // 4. Kirim pesan utama
     const sent = await sendTextMessage(sessionId, to, text, quotedMsgId);
-    res.json({ success: true, data: sent, message: "Pesan berhasil dikirim" });
+    
+    res.json({ 
+        success: true, 
+        data: sent, 
+        message: "Pesan berhasil dikirim dengan delay",
+        delayApplied: `${randomDelay}ms`
+    });
+
   } catch (err) {
     console.error("Error kirim pesan:", err);
     res.status(500).json({ success: false, message: err.message });

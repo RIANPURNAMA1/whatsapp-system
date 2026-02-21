@@ -11,9 +11,29 @@ const api = axios.create({
 });
 
 // Interceptor untuk error handling global
+// ⭐ TAMBAHKAN INI: Interceptor untuk menyisipkan Token JWT
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token'); // Ambil token yang disimpan saat login
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor untuk error handling global (kode lama Anda)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // ⭐ TIPS: Jika error 401, otomatis arahkan ke login
+    if (error.response?.status === 401) {
+       console.error("Sesi habis, silakan login ulang");
+       // window.location.href = '/login'; // Opsional: redirect otomatis
+    }
     const message = error.response?.data?.message || error.message || 'Terjadi kesalahan';
     console.error('API Error:', message);
     return Promise.reject(new Error(message));
