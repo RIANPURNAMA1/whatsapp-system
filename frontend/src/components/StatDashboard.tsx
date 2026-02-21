@@ -9,6 +9,8 @@ import {
   ResponsiveContainer, Legend
 } from "recharts";
 
+
+
 // --- Komponen Sub: Kartu Statistik ---
 const StatCard = ({ title, value, subValue, icon: Icon, color = "text-blue-400" }: any) => (
   <div className="bg-[#202C33] border border-[#313D45] p-5 rounded-xl flex flex-col justify-between hover:border-[#41525d] transition-all shadow-sm group">
@@ -34,7 +36,12 @@ const FILTER_MAP: Record<string, string> = {
   "Custom": "Custom"
 };
 
-const StatDashboard: React.FC = () => {
+interface StatDashboardProps {
+  stats: any; // Ini akan menerima objek apa pun
+}
+
+
+const StatDashboard:React.FC<StatDashboardProps> = () => {
   const [activeFilter, setActiveFilter] = useState("Hari ini");
   const [selectedDevice, setSelectedDevice] = useState("all");
   const [loading, setLoading] = useState(true);

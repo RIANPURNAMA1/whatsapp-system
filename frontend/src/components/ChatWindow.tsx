@@ -27,6 +27,7 @@ import toast from "react-hot-toast";
 
 interface ChatWindowProps {
   sessionId: string;
+  onBack?: () => void; // Tambahkan ini (? berarti opsional)
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId }) => {

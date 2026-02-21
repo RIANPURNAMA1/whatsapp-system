@@ -20,7 +20,7 @@ interface AppState {
   sidebarOpen: boolean;
   stats: Stats | null;
   groups: Chat[]; // <--- 1. Tambahkan ini agar tidak merah
-  
+  activeTab: string; // <--- 1. TAMBAHKAN INI
 
   // Actions
   setActiveTab: (tab: string) => void; // Tambahkan ini
@@ -43,6 +43,7 @@ interface AppState {
   setShowNewChatModal: (show: boolean) => void;
   setSidebarOpen: (open: boolean) => void;
   fetchGroups: (sessionId: string) => Promise<void>;
+  // Actions
 }
 
 const useStore = create<AppState>((set, get) => ({
@@ -62,6 +63,8 @@ const useStore = create<AppState>((set, get) => ({
   sidebarOpen: true,
   stats: null,
   groups: [], // Default value kosong
+  activeTab: 'dashboard', // <--- 2. TAMBAHKAN NILAI AWAL INI
+  
 
    // 3. Implementasi fetchGroups (Sesuaikan URL-nya dengan routes.js)
   fetchGroups: async (sessionId) => {
