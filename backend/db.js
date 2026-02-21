@@ -184,7 +184,7 @@ async function initDatabase() {
       media_file_size BIGINT DEFAULT NULL,
       quoted_message_id VARCHAR(200) DEFAULT NULL,
       quoted_content TEXT DEFAULT NULL,
-      status ENUM('pending','sent','delivered','read','failed') DEFAULT 'pending',
+  status ENUM('pending','sent','delivered','read','failed','received') DEFAULT 'pending',
       is_deleted TINYINT(1) DEFAULT 0,
       timestamp DATETIME NOT NULL,
       raw_data JSON DEFAULT NULL,
