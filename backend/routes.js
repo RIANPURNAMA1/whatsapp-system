@@ -938,13 +938,18 @@ router.get("/stats/dashboard", async (req, res) => {
     }
 
     const trendData = await query(
-      `SELECT ${groupBy} AS time, 
-       SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk, 
-       SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar
-       FROM wa_messages m WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}
-       GROUP BY time ORDER BY m.timestamp ASC`,
-      [...sessionParams]
-    );
+  `SELECT 
+      ${groupBy} AS time,
+      SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk,
+      SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar
+   FROM wa_messages m
+   WHERE m.chat_jid NOT LIKE '%@g.us'
+   AND ${periodFilter}
+   ${sessionFilter}
+   GROUP BY time
+   ORDER BY time ASC`, // <--- DIUBAH MENJADI time
+  [...sessionParams]
+);
 
     // 11. Data Lead per Device (Bar Chart)
     const devicePerformance = await query(
