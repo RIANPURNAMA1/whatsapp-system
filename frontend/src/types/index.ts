@@ -17,6 +17,7 @@ export interface Chat {
   id: number;
   session_id: string;
   last_message_type?: string; // TAMBAHKAN INI
+  
   jid: string;
   name: string | null;
   display_name: string | null;

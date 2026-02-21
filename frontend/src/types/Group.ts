@@ -11,6 +11,7 @@ export interface GroupChat {
   last_message: string | null;
   last_message_time: string | null;
   last_message_from: string | null;
+  last_message_type?: string; // Tambahkan ini
   pinned: number;
   archived: number;
   muted: number;
