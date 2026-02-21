@@ -27,7 +27,7 @@ const StatCard = ({ title, value, subValue, icon: Icon, color = "text-blue-400" 
   </div>
 );
 
-const API_URL = "http://localhost:3001/api/stats/dashboard";
+const API_URL = `${import.meta.env.VITE_API_URL}/stats/dashboard`;
 const FILTER_MAP: Record<string, string> = {
   "Hari ini": "Hari ini",
   "Kemarin": "Kemarin",
