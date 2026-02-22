@@ -28,7 +28,10 @@ interface ChatWindowProps {
   onBack?: () => void; // Prop untuk kembali ke daftar chat di mobile
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => {
+export const ChatWindow: React.FC<ChatWindowProps> = ({
+  sessionId,
+  onBack,
+}) => {
   const {
     selectedChat,
     messages,
@@ -185,13 +188,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0B141A] border-l border-[#222d34]">
         <div className="w-32 h-32 bg-[#202C33] rounded-full flex items-center justify-center shadow-2xl mb-8 relative">
           <div className="absolute inset-0 rounded-full bg-[#00a884] opacity-5 animate-ping" />
-          <svg className="w-16 h-16 text-[#00a884]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          <svg
+            className="w-16 h-16 text-[#00a884]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+            />
           </svg>
         </div>
-        <h2 className="text-[#E9EDEF] text-3xl font-bold tracking-tight">Ke Satu <span className="text-[#00a884]">Pintu</span></h2>
+        <h2 className="text-[#E9EDEF] text-3xl font-bold tracking-tight">
+          Ke Satu <span className="text-[#00a884]">Pintu</span>
+        </h2>
         <div className="max-w-xs text-center mt-4 space-y-2">
-          <p className="text-[#8696A0] text-sm leading-relaxed">Hubungkan interaksi Anda dalam satu kendali terpusat.</p>
+          <p className="text-[#8696A0] text-sm leading-relaxed">
+            Hubungkan interaksi Anda dalam satu kendali terpusat.
+          </p>
           <div className="h-[1px] w-12 bg-[#313D45] mx-auto my-4" />
         </div>
       </div>
@@ -201,12 +218,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
   const displayName = getDisplayName(selectedChat);
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0B141A] relative overflow-hidden h-full w-full">
-      {/* Header */}
-      <div className="bg-[#202C33] px-2 md:px-4 py-2 flex items-center gap-1 md:gap-3 border-b border-[#111B21] z-20">
-        
+    /* 1. h-[100dvh] memastikan tinggi pas di HP meski ada address bar browser */
+    <div className="flex flex-col bg-[#0B141A] relative overflow-hidden h-[100dvh] w-full">
+      {/* HEADER: flex-none agar tidak menciut/hilang di layar kecil */}
+      <div className="flex-none bg-[#202C33] px-2 md:px-4 py-2 flex items-center gap-1 md:gap-3 border-b border-[#111B21] z-20 min-h-[60px]">
         {/* Tombol Back Mobile */}
-        <button 
+        <button
           onClick={onBack}
           className="md:hidden p-2 text-[#8696A0] hover:bg-[#2A3942] rounded-full transition-colors shrink-0"
         >
@@ -219,27 +236,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
           size="md"
           isGroup={isGroupJid(selectedChat.jid)}
         />
-        <div className="flex-1 min-w-0">
-          <p className="text-[#E9EDEF] font-medium text-sm truncate">
+
+        <div className="flex-1 min-w-0 ml-1">
+          <p className="text-[#E9EDEF] font-medium text-sm truncate leading-tight">
             {displayName}
           </p>
-          <p className="text-[#8696A0] text-xs truncate uppercase tracking-widest">Online</p>
+          <p className="text-[#8696A0] text-[10px] truncate uppercase tracking-widest mt-0.5">
+            Online
+          </p>
         </div>
-        <div className="flex items-center">
-          <button className="p-2 text-[#8696A0] hover:text-white shrink-0">
+
+        <div className="flex items-center shrink-0">
+          <button className="p-2 text-[#8696A0] hover:text-white transition-colors">
             <Search className="w-5 h-5" />
           </button>
-          <button className="p-2 text-[#8696A0] hover:text-white shrink-0">
+          <button className="p-2 text-[#8696A0] hover:text-white transition-colors">
             <MoreVertical className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      {/* Chat Messages */}
+      {/* CHAT MESSAGES: flex-1 agar mengambil sisa ruang yang tersedia */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-[#0B141A]"
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-[#0B141A] relative scroll-smooth"
         style={{
           backgroundImage: `linear-gradient(rgba(11, 20, 26, 0.96), rgba(11, 20, 26, 0.96)), url('/bg-chat.png')`,
           backgroundSize: "400px",
@@ -254,7 +275,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
           messages.map((msg, index) => (
             <React.Fragment key={msg.message_id || index}>
               {(!messages[index - 1] ||
-                isDifferentDay(messages[index - 1].timestamp, msg.timestamp)) && (
+                isDifferentDay(
+                  messages[index - 1].timestamp,
+                  msg.timestamp,
+                )) && (
                 <div className="flex justify-center my-4">
                   <span className="bg-[#182229] text-[#8696A0] text-[11px] px-3 py-1 rounded-full uppercase tracking-wider">
                     {formatDateSeparator(msg.timestamp)}
@@ -263,7 +287,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
               )}
               <MessageBubble
                 message={msg}
-                showAvatar={isGroupJid(selectedChat.jid) && Number(msg.is_from_me) !== 1}
+                showAvatar={
+                  isGroupJid(selectedChat.jid) && Number(msg.is_from_me) !== 1
+                }
                 onReply={() => setReplyTo(msg)}
               />
             </React.Fragment>
@@ -272,7 +298,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Button Scroll Ke Bawah */}
+      {/* Floating Scroll Button */}
       {showScrollBtn && (
         <button
           onClick={() => scrollToBottom()}
@@ -282,25 +308,41 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
         </button>
       )}
 
-      {/* Input Area */}
-      <div className="bg-[#202C33] flex flex-col border-t border-[#111B21] pb-safe">
+      {/* INPUT AREA: flex-none agar tetap di bawah dan tidak mengecil */}
+      <div className="flex-none bg-[#202C33] flex flex-col border-t border-[#111B21] pb-safe">
+        {/* Reply Preview */}
         {replyTo && (
           <div className="px-4 py-2 flex items-center gap-3 bg-[#1e272d] border-l-4 border-[#00a884] animate-in slide-in-from-bottom-2">
             <div className="flex-1 truncate">
               <p className="text-[#00a884] text-xs font-bold">
-                {Number(replyTo.is_from_me) === 1 ? "Anda" : replyTo.sender_name}
+                {Number(replyTo.is_from_me) === 1
+                  ? "Anda"
+                  : replyTo.sender_name}
               </p>
-              <p className="text-[#8696A0] text-xs truncate italic">{replyTo.content}</p>
+              <p className="text-[#8696A0] text-xs truncate italic">
+                {replyTo.content}
+              </p>
             </div>
-            <button onClick={() => setReplyTo(null)} className="p-1 hover:bg-[#2a3942] rounded-full">
+            <button
+              onClick={() => setReplyTo(null)}
+              className="p-1 hover:bg-[#2a3942] rounded-full"
+            >
               <X className="w-4 h-4 text-[#8696A0]" />
             </button>
           </div>
         )}
 
+        {/* Bar Input Utama */}
         <div className="px-2 md:px-3 py-2 flex items-end gap-1 md:gap-2">
-          <button className="p-2 text-[#8696A0] hover:text-white shrink-0"><Smile /></button>
-          <button className="p-2 text-[#8696A0] hover:text-white shrink-0" onClick={() => fileInputRef.current?.click()}><Paperclip /></button>
+          <button className="p-2 text-[#8696A0] hover:text-white shrink-0">
+            <Smile className="w-6 h-6" />
+          </button>
+          <button
+            className="p-2 text-[#8696A0] hover:text-white shrink-0"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="w-6 h-6" />
+          </button>
           <input ref={fileInputRef} type="file" className="hidden" />
 
           <div className="flex-1 bg-[#2A3942] rounded-xl overflow-hidden mb-1">
@@ -310,7 +352,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
               onChange={(e) => {
                 setInputText(e.target.value);
                 e.target.style.height = "auto";
-                e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                e.target.style.height =
+                  Math.min(e.target.scrollHeight, 120) + "px";
               }}
               onKeyDown={handleKeyDown}
               placeholder="Ketik pesan"
@@ -324,7 +367,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
             disabled={!inputText.trim() || isSending}
             className="w-11 h-11 bg-[#00a884] rounded-full flex items-center justify-center text-[#111B21] hover:bg-[#00bd96] disabled:opacity-50 transition-all shrink-0 mb-1"
           >
-            {isSending ? <Loader2 className="animate-spin w-5 h-5" /> : <Send className="w-5 h-5 ml-0.5" />}
+            {isSending ? (
+              <Loader2 className="animate-spin w-5 h-5" />
+            ) : (
+              <Send className="w-5 h-5 ml-0.5" />
+            )}
           </button>
         </div>
       </div>
@@ -335,16 +382,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId, onBack }) => 
 const MessageBubble = ({ message, showAvatar, onReply }: any) => {
   const isFromMe = Number(message.is_from_me) === 1;
   return (
-    <div className={`flex items-end gap-2 mb-1 ${isFromMe ? "justify-end" : "justify-start animate-in fade-in slide-in-from-left-2"}`}>
+    <div
+      className={`flex items-end gap-2 mb-1 ${isFromMe ? "justify-end" : "justify-start animate-in fade-in slide-in-from-left-2"}`}
+    >
       {showAvatar && <Avatar name={message.sender_name} size="sm" />}
-      <div className={`group relative max-w-[85%] md:max-w-[75%] px-2.5 py-1.5 rounded-lg shadow-sm ${isFromMe ? "bg-[#005C4B] rounded-tr-none" : "bg-[#202C33] rounded-tl-none"}`}>
-        <button onClick={onReply} className="absolute top-1 right-1 p-1 bg-[#202C33]/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10">
+      <div
+        className={`group relative max-w-[85%] md:max-w-[75%] px-2.5 py-1.5 rounded-lg shadow-sm ${isFromMe ? "bg-[#005C4B] rounded-tr-none" : "bg-[#202C33] rounded-tl-none"}`}
+      >
+        <button
+          onClick={onReply}
+          className="absolute top-1 right-1 p-1 bg-[#202C33]/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        >
           <Reply className="w-3 h-3 text-[#8696A0]" />
         </button>
         {message.quoted_content && (
           <div className="bg-black/20 border-l-4 border-[#00a884] p-2 rounded mb-1 text-[11px]">
             <p className="text-[#00a884] font-bold">Dikutip</p>
-            <p className="text-[#8696A0] line-clamp-2 italic">{message.quoted_content}</p>
+            <p className="text-[#8696A0] line-clamp-2 italic">
+              {message.quoted_content}
+            </p>
           </div>
         )}
         <p className="text-[#E9EDEF] text-[14.5px] leading-relaxed whitespace-pre-wrap break-words px-1">
@@ -355,7 +411,9 @@ const MessageBubble = ({ message, showAvatar, onReply }: any) => {
             {formatMessageTime(message.timestamp)}
           </span>
           {isFromMe && (
-            <span className={`text-[12px] leading-none ${message.status === "read" ? "text-[#53BDEB]" : "text-[#8696A0]"}`}>
+            <span
+              className={`text-[12px] leading-none ${message.status === "read" ? "text-[#53BDEB]" : "text-[#8696A0]"}`}
+            >
               {message.status === "read" ? "✓✓" : "✓"}
             </span>
           )}
