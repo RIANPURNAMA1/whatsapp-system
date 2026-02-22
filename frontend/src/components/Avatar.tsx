@@ -1,5 +1,4 @@
-// components/Avatar.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { getInitials, getAvatarColor } from '../utils/helpers';
 import { Users } from 'lucide-react';
 
@@ -25,29 +24,34 @@ export const Avatar: React.FC<AvatarProps> = ({
   isGroup = false,
   className = '',
 }) => {
+  const [hasError, setHasError] = useState(false);
   const sizeClass = sizeMap[size];
   const bgColor = getAvatarColor(name || 'default');
   const initials = getInitials(name || '?');
 
-  if (imageUrl) {
+  // Reset status error jika imageUrl berubah (misal ganti chat)
+  useEffect(() => {
+    setHasError(false);
+  }, [imageUrl]);
+
+  // Jika ada URL gambar DAN tidak sedang error, tampilkan IMG
+  if (imageUrl && !hasError) {
     return (
-      <div className={`${sizeClass} rounded-full overflow-hidden flex-shrink-0 ${className}`}>
+      <div className={`${sizeClass} rounded-full overflow-hidden flex-shrink-0 bg-[#202C33] ${className}`}>
         <img
           src={imageUrl}
           alt={name}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            // Fallback ke inisial jika gambar gagal load
-            e.currentTarget.style.display = 'none';
-          }}
+          className="w-full h-full object-cover animate-in fade-in duration-300"
+          onError={() => setHasError(true)} // Jika error, switch ke mode inisial
         />
       </div>
     );
   }
 
+  // Fallback: Tampilkan Inisial atau Icon Group
   return (
     <div
-      className={`${sizeClass} rounded-full flex items-center justify-center flex-shrink-0 font-semibold text-white select-none ${className}`}
+      className={`${sizeClass} rounded-full flex items-center justify-center flex-shrink-0 font-semibold text-white select-none shadow-sm ${className}`}
       style={{ backgroundColor: bgColor }}
     >
       {isGroup ? (

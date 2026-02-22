@@ -147,6 +147,28 @@ router.post("/login", async (req, res) => {
 // ROLE MANAGEMENT ROUTES
 // ===============================================
 
+// PUT: Update Role
+router.put("/roles/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, description } = req.body;
+
+  try {
+    // Cek apakah role exists dan bukan role sistem
+    const role = await queryOne("SELECT type FROM sys_roles WHERE id = ?", [id]);
+    if (!role) return res.status(404).json({ success: false, message: "Role tidak ditemukan" });
+    if (role.type === 'system') return res.status(403).json({ success: false, message: "Role sistem tidak boleh diubah namanya" });
+
+    await query(
+      "UPDATE sys_roles SET name = ?, description = ? WHERE id = ?",
+      [name, description, id]
+    );
+    
+    res.json({ success: true, message: "Role berhasil diperbarui" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Gagal memperbarui role" });
+  }
+});
+
 // GET: Ambil semua role dan jumlah user-nya
 router.get("/roles", async (req, res) => {
   try {
@@ -248,6 +270,66 @@ router.post("/users", async (req, res) => {
 
     console.error("Error Registration:", err);
     res.status(500).json({ success: false, message: "Terjadi kesalahan pada database" });
+  }
+});
+
+
+// PUT: Update User (Edit)
+router.put("/users/:id", async (req, res) => {
+  const { id } = req.params;
+  const { username, password, full_name, role_id, branch } = req.body;
+
+  try {
+    // 1. Cek apakah user ada
+    const existingUser = await queryOne("SELECT id FROM wa_users WHERE id = ?", [id]);
+    if (!existingUser) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    // 2. Siapkan Query Dasar
+    let sql = "UPDATE wa_users SET username = ?, full_name = ?, role_id = ?, branch = ?";
+    let params = [username, full_name, role_id, branch];
+
+    // 3. Logika Password (Hanya update jika password diisi)
+    if (password && password.trim() !== "") {
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      sql += ", password = ?";
+      params.push(hashedPassword);
+    }
+
+    // 4. Eksekusi Update
+    sql += " WHERE id = ?";
+    params.push(id);
+
+    await query(sql, params);
+
+    res.json({ 
+      success: true, 
+      message: "Data admin berhasil diperbarui" 
+    });
+
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: "Username sudah digunakan oleh admin lain" });
+    }
+    console.error("Update User Error:", err);
+    res.status(500).json({ success: false, message: "Gagal memperbarui data database" });
+  }
+});
+
+// DELETE: Hapus User
+router.delete("/users/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Tambahan: Opsional, cegah penghapusan user admin utama jika perlu
+    // const user = await queryOne("SELECT username FROM wa_users WHERE id = ?", [id]);
+    // if (user.username === 'superadmin') return res.status(403)...
+
+    await query("DELETE FROM wa_users WHERE id = ?", [id]);
+    res.json({ success: true, message: "Akun admin berhasil dihapus" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Gagal menghapus data dari server" });
   }
 });
 

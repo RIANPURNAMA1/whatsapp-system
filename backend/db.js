@@ -33,7 +33,7 @@ export async function ensureDbReady() {
       return true;
     } catch (err) {
       console.error("❌ Database Readiness Error:", err.message);
-      initPromise = null; 
+      initPromise = null;
       throw err;
     }
   })();
@@ -146,26 +146,27 @@ async function initDatabase() {
       INDEX idx_jid (jid)
     )`,
 
-    // wa_chats
-    `CREATE TABLE IF NOT EXISTS wa_chats (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      session_id VARCHAR(50) NOT NULL,
-      jid VARCHAR(100) NOT NULL,
-      name VARCHAR(200) DEFAULT NULL,
-      is_group TINYINT(1) DEFAULT 0,
-      unread_count INT DEFAULT 0,
-      last_message TEXT DEFAULT NULL,
-      last_message_time DATETIME DEFAULT NULL,
-      last_message_from VARCHAR(100) DEFAULT NULL,
-      last_message_type VARCHAR(50) DEFAULT 'text',
-      pinned TINYINT(1) DEFAULT 0,
-      archived TINYINT(1) DEFAULT 0,
-      muted TINYINT(1) DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_chat (session_id, jid),
-      INDEX idx_session (session_id)
-    )`,
+   // wa_chats
+`CREATE TABLE IF NOT EXISTS wa_chats (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  session_id VARCHAR(50) NOT NULL,
+  jid VARCHAR(100) NOT NULL,
+  name VARCHAR(200) DEFAULT NULL,
+  profile_pic_url TEXT DEFAULT NULL, -- ⭐ Tambahkan kolom ini
+  is_group TINYINT(1) DEFAULT 0,
+  unread_count INT DEFAULT 0,
+  last_message TEXT DEFAULT NULL,
+  last_message_time DATETIME DEFAULT NULL,
+  last_message_from VARCHAR(100) DEFAULT NULL,
+  last_message_type VARCHAR(50) DEFAULT 'text',
+  pinned TINYINT(1) DEFAULT 0,
+  archived TINYINT(1) DEFAULT 0,
+  muted TINYINT(1) DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_chat (session_id, jid),
+  INDEX idx_session (session_id)
+)`,
 
     // wa_messages
     `CREATE TABLE IF NOT EXISTS wa_messages (
@@ -195,7 +196,7 @@ async function initDatabase() {
       INDEX idx_timestamp (timestamp DESC)
     )`,
 
- // wa_groups
+    // wa_groups
     `CREATE TABLE IF NOT EXISTS wa_groups (
       id INT AUTO_INCREMENT PRIMARY KEY,
       session_id VARCHAR(50) NOT NULL,
@@ -256,10 +257,11 @@ async function initDatabase() {
 
     // 1. Insert Default Roles
     await db.promise().query(`
-      INSERT IGNORE INTO sys_roles (id, name, type, description) VALUES 
-      (1, 'Super Admin', 'system', 'Akses penuh ke seluruh sistem'),
-      (2, 'Client', 'custom', 'Akses terbatas pada session yang didaftarkan')
-    `);
+  INSERT IGNORE INTO sys_roles (id, name, type, description) VALUES 
+  (1, 'Super Admin', 'system', 'Akses penuh ke seluruh sistem'),
+  (2, 'Pusat', 'manager', 'Akses tingkat manajer untuk operasional pusat'),
+  (3, 'Cabang', 'custom', 'Akses terbatas pada session yang didaftarkan')
+`);
 
     // 2. Insert Default Session
     await db.promise().query(`
@@ -275,10 +277,12 @@ async function initDatabase() {
     ];
 
     for (const label of defaultLabels) {
-      await db.promise().query(
-        `INSERT IGNORE INTO wa_labels (session_id, name, color, icon) VALUES (?, ?, ?, ?)`,
-        label,
-      );
+      await db
+        .promise()
+        .query(
+          `INSERT IGNORE INTO wa_labels (session_id, name, color, icon) VALUES (?, ?, ?, ?)`,
+          label,
+        );
     }
 
     console.log("✅ Semua tabel dan data awal WhatsApp System siap digunakan");

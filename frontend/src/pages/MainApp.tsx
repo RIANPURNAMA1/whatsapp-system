@@ -359,12 +359,12 @@ const isSystemAdmin = user?.role_type === 'system';
       />
     </div>
   </div>
-
-  {/* BAGIAN BAWAH: STATUS & SETTINGS */}
+{/* 
+  BAGIAN BAWAH: STATUS & SETTINGS */}
   <div className="flex flex-col gap-4 items-center pb-6">
     {isSystemAdmin && (
       <div className="w-10 h-10 rounded-xl hover:bg-[#313D45] flex items-center justify-center cursor-pointer transition-colors group">
-        <Settings className="w-5 h-5 text-[#8696A0] group-hover:text-white transition-colors" />
+        {/* <Settings className="w-5 h-5 text-[#8696A0] group-hover:text-white transition-colors" /> */}
       </div>
     )}
 

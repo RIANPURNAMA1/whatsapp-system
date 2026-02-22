@@ -1,11 +1,7 @@
-// pages/GroupsPage.tsx
-// FILE BARU — tidak mengubah file lain apapun
-
 import React, { useState } from "react";
-import { Users, MessageSquare } from "lucide-react";
+import { Users, ArrowLeft } from "lucide-react";
 
 import type { GroupChat } from "../types/Group";
-
 import GroupList from "../components/Grouplist";
 import GroupChatWindow from "../components/Groupchatwindow";
 
@@ -16,10 +12,19 @@ interface GroupsPageProps {
 const GroupsPage: React.FC<GroupsPageProps> = ({ sessionId }) => {
   const [selectedGroup, setSelectedGroup] = useState<GroupChat | null>(null);
 
+  const handleBackToList = () => {
+    setSelectedGroup(null);
+  };
+
   return (
-    <div className="flex flex-1 overflow-hidden">
+    // Tambahkan h-screen dan w-full agar mengikuti layar
+    <div className="flex h-screen w-full overflow-hidden bg-[#0B141A]">
+      
       {/* ── Sidebar kiri: daftar grup ── */}
-      <div className="w-[340px] lg:w-[380px] flex-shrink-0 border-r border-[#1E2A30]">
+      <div className={`
+        ${selectedGroup ? "hidden md:flex" : "flex"} 
+        w-full md:w-[340px] lg:w-[400px] flex-col flex-shrink-0 border-r border-[#222D34] h-full
+      `}>
         <GroupList
           sessionId={sessionId}
           selectedGroupJid={selectedGroup?.jid ?? null}
@@ -28,31 +33,47 @@ const GroupsPage: React.FC<GroupsPageProps> = ({ sessionId }) => {
       </div>
 
       {/* ── Panel kanan: chat grup ── */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className={`
+        ${!selectedGroup ? "hidden md:flex" : "flex"} 
+        flex-1 flex-col h-full bg-[#0B141A] relative
+      `}>
         {selectedGroup ? (
-          <GroupChatWindow
-            key={selectedGroup.jid}   // remount saat ganti grup
-            sessionId={sessionId}
-            group={selectedGroup}
-          />
+          // Hapus flex-1 overflow-hidden berlebih, biarkan h-full bekerja
+          <>
+            {/* Tombol Back khusus Mobile - taruh di dalam header atau floating */}
+            <div className="md:hidden absolute top-[18px] left-4 z-50">
+              <button 
+                onClick={handleBackToList}
+                className="p-1 text-[#8696A0] hover:bg-[#2A3942] rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+            </div>
+
+            <GroupChatWindow
+              key={selectedGroup.jid}
+              sessionId={sessionId}
+              group={selectedGroup}
+              // Opsional: kirim onBack ke dalam window jika headernya ada di sana
+              // onBack={handleBackToList} 
+            />
+          </>
         ) : (
-          /* Placeholder saat belum pilih grup */
-          <div className="flex-1 flex flex-col items-center justify-center bg-[#0B141A] gap-5">
-            <div className="w-28 h-28 bg-[#202C33] rounded-full flex items-center justify-center shadow-inner">
-              <Users className="w-14 h-14 text-[#3b4a54]" />
-            </div>
-            <div className="text-center max-w-xs">
-              <p className="text-[#E9EDEF] text-lg font-light mb-1">
+          /* Placeholder Desktop */
+          <div className="hidden md:flex flex-col items-center justify-center h-full w-full bg-[#222e35] border-l border-[#222d34]">
+            <div className="flex flex-col items-center max-w-md px-10">
+              <div className="w-28 h-28 bg-[#2c3943] rounded-full flex items-center justify-center mb-8">
+                <Users className="w-14 h-14 text-[#54656f]" />
+              </div>
+              <h1 className="text-[#E9EDEF] text-3xl font-light mb-4">
                 Grup WhatsApp
+              </h1>
+              <p className="text-[#8696A0] text-sm leading-relaxed text-center">
+                Pilih grup untuk memulai percakapan. Hubungkan ke Satu Pintu untuk mengelola interaksi grup Anda dalam satu kendali terpusat.
               </p>
-              <p className="text-[#8696A0] text-sm leading-relaxed">
-                Pilih grup di sebelah kiri untuk membaca dan membalas pesan
-                dari anggota grup.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-[#8696A0] text-xs mt-2">
-              <div className="w-1.5 h-1.5 bg-[#00a884] rounded-full animate-pulse" />
-              <span>Pesan grup masuk secara real-time</span>
+              <div className="mt-auto pt-20 flex items-center gap-2 text-[#667781] text-xs">
+                 <span>Official Enterprise Partner</span>
+              </div>
             </div>
           </div>
         )}

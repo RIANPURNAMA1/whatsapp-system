@@ -52,7 +52,9 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [showManageLabelsModal, setShowManageLabelsModal] = useState(false);
-  const [selectedChatForLabel, setSelectedChatForLabel] = useState<Chat | null>(null);
+  const [selectedChatForLabel, setSelectedChatForLabel] = useState<Chat | null>(
+    null,
+  );
   const [isLoadingLabels, setIsLoadingLabels] = useState(false);
 
   // Load chats dan labels
@@ -65,28 +67,32 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
 
   const loadLabels = async () => {
     if (!sessionId) return;
-    
+
     setIsLoadingLabels(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/sessions/${sessionId}/labels`);
-      
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/sessions/${sessionId}/labels`,
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const text = await response.text();
       if (!text) {
         console.warn("Empty response from labels API");
         setLabels([]);
         return;
       }
-      
+
       const data = JSON.parse(text);
-      
+
       if (data.success) {
         // Sort labels dari terbaru ke terlama (kanan ke kiri)
         const sortedLabels = (data.data || []).sort((a: any, b: any) => {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
         });
         setLabels(sortedLabels);
       } else {
@@ -148,6 +154,12 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
   // Filter dan sort chats
   const processedChats = React.useMemo(() => {
     let filtered = chats.filter((c) => {
+      // --- 1. FILTER JID SAMPAH (TAMBAHKAN INI) ---
+      // Menghilangkan status broadcast dan nomor yang hanya mengirim status media
+      if (c.jid === "status@broadcast" || c.jid.includes("broadcast")) {
+        return false;
+      }
+
       // Filter berdasarkan search
       if (chatSearch) {
         const name = getDisplayName(c).toLowerCase();
@@ -165,7 +177,9 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
       // Filter by label
       if (selectedLabelFilter !== "all") {
         const chatLabels = (c as any).labels || [];
-        if (!chatLabels.some((l: any) => l.id === parseInt(selectedLabelFilter))) {
+        if (
+          !chatLabels.some((l: any) => l.id === parseInt(selectedLabelFilter))
+        ) {
           return false;
         }
       }
@@ -194,7 +208,10 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
 
   // Hitung unread filtered
   const filteredUnread = React.useMemo(() => {
-    return processedChats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
+    return processedChats.reduce(
+      (sum, chat) => sum + (chat.unread_count || 0),
+      0,
+    );
   }, [processedChats]);
 
   return (
@@ -296,9 +313,11 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
             )}
             {showUnreadOnly ? "Belum Dibaca" : "Semua Pesan"}
             {totalUnread > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                showUnreadOnly ? "bg-white/20" : "bg-[#00a884] text-white"
-              }`}>
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  showUnreadOnly ? "bg-white/20" : "bg-[#00a884] text-white"
+                }`}
+              >
                 {totalUnread}
               </span>
             )}
@@ -388,11 +407,14 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-white"
                 style={{
                   backgroundColor: labels.find(
-                    (l) => l.id.toString() === selectedLabelFilter
+                    (l) => l.id.toString() === selectedLabelFilter,
                   )?.color,
                 }}
               >
-                {labels.find((l) => l.id.toString() === selectedLabelFilter)?.name}
+                {
+                  labels.find((l) => l.id.toString() === selectedLabelFilter)
+                    ?.name
+                }
                 <button
                   onClick={() => setSelectedLabelFilter("all")}
                   className="hover:text-red-200"
@@ -424,7 +446,9 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
                 ? "Tidak ada chat yang sesuai dengan filter."
                 : "Belum ada percakapan."}
             </p>
-            {(chatSearch || selectedLabelFilter !== "all" || showUnreadOnly) && (
+            {(chatSearch ||
+              selectedLabelFilter !== "all" ||
+              showUnreadOnly) && (
               <button
                 onClick={() => {
                   setChatSearch("");
@@ -509,7 +533,9 @@ const ChatListItem: React.FC<{
     return [...labels].sort((a, b) => {
       // Jika ada created_at, gunakan itu
       if (a.created_at && b.created_at) {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return (
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
       }
       // Fallback ke id (label baru punya id lebih besar)
       return b.id - a.id;
@@ -545,7 +571,9 @@ const ChatListItem: React.FC<{
       <div className="flex-1 min-w-0" onClick={onClick}>
         <div className="flex items-center justify-between mb-0.5">
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
-            {isGroup && <Users className="w-3.5 h-3.5 text-[#8696A0] flex-shrink-0" />}
+            {isGroup && (
+              <Users className="w-3.5 h-3.5 text-[#8696A0] flex-shrink-0" />
+            )}
             <h3 className="text-[#E9EDEF] text-[15px] font-normal truncate leading-tight">
               {displayName}
             </h3>
@@ -595,9 +623,9 @@ const ChatListItem: React.FC<{
               <span
                 key={label.id}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-white animate-fadeIn"
-                style={{ 
+                style={{
                   backgroundColor: label.color,
-                  animationDelay: `${index * 50}ms`
+                  animationDelay: `${index * 50}ms`,
                 }}
               >
                 {label.name}
@@ -618,7 +646,7 @@ const ChatListItem: React.FC<{
           e.stopPropagation();
           onAddLabel();
         }}
-        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[#374248] rounded-full transition-all"
+        className=" group-hover:opacity-100 p-1.5 hover:bg-[#374248] rounded-full transition-all"
         title="Kelola Label"
       >
         <Tag className="w-4 h-4 text-[#8696A0]" />
