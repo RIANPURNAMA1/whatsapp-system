@@ -10,11 +10,11 @@ import makeWASocket, {
 import { Boom } from "@hapi/boom";
 import QRCode from "qrcode";
 import pino from "pino";
-import fs from "fs";
-import path from "path";
 import { query, queryOne } from "./db.js";
 import qrcodeTerminal from "qrcode-terminal"; // Tambahkan ini
-
+import { downloadMediaMessage } from "@whiskeysockets/baileys";
+import fs from "fs";
+import path from "path";
 
 const logger = pino({ level: "silent" });
 
@@ -53,15 +53,13 @@ export async function createSession(sessionId, io) {
 
   // ---- Event: connection.update ----
   sock.ev.on("connection.update", async (update) => {
-    
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-
- // ⭐ TAMBAHKAN BARIS INI UNTUK TERMINAL ⭐
-          console.log(`\n📱 SCAN QR CODE UNTUK SESI: ${sessionId}`);
-          qrcodeTerminal.generate(qr, { small: true }); 
-          // ------------------------------------------
+      // ⭐ TAMBAHKAN BARIS INI UNTUK TERMINAL ⭐
+      console.log(`\n📱 SCAN QR CODE UNTUK SESI: ${sessionId}`);
+      qrcodeTerminal.generate(qr, { small: true });
+      // ------------------------------------------
 
       const qrDataURL = await QRCode.toDataURL(qr, {
         width: 300,
@@ -80,15 +78,19 @@ export async function createSession(sessionId, io) {
 
     if (connection === "close") {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      
+
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
       const isConflict = statusCode === 409;
-    // 401 = Logged Out
-    const shouldReconnect = statusCode !== 440 && statusCode !== 401;
+      // 401 = Logged Out
+      const shouldReconnect = statusCode !== 440 && statusCode !== 401;
 
-    console.log(`🔴 Koneksi ditutup (Sesi: ${sessionId}). Status: ${statusCode}. Reconnect: ${shouldReconnect}`);
+      console.log(
+        `🔴 Koneksi ditutup (Sesi: ${sessionId}). Status: ${statusCode}. Reconnect: ${shouldReconnect}`,
+      );
 
-      console.log(`🔴 Koneksi ditutup (Sesi: ${sessionId}). Status: ${statusCode}. Reconnect: ${shouldReconnect}`);
+      console.log(
+        `🔴 Koneksi ditutup (Sesi: ${sessionId}). Status: ${statusCode}. Reconnect: ${shouldReconnect}`,
+      );
 
       await query(
         "UPDATE wa_sessions SET status = ?, qr_code = NULL WHERE id = ?",
@@ -108,83 +110,95 @@ export async function createSession(sessionId, io) {
       }
     }
 
-   if (connection === "open") {
-        const phoneNumber = jidNormalizedUser(sock.user.id).split('@')[0];
-        console.log(`✅ Sesi Terhubung: ${sessionId} (${phoneNumber})`);
+    if (connection === "open") {
+      const phoneNumber = jidNormalizedUser(sock.user.id).split("@")[0];
+      console.log(`✅ Sesi Terhubung: ${sessionId} (${phoneNumber})`);
 
-        await query(
-          "UPDATE wa_sessions SET status = ?, qr_code = NULL, phone_number = ?, connected_at = NOW() WHERE id = ?",
-          ["connected", phoneNumber, sessionId]
-        );
+      await query(
+        "UPDATE wa_sessions SET status = ?, qr_code = NULL, phone_number = ?, connected_at = NOW() WHERE id = ?",
+        ["connected", phoneNumber, sessionId],
+      );
 
-        io.emit(`session:connected:${sessionId}`, {
-          sessionId: sessionId,
-          phoneNumber: phoneNumber,
-          status: 'connected'
-        });
-        
-        console.log("✅ Berhasil mengirim sinyal sukses ke frontend!");
+      io.emit(`session:connected:${sessionId}`, {
+        sessionId: sessionId,
+        phoneNumber: phoneNumber,
+        status: "connected",
+      });
 
-        setTimeout(async () => {
-          await syncAllGroups(sessionId, sock);
-          await repairMissingPhotos(sessionId, sock); // <--- TAMBAHKAN INI
-        }, 3000);
-      }
-    });
+      console.log("✅ Berhasil mengirim sinyal sukses ke frontend!");
+
+      setTimeout(async () => {
+        await syncAllGroups(sessionId, sock);
+        await repairMissingPhotos(sessionId, sock); // <--- TAMBAHKAN INI
+      }, 3000);
+    }
+  });
 
   // ---- Event: creds.update ----
   sock.ev.on("creds.update", saveCreds);
 
-// ⭐ PERBAIKAN: Event untuk sinkronisasi history
-  sock.ev.on("messaging-history.set", async ({ chats, contacts, messages, isLatest }) => {
-    console.log(`[${sessionId}] 📥 Sinkronisasi Massal dimulai...`);
+  // ⭐ PERBAIKAN: Event untuk sinkronisasi history
+  sock.ev.on(
+    "messaging-history.set",
+    async ({ chats, contacts, messages, isLatest }) => {
+      console.log(`[${sessionId}] 📥 Sinkronisasi Massal dimulai...`);
 
-    // 1. Simpan kontak (Hanya yang bukan broadcast)
-    if (contacts && contacts.length > 0) {
-      for (const contact of contacts) {
-        if (contact.id?.includes('@broadcast')) continue; // Lewati status/broadcast
-        await upsertContact(sessionId, contact);
+      // 1. Simpan kontak (Hanya yang bukan broadcast)
+      if (contacts && contacts.length > 0) {
+        for (const contact of contacts) {
+          if (contact.id?.includes("@broadcast")) continue; // Lewati status/broadcast
+          await upsertContact(sessionId, contact);
+        }
       }
-    }
-    
-    // 2. Simpan chat & grup
-    if (chats && chats.length > 0) {
-      let groupCount = 0;
-      let chatCount = 0;
 
-      for (const chat of chats) {
-        const jid = chat.id || chat.jid;
+      // 2. Simpan chat & grup
+      if (chats && chats.length > 0) {
+        let groupCount = 0;
+        let chatCount = 0;
 
-        // ⭐ FILTER KRUSIAL: Jangan simpan jika itu status atau broadcast
-        if (!jid || jid === 'status@broadcast' || jid.includes('@broadcast')) {
-          continue; 
-        }
+        for (const chat of chats) {
+          const jid = chat.id || chat.jid;
 
-        // ⭐ FILTER TAMBAHAN: Jangan simpan nomor spesifik yang mengganggu jika namanya kosong
-        // (Ini akan memblokir nomor 6282118364415 jika dia masuk sebagai data sampah)
-        if (jid.startsWith('6282118364415') && !chat.name) {
-          continue;
-        }
+          // ⭐ FILTER KRUSIAL: Jangan simpan jika itu status atau broadcast
+          if (
+            !jid ||
+            jid === "status@broadcast" ||
+            jid.includes("@broadcast")
+          ) {
+            continue;
+          }
 
-        await upsertChat(sessionId, chat);
-        chatCount++;
-        
-        // Jika ini grup, fetch metadata lengkap
-        if (jid.endsWith('@g.us')) {
-          groupCount++;
-          try {
-            const metadata = await sock.groupMetadata(jid);
-            await syncGroupMetadata(sessionId, metadata, sock);
-          } catch (err) {
-            console.error(`❌ Gagal fetch metadata grup ${jid}:`, err.message);
+          // ⭐ FILTER TAMBAHAN: Jangan simpan nomor spesifik yang mengganggu jika namanya kosong
+          // (Ini akan memblokir nomor 6282118364415 jika dia masuk sebagai data sampah)
+          if (jid.startsWith("6282118364415") && !chat.name) {
+            continue;
+          }
+
+          await upsertChat(sessionId, chat);
+          chatCount++;
+
+          // Jika ini grup, fetch metadata lengkap
+          if (jid.endsWith("@g.us")) {
+            groupCount++;
+            try {
+              const metadata = await sock.groupMetadata(jid);
+              await syncGroupMetadata(sessionId, metadata, sock);
+            } catch (err) {
+              console.error(
+                `❌ Gagal fetch metadata grup ${jid}:`,
+                err.message,
+              );
+            }
           }
         }
+        console.log(
+          `[${sessionId}] ✅ ${chatCount} Chat & ${groupCount} Grup disinkronkan`,
+        );
       }
-      console.log(`[${sessionId}] ✅ ${chatCount} Chat & ${groupCount} Grup disinkronkan`);
-    }
-    
-    console.log(`[${sessionId}] ✅ Sinkronisasi selesai.`);
-  });
+
+      console.log(`[${sessionId}] ✅ Sinkronisasi selesai.`);
+    },
+  );
 
   // ⭐ Event kontak
   sock.ev.on("contacts.upsert", async (contacts) => {
@@ -225,23 +239,28 @@ export async function createSession(sessionId, io) {
     }
   });
 
-  sock.ev.on("group-participants.update", async ({ id, participants, action }) => {
-    console.log(`[${sessionId}] 👥 Grup ${id}: ${action} - ${participants.length} peserta`);
-    try {
-      const metadata = await sock.groupMetadata(id);
-      await syncGroupMetadata(sessionId, metadata, sock);
-    } catch (err) {
-      console.error(`❌ Gagal update participant grup ${id}:`, err.message);
-    }
-  });
+  sock.ev.on(
+    "group-participants.update",
+    async ({ id, participants, action }) => {
+      console.log(
+        `[${sessionId}] 👥 Grup ${id}: ${action} - ${participants.length} peserta`,
+      );
+      try {
+        const metadata = await sock.groupMetadata(id);
+        await syncGroupMetadata(sessionId, metadata, sock);
+      } catch (err) {
+        console.error(`❌ Gagal update participant grup ${id}:`, err.message);
+      }
+    },
+  );
 
   // ---- Event: chats.upsert ----
   sock.ev.on("chats.upsert", async (chats) => {
     for (const chat of chats) {
       await upsertChat(sessionId, chat);
-      
+
       // Jika grup, sync metadata
-      if (chat.id && chat.id.endsWith('@g.us')) {
+      if (chat.id && chat.id.endsWith("@g.us")) {
         try {
           const metadata = await sock.groupMetadata(chat.id);
           await syncGroupMetadata(sessionId, metadata, sock);
@@ -251,73 +270,136 @@ export async function createSession(sessionId, io) {
       }
     }
   });
-// ---- Event: messages.upsert ----
+
+// ---- Event: messages.upsert ---- //
 sock.ev.on("messages.upsert", async ({ messages, type }) => {
   if (type !== "notify") return;
 
   for (const msg of messages) {
-    // 1. TAMBAHKAN FILTER STATUS (Ini yang bikin nomor itu muncul terus)
-    if (msg.key.remoteJid === 'status@broadcast') continue; 
-    
-    // 2. Tambahan filter broadcast umum lainnya
-    if (isJidBroadcast(msg.key.remoteJid)) continue;
+    // 1. FILTER BROADCAST & STATUS
+    if (
+      msg.key.remoteJid === "status@broadcast" ||
+      isJidBroadcast(msg.key.remoteJid)
+    )
+      continue;
 
+    // 2. PROSES DOWNLOAD MEDIA (Jika ada)
+    let mediaUrl = null;
+    const messageType = Object.keys(msg.message || {})[0];
+    const isMedia = [
+      "imageMessage",
+      "videoMessage",
+      "documentMessage",
+    ].includes(messageType);
+
+    if (isMedia) {
+      try {
+        console.log(`📩 Downloading media: ${messageType}...`);
+        
+        const buffer = await downloadMediaMessage(
+          msg,
+          "buffer",
+          {},
+          {
+            logger: console,
+            reuploadRequest: sock.updateMediaMessage,
+          }
+        );
+
+        const uploadDir = path.join(process.cwd(), "public", "uploads");
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        // --- PERBAIKAN LOGIKA EKSTENSI FILE ---
+        let extension = "bin"; // default
+        if (messageType === "imageMessage") {
+          extension = "jpg";
+        } else if (messageType === "videoMessage") {
+          extension = "mp4";
+        } else if (messageType === "documentMessage") {
+          const docMsg = msg.message.documentMessage;
+          const fileNameOriginal = docMsg.fileName || "";
+          const mimeType = docMsg.mimetype || "";
+          
+          // Ambil ekstensi dari nama file asli, jika gagal gunakan mimetype
+          if (fileNameOriginal.includes(".")) {
+            extension = fileNameOriginal.split(".").pop().toLowerCase();
+          } else if (mimeType === "application/pdf") {
+            extension = "pdf";
+          } else if (mimeType.includes("word")) {
+            extension = "docx";
+          }
+        }
+        
+        const fileName = `${Date.now()}_${msg.key.id}.${extension}`;
+        const uploadPath = path.join(uploadDir, fileName);
+
+        fs.writeFileSync(uploadPath, buffer);
+
+        mediaUrl = `/uploads/${fileName}`;
+        console.log(`✅ Media saved: ${mediaUrl}`);
+      } catch (err) {
+        console.error("❌ Gagal download media:", err.message);
+      }
+    }
+
+    // 3. PROSES PESAN
     const processed = await processMessage(sessionId, msg, sock);
-    
-    if (processed) {
-      // 3. FILTER PESAN PROTOKOL (Pesan hapus/edit tidak perlu bunyi)
-      if (processed.messageType === "protocolMessage" || processed.messageType === "deleted") continue;
 
+    if (processed) {
+      // Pastikan mediaUrl masuk ke objek
+      processed.mediaUrl = mediaUrl;
+      
+      // Bersihkan nama type
+      processed.messageType = messageType?.replace("Message", "") || processed.messageType;
+
+      // Ambil Caption asli jika ada (Penting untuk Gambar/Dokumen)
+      const caption = msg.message?.[messageType]?.caption || 
+                      msg.message?.extendedTextMessage?.text || 
+                      processed.content;
+      
+      processed.caption = caption;
+
+      // 4. FILTER PESAN PROTOKOL
+      if (
+        processed.messageType === "protocolMessage" ||
+        processed.messageType === "deleted"
+      )
+        continue;
+
+      // 5. SIMPAN KE DATABASE
       await saveMessage(sessionId, processed);
       await updateChat(sessionId, processed);
 
-      // ============================================================
-      // ⭐ NOTIFIKASI SUARA (HANYA UNTUK PESAN DARI ORANG LAIN)
-      // ============================================================
-      if (!msg.key.fromMe) { 
-        io.emit("new_incoming_message", {
-          sessionId: sessionId,
-          from: processed.fromJid,
-          pushName: processed.pushName
-        });
-        console.log(`📩 Realtime Notif sent for: ${processed.fromJid}`);
-      }
-      // ============================================================
+      // 6. NOTIFIKASI REALTIME (Socket.io)
+      const isGroupMsg = msg.key.remoteJid?.endsWith("@g.us");
+      const payload = {
+        ...processed,
+        message_id: processed.messageId,
+        chat_jid: processed.chatJid,
+        is_from_me: processed.isFromMe ? 1 : 0,
+        media_url: processed.mediaUrl,
+        caption: processed.caption,
+        sender_name: processed.pushName,
+      };
 
-      const isGroupMsg = msg.key.remoteJid && msg.key.remoteJid.endsWith('@g.us');
-      
-      if (isGroupMsg) {
-        const groupMessage = {
-          message_id: processed.messageId,
-          chat_jid: processed.chatJid,
-          from_jid: processed.fromJid,
-          is_from_me: processed.isFromMe ? 1 : 0,
-          message_type: processed.messageType,
-          content: processed.content,
-          caption: processed.caption,
-          quoted_message_id: processed.quotedMessageId,
-          quoted_content: processed.quotedContent,
-          status: processed.status,
-          timestamp: processed.timestamp,
-          sender_name: processed.pushName,
-          sender_pic: null,
-          is_deleted: 0,
-        };
-        
-        io.emit(`message:new:${sessionId}`, groupMessage);
-        io.emit(`group:message:${sessionId}`, groupMessage);
-      } else {
-        io.emit(`message:new:${sessionId}`, processed);
+      // Emit untuk UI Chat Utama
+      io.emit(`message:new:${sessionId}`, payload);
+
+      if (!msg.key.fromMe) {
+        io.emit("new_incoming_message", payload);
       }
-      
-      io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
-      
+
       if (isGroupMsg) {
+        io.emit(`group:message:${sessionId}`, payload);
         try {
           const metadata = await sock.groupMetadata(msg.key.remoteJid);
           await syncGroupMetadata(sessionId, metadata, sock);
         } catch (err) {}
       }
+
+      io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
     }
   }
 });
@@ -345,27 +427,27 @@ sock.ev.on("messages.upsert", async ({ messages, type }) => {
   return sock;
 }
 
-
-
 // Jalankan ini untuk mengisi data yang NULL
 async function repairMissingPhotos(sessionId, sock) {
   const missingChats = await query(
-    "SELECT jid FROM wa_chats WHERE session_id = ? AND profile_pic_url IS NULL", 
-    [sessionId]
+    "SELECT jid FROM wa_chats WHERE session_id = ? AND profile_pic_url IS NULL",
+    [sessionId],
   );
 
   for (const chat of missingChats) {
     try {
-      const url = await sock.profilePictureUrl(chat.jid, 'image');
+      const url = await sock.profilePictureUrl(chat.jid, "image");
       if (url) {
         await query(
           "UPDATE wa_chats SET profile_pic_url = ? WHERE session_id = ? AND jid = ?",
-          [url, sessionId, chat.jid]
+          [url, sessionId, chat.jid],
         );
         console.log(`✅ Foto ditemukan untuk: ${chat.jid}`);
       }
     } catch (e) {
-      console.log(`❌ Tidak bisa ambil foto ${chat.jid}: Mungkin privacy atau tidak ada foto.`);
+      console.log(
+        `❌ Tidak bisa ambil foto ${chat.jid}: Mungkin privacy atau tidak ada foto.`,
+      );
     }
   }
 }
@@ -374,23 +456,28 @@ async function repairMissingPhotos(sessionId, sock) {
 async function syncAllGroups(sessionId, sock) {
   try {
     console.log(`[${sessionId}] 🔄 Mulai sinkronisasi semua grup...`);
-    
+
     const groups = await sock.groupFetchAllParticipating();
     const groupIds = Object.keys(groups);
-    
+
     console.log(`[${sessionId}] 📱 Ditemukan ${groupIds.length} grup`);
-    
+
     for (const groupId of groupIds) {
       try {
         const metadata = groups[groupId];
         await syncGroupMetadata(sessionId, metadata, sock);
         console.log(`[${sessionId}] ✅ Sync grup: ${metadata.subject}`);
       } catch (err) {
-        console.error(`[${sessionId}] ❌ Error sync grup ${groupId}:`, err.message);
+        console.error(
+          `[${sessionId}] ❌ Error sync grup ${groupId}:`,
+          err.message,
+        );
       }
     }
-    
-    console.log(`[${sessionId}] ✅ Sinkronisasi ${groupIds.length} grup selesai`);
+
+    console.log(
+      `[${sessionId}] ✅ Sinkronisasi ${groupIds.length} grup selesai`,
+    );
   } catch (err) {
     console.error(`[${sessionId}] ❌ Error syncAllGroups:`, err);
   }
@@ -404,10 +491,10 @@ async function syncGroupMetadata(sessionId, metadata, sock) {
     const description = metadata.desc || null;
     const owner = metadata.owner || null;
     const participants = metadata.participants || [];
-    
+
     let profilePicUrl = null;
     try {
-      profilePicUrl = await sock.profilePictureUrl(jid, 'image');
+      profilePicUrl = await sock.profilePictureUrl(jid, "image");
     } catch (err) {
       // Grup mungkin tidak punya foto profil
     }
@@ -420,7 +507,7 @@ async function syncGroupMetadata(sessionId, metadata, sock) {
        name = VALUES(name),
        is_group = 1,
        updated_at = NOW()`,
-      [sessionId, jid, subject]
+      [sessionId, jid, subject],
     );
 
     // 2. Simpan ke wa_groups
@@ -434,33 +521,46 @@ async function syncGroupMetadata(sessionId, metadata, sock) {
        profile_pic_url = VALUES(profile_pic_url),
        participant_count = VALUES(participant_count),
        updated_at = NOW()`,
-      [sessionId, jid, subject, description, owner, profilePicUrl, participants.length]
+      [
+        sessionId,
+        jid,
+        subject,
+        description,
+        owner,
+        profilePicUrl,
+        participants.length,
+      ],
     );
 
     // 3. Hapus participant lama
     await query(
       "DELETE FROM wa_group_participants WHERE session_id = ? AND group_jid = ?",
-      [sessionId, jid]
+      [sessionId, jid],
     );
 
     // 4. Simpan participant baru
     for (const participant of participants) {
       const participantJid = participant.id;
-      const role = participant.admin || participant.isSuperAdmin 
-        ? (participant.isSuperAdmin ? 'superadmin' : 'admin') 
-        : 'member';
+      const role =
+        participant.admin || participant.isSuperAdmin
+          ? participant.isSuperAdmin
+            ? "superadmin"
+            : "admin"
+          : "member";
 
       await query(
         `INSERT INTO wa_group_participants (session_id, group_jid, participant_jid, role, created_at) 
          VALUES (?, ?, ?, ?, NOW())`,
-        [sessionId, jid, participantJid, role]
+        [sessionId, jid, participantJid, role],
       );
 
       // Simpan participant sebagai kontak
       await upsertContact(sessionId, { id: participantJid });
     }
 
-    console.log(`[${sessionId}] ✅ Grup "${subject}" tersinkron (${participants.length} peserta)`);
+    console.log(
+      `[${sessionId}] ✅ Grup "${subject}" tersinkron (${participants.length} peserta)`,
+    );
   } catch (err) {
     console.error(`[${sessionId}] ❌ Error syncGroupMetadata:`, err);
   }
@@ -586,11 +686,13 @@ async function processMessage(sessionId, msg, sock) {
 async function saveMessage(sessionId, msg) {
   await query(
     `INSERT INTO wa_messages 
-     (session_id, message_id, chat_jid, from_jid, is_from_me, message_type, 
-      content, caption, quoted_message_id, quoted_content, status, timestamp, raw_data)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE 
-     content = VALUES(content), status = VALUES(status)`,
+      (session_id, message_id, chat_jid, from_jid, is_from_me, message_type, 
+       content, caption, media_url, quoted_message_id, quoted_content, status, timestamp, raw_data)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE 
+       content = VALUES(content), 
+       status = VALUES(status),
+       media_url = VALUES(media_url)`, // Tambahkan agar media_url terupdate jika ada
     [
       sessionId,
       msg.messageId,
@@ -600,6 +702,7 @@ async function saveMessage(sessionId, msg) {
       msg.messageType,
       msg.content,
       msg.caption,
+      msg.mediaUrl, // <--- TAMBAHKAN INI (Urutan ke-9)
       msg.quotedMessageId,
       msg.quotedContent,
       msg.status,
@@ -609,9 +712,9 @@ async function saveMessage(sessionId, msg) {
   );
 
   if (!msg.isFromMe && msg.fromJid) {
-    const phoneNumber = msg.fromJid.split('@')[0];
+    const phoneNumber = msg.fromJid.split("@")[0];
     const pushName = msg.pushName || phoneNumber;
-    
+
     await query(
       `INSERT INTO wa_contacts (session_id, jid, push_name, phone_number, is_group, created_at, updated_at)
        VALUES (?, ?, ?, ?, 0, NOW(), NOW())
@@ -619,7 +722,7 @@ async function saveMessage(sessionId, msg) {
        push_name = COALESCE(VALUES(push_name), push_name),
        phone_number = COALESCE(VALUES(phone_number), phone_number),
        updated_at = NOW()`,
-      [sessionId, msg.fromJid, pushName, phoneNumber]
+      [sessionId, msg.fromJid, pushName, phoneNumber],
     );
   }
 }
@@ -628,12 +731,12 @@ async function updateChat(sessionId, msg) {
   const jid = msg.chatJid;
 
   // ⭐ 1. FILTER KEAMANAN: Jangan proses jika ini adalah status atau broadcast
-  if (!jid || jid === 'status@broadcast' || jid.includes('@broadcast')) {
-    return; 
+  if (!jid || jid === "status@broadcast" || jid.includes("@broadcast")) {
+    return;
   }
 
   // ⭐ 2. FILTER TAMBAHAN: Abaikan nomor pengganggu spesifik jika isinya cuma [Media]
-  if (jid.startsWith('6282118364415') && msg.content === '[Media]') {
+  if (jid.startsWith("6282118364415") && msg.content === "[Media]") {
     console.log(`🚫 Mengabaikan aktivitas status dari ${jid}`);
     return;
   }
@@ -648,11 +751,11 @@ async function updateChat(sessionId, msg) {
       // Hanya ambil foto jika di database masih NULL untuk menghemat kuota request
       const existingChat = await queryOne(
         "SELECT profile_pic_url FROM wa_chats WHERE session_id = ? AND jid = ?",
-        [sessionId, jid]
+        [sessionId, jid],
       );
-      
+
       if (!existingChat?.profile_pic_url) {
-        profilePicUrl = await session.sock.profilePictureUrl(jid, 'image');
+        profilePicUrl = await session.sock.profilePictureUrl(jid, "image");
       } else {
         profilePicUrl = existingChat.profile_pic_url;
       }
@@ -673,7 +776,7 @@ async function updateChat(sessionId, msg) {
       last_message_type = VALUES(last_message_type),
       unread_count = IF(? = 0, unread_count + 1, 0),
       profile_pic_url = COALESCE(VALUES(profile_pic_url), profile_pic_url),
-      updated_at = NOW()`, 
+      updated_at = NOW()`,
     [
       sessionId,
       jid,
@@ -681,11 +784,11 @@ async function updateChat(sessionId, msg) {
       msg.timestamp,
       msg.fromJid,
       msg.messageType,
-      msg.isFromMe ? 0 : 1, 
-      jid.endsWith('@g.us') ? 1 : 0,
-      profilePicUrl, 
-      msg.isFromMe ? 1 : 0, 
-    ]
+      msg.isFromMe ? 0 : 1,
+      jid.endsWith("@g.us") ? 1 : 0,
+      profilePicUrl,
+      msg.isFromMe ? 1 : 0,
+    ],
   );
 
   // --- UPDATE NAMA JIKA ADA ---
@@ -698,12 +801,12 @@ async function updateChat(sessionId, msg) {
 
   // --- KIRIM SIGNAL REALTIME KE FRONTEND ---
   if (session && session.io) {
-    session.io.emit(`chat:update:${sessionId}`, { 
+    session.io.emit(`chat:update:${sessionId}`, {
       chatJid: jid,
       name: msg.pushName || null,
       lastMessage: displayContent,
       lastMessageTime: msg.timestamp,
-      profilePicUrl: profilePicUrl 
+      profilePicUrl: profilePicUrl,
     });
   }
 }
@@ -711,12 +814,12 @@ async function updateChat(sessionId, msg) {
 async function upsertContact(sessionId, contact) {
   try {
     const jid = contact.id || contact.jid;
-    if (!jid || jid.includes('@broadcast')) return;
+    if (!jid || jid.includes("@broadcast")) return;
 
-    const phoneNumber = jid.split('@')[0];
+    const phoneNumber = jid.split("@")[0];
     const name = contact.name || contact.verifiedName || null;
     const pushName = contact.notify || contact.pushname || null;
-    const isGroup = jid.endsWith('@g.us') ? 1 : 0;
+    const isGroup = jid.endsWith("@g.us") ? 1 : 0;
 
     await query(
       `INSERT INTO wa_contacts 
@@ -727,7 +830,7 @@ async function upsertContact(sessionId, contact) {
         push_name = COALESCE(VALUES(push_name), push_name),
         phone_number = VALUES(phone_number),
         updated_at = NOW()`,
-      [sessionId, jid, name, pushName, phoneNumber, isGroup]
+      [sessionId, jid, name, pushName, phoneNumber, isGroup],
     );
   } catch (err) {
     console.error("❌ Gagal simpan kontak:", err.message);
@@ -740,7 +843,7 @@ async function upsertChat(sessionId, chat) {
     if (!jid) return;
 
     const name = chat.name || chat.subject || null;
-    const isGroup = jid.endsWith('@g.us') ? 1 : 0;
+    const isGroup = jid.endsWith("@g.us") ? 1 : 0;
     const unreadCount = chat.unreadCount || 0;
 
     await query(
@@ -751,7 +854,7 @@ async function upsertChat(sessionId, chat) {
         name = COALESCE(VALUES(name), name),
         is_group = VALUES(is_group),
         updated_at = NOW()`,
-      [sessionId, jid, name, isGroup, unreadCount]
+      [sessionId, jid, name, isGroup, unreadCount],
     );
   } catch (err) {
     console.error("❌ Gagal simpan chat:", err.message);
@@ -897,16 +1000,20 @@ export async function deleteMessage(
 
 export async function logoutSession(sessionId) {
   const session = sessions.get(sessionId);
-  
+
   if (session && session.sock) {
     try {
       console.log(`Logouting session: ${sessionId}...`);
-      
+
       // Gunakan Promise.race agar jika logout macet, kita tetap lanjut
       await Promise.race([
         session.sock.logout(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Logout timeout')), 5000))
-      ]).catch(e => console.log("Logout signal failed or timed out, forcing local delete."));
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Logout timeout")), 5000),
+        ),
+      ]).catch((e) =>
+        console.log("Logout signal failed or timed out, forcing local delete."),
+      );
 
       // Pastikan socket benar-benar mati
       if (session.sock.ws) session.sock.ws.close();
@@ -922,7 +1029,7 @@ export async function logoutSession(sessionId) {
   try {
     await query(
       "UPDATE wa_sessions SET status = ?, qr_code = NULL WHERE id = ?",
-      ["disconnected", sessionId]
+      ["disconnected", sessionId],
     );
     console.log(`Database updated for session: ${sessionId}`);
   } catch (dbErr) {

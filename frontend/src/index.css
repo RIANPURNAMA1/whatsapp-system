@@ -1,6 +1,8 @@
 /* index.css - Global Styles */
 @import "tailwindcss";
-
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
 
 /* ================================================================
    TAMBAHKAN ke index.css (di bagian bawah @layer utilities)

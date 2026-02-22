@@ -7,9 +7,11 @@ const db = mysql.createPool({
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "whatsapp_system",
+  charset: "utf8mb4", // ⭐ TAMBAHKAN INI
   waitForConnections: true,
   connectionLimit: Number(process.env.DB_CONNECTION_LIMIT) || 10,
   queueLimit: 0,
+
 });
 
 // Status kontrol agar tidak balapan (Race Condition)

@@ -1108,6 +1108,9 @@ router.get("/sessions/:sessionId/stats", async (req, res) => {
 // ===============================================
 // CHAT ROUTES
 // ===============================================
+// ===============================================
+// GLOBAL INBOX - MENGAMBIL PESAN TERAKHIR
+// ===============================================
 router.get("/all-global-messages", async (req, res) => {
   try {
     const sql = `
@@ -1119,23 +1122,30 @@ router.get("/all-global-messages", async (req, res) => {
         ct.profile_pic_url
       FROM wa_messages m
       INNER JOIN (
+        -- Mengambil ID pesan terakhir untuk tiap chat di tiap sesi
+        -- Kita hapus filter 'is_from_me' agar balasan kita juga muncul
         SELECT MAX(id) as last_id
         FROM wa_messages
-        WHERE is_from_me = 0
-        AND chat_jid NOT LIKE '%@g.us'
+        WHERE chat_jid NOT LIKE '%@g.us'
         GROUP BY chat_jid, session_id
       ) latest ON m.id = latest.last_id
       LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
       LEFT JOIN wa_chats ch ON ch.session_id = m.session_id AND ch.jid = m.chat_jid
       LEFT JOIN wa_sessions s ON s.id = m.session_id
+      -- Filter agar hanya chat personal yang muncul
       WHERE (ch.is_group = 0 OR ch.is_group IS NULL)
       ORDER BY m.timestamp DESC
       LIMIT 100
     `;
 
     const messages = await query(sql);
+    
+    // Debug: Cek di console terminal backend apakah datanya ada
+    console.log("Total pesan ditemukan:", messages.length);
+    
     res.json({ success: true, data: messages });
   } catch (err) {
+    console.error("Query Error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });

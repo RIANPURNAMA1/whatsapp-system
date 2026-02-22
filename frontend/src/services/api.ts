@@ -98,15 +98,22 @@ export const chatApi = {
 // ===============================================
 // MESSAGE API
 // ===============================================
+// ===============================================
+// MESSAGE API
+// ===============================================
 export const messageApi = {
   sendText: (sessionId: string, to: string, text: string, quotedMsgId?: string) =>
     api.post(`/sessions/${sessionId}/messages/text`, { to, text, quotedMsgId }).then(r => r.data),
 
-  sendMedia: (sessionId: string, to: string, file: File, caption = '') => {
+  // ⭐ PERBAIKAN DI SINI:
+  // Tambahkan parameter 'type' agar sinkron dengan ChatWindow (total 5 param)
+  sendMedia: (sessionId: string, to: string, file: File, type: string, caption = '') => {
     const formData = new FormData();
     formData.append('to', to);
-    formData.append('caption', caption);
+    formData.append('type', type); // Menambahkan tipe (image/document)
+    formData.append('caption', caption); // Ini akan berisi file.name jika dikirim dari frontend
     formData.append('file', file);
+    
     return api.post(`/sessions/${sessionId}/messages/media`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then(r => r.data);

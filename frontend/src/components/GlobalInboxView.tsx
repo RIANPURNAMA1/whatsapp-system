@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Search, RefreshCw, Loader2, MessageSquare, Inbox, Check, CheckCheck } from 'lucide-react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { Search, RefreshCw, Loader2, MessageSquare, Inbox, Check, CheckCheck, Camera, FileText, Mic, Image as ImageIcon } from 'lucide-react';
 import useStore from '../store/useStore';
 import Avatar from './Avatar';
 import { isGroupJid, formatChatTime, truncate } from '../utils/helpers';
@@ -18,7 +18,7 @@ export const GlobalInboxView: React.FC = () => {
     resetUnread 
   } = useStore();
 
-  const fetchGlobalMessages = async () => {
+  const fetchGlobalMessages = useCallback(async () => {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/all-global-messages`);
       const result = await res.json();
@@ -30,31 +30,28 @@ export const GlobalInboxView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Real-time listener menggunakan Socket.io
   useEffect(() => {
     fetchGlobalMessages();
     const socket = getSocket();
 
-    // Dengarkan setiap ada pesan baru masuk dari sesi manapun
-    socket.onAny((eventName) => {
-      if (eventName.startsWith('message:new:')) {
+    const handleSocketUpdate = (eventName: string) => {
+      if (eventName.startsWith('message:new:') || eventName.startsWith('message:sent:')) {
         fetchGlobalMessages();
       }
-    });
-
-    return () => {
-      socket.offAny();
     };
-  }, []);
+
+    socket.onAny(handleSocketUpdate);
+    return () => {
+      socket.offAny(handleSocketUpdate);
+    };
+  }, [fetchGlobalMessages]);
 
   const handleChatClick = (msg: any) => {
     const targetSession = sessions.find(s => s.id === msg.session_id);
-    
     if (targetSession) {
       setActiveSession(targetSession);
-      
       const chatData = {
         jid: msg.chat_jid,
         name: msg.display_name,
@@ -62,7 +59,6 @@ export const GlobalInboxView: React.FC = () => {
         session_id: msg.session_id,
         unread_count: 0
       };
-
       selectChat(chatData as any);
       resetUnread(msg.chat_jid);
       setActiveTab("chats");
@@ -81,31 +77,34 @@ export const GlobalInboxView: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-[#111B21] border-r border-[#222d34]">
       {/* Header */}
-      <div className="bg-[#202C33] px-4 py-[10px] flex items-center justify-between">
+      <div className="bg-[#202C33] px-4 h-[60px] flex-none flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#00a884]/10 flex items-center justify-center text-[#00a884]">
-            <Inbox size={22} />
+          <div className="w-10 h-10 rounded-full bg-[#00a884]/20 flex items-center justify-center text-[#00a884] ring-1 ring-[#00a884]/30">
+            <Inbox size={20} />
           </div>
           <div>
-            <h2 className="text-[#E9EDEF] text-base font-medium">Inbox Global</h2>
-            <p className="text-[11px] text-[#8696A0]">Semua pesan terpusat</p>
+            <h2 className="text-[#E9EDEF] text-[16px] font-semibold leading-tight">Global Inbox</h2>
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse" />
+              <p className="text-[11px] text-[#8696A0] uppercase tracking-wider font-medium">Real-time</p>
+            </div>
           </div>
         </div>
         <button 
           onClick={() => { setLoading(true); fetchGlobalMessages(); }}
-          className="p-2 text-[#8696A0] hover:bg-[#374248] rounded-full transition-all"
+          className="p-2 text-[#8696A0] hover:bg-[#374248] hover:text-[#00a884] rounded-full transition-all duration-200"
         >
-          <RefreshCw size={18} className={loading ? "animate-spin text-[#00a884]" : ""} />
+          <RefreshCw size={19} className={loading ? "animate-spin text-[#00a884]" : ""} />
         </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="px-3 py-2">
-        <div className="relative flex items-center bg-[#202C33] rounded-lg px-3 focus-within:bg-[#2A3942] transition-all">
+      {/* Search */}
+      <div className="px-3 py-2 flex-none bg-[#111B21]">
+        <div className="relative flex items-center bg-[#202C33] rounded-lg px-3 focus-within:bg-[#2A3942] transition-all border-b-2 border-transparent focus-within:border-[#00a884]">
           <Search className="w-4 h-4 text-[#8696A0]" />
           <input
             type="text"
-            placeholder="Cari pengirim atau pesan..."
+            placeholder="Cari kontak atau pesan..."
             className="w-full bg-transparent text-[#E9EDEF] py-2 pl-3 text-sm outline-none placeholder:text-[#8696A0]"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -113,25 +112,23 @@ export const GlobalInboxView: React.FC = () => {
         </div>
       </div>
 
-      {/* List Messages */}
+      {/* List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading && messages.length === 0 ? (
-          <div className="flex flex-col items-center pt-20 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-[#00a884]" />
-            <p className="text-[#8696A0] text-xs uppercase tracking-widest">Sinkronisasi...</p>
+          <div className="flex flex-col items-center pt-32 gap-4">
+            <Loader2 className="w-10 h-10 animate-spin text-[#00a884] opacity-80" />
+            <p className="text-[#8696A0] text-xs font-medium uppercase tracking-widest">Memuat Pesan...</p>
           </div>
         ) : filteredMessages.length === 0 ? (
-          <div className="text-center pt-20 px-10">
-            <div className="w-16 h-16 bg-[#202C33] rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="w-8 h-8 text-[#3b4a54]" />
-            </div>
+          <div className="text-center pt-32 px-10">
+            <MessageSquare className="w-12 h-12 text-[#3b4a54] mx-auto mb-4" />
             <p className="text-[#8696A0] text-sm">Tidak ada pesan ditemukan</p>
           </div>
         ) : (
           <div className="flex flex-col">
             {filteredMessages.map((msg) => (
               <GlobalInboxItem 
-                key={`${msg.session_id}-${msg.id}`} 
+                key={`${msg.session_id}-${msg.chat_jid}-${msg.timestamp}`} 
                 msg={msg} 
                 onClick={() => handleChatClick(msg)} 
               />
@@ -143,72 +140,86 @@ export const GlobalInboxView: React.FC = () => {
   );
 };
 
-/**
- * Sub-Component: GlobalInboxItem
- * Style: WhatsApp Dark Mode with Unread Badge
- */
 const GlobalInboxItem: React.FC<{ msg: any, onClick: () => void }> = ({ msg, onClick }) => {
   const isGroup = isGroupJid(msg.chat_jid);
   const unreadCount = parseInt(msg.unread_count) || 0;
   const hasUnread = unreadCount > 0;
-
-  // Nama pengirim
+  const isMe = Number(msg.is_from_me) === 1;
   const name = msg.display_name || msg.chat_jid.split('@')[0];
+
+  // Helper untuk merender isi preview pesan agar tidak muncul [] kosong
+  const renderMessagePreview = () => {
+    const type = msg.message_type;
+    const content = msg.content || "";
+    const caption = msg.caption || "";
+
+    if (type === 'text' || !type) {
+      return truncate(content || caption || "Pesan kosong", 60);
+    }
+
+    // Penanganan Media agar lebih user-friendly
+    const mediaMap: Record<string, { icon: any, label: string }> = {
+      image: { icon: <ImageIcon size={14} />, label: "Foto" },
+      video: { icon: <Camera size={14} />, label: "Video" },
+      audio: { icon: <Mic size={14} />, label: "Pesan suara" },
+      document: { icon: <FileText size={14} />, label: "Dokumen" },
+      sticker: { icon: null, label: "Stiker 🍦" },
+    };
+
+    const media = mediaMap[type] || { icon: null, label: type };
+
+    return (
+      <span className="flex items-center gap-1 italic">
+        {media.icon}
+        <span>{media.label}{caption ? `: ${truncate(caption, 30)}` : ""}</span>
+      </span>
+    );
+  };
 
   return (
     <div
       onClick={onClick}
-      className="flex items-center gap-3 px-4 cursor-pointer hover:bg-[#202C33] active:bg-[#2A3942] transition-colors group"
+      className="flex items-center gap-3 px-4 cursor-pointer hover:bg-[#202C33] active:bg-[#111B21] transition-all group"
     >
       <div className="py-3 relative flex-shrink-0">
-        <Avatar 
-          name={name} 
-          imageUrl={msg.profile_pic_url} 
-          size="md" 
-          isGroup={isGroup} 
-        />
+        <Avatar name={name} imageUrl={msg.profile_pic_url} size="md" isGroup={isGroup} />
       </div>
 
-      <div className="flex-1 min-w-0 border-b border-[#222d34] self-stretch flex flex-col justify-center py-3 pr-2">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className={`text-[15px] truncate ${hasUnread ? "text-[#E9EDEF] font-bold" : "text-[#E9EDEF] font-normal"}`}>
+      <div className="flex-1 min-w-0 border-b border-[#222d34]/50 self-stretch flex flex-col justify-center py-3 pr-1 group-last:border-none">
+        <div className="flex items-center justify-between mb-0.5">
+          <h3 className={`text-[16px] truncate leading-tight ${hasUnread ? "text-[#E9EDEF] font-bold" : "text-[#E9EDEF] font-normal"}`}>
             {name}
           </h3>
-          <span className={`text-[11px] flex-shrink-0 ${hasUnread ? "text-[#00a884] font-bold" : "text-[#8696A0]"}`}>
+          <span className={`text-[11px] flex-shrink-0 ml-2 ${hasUnread ? "text-[#00a884] font-bold" : "text-[#8696A0]"}`}>
             {formatChatTime(msg.timestamp)}
           </span>
         </div>
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center flex-1 min-w-0">
-            {/* Indikator "Anda:" jika pesan terakhir dari kita (is_from_me) */}
-            {msg.is_from_me === 1 && (
-              <span className="mr-1 text-[#8696A0]">
-                 {msg.status === 'read' ? <CheckCheck size={16} className="text-[#53bdeb]" /> : <Check size={16} />}
-              </span>
+            {isMe && (
+              <div className="mr-1.5 flex-shrink-0">
+                {msg.status === 'read' ? (
+                  <CheckCheck size={15} className="text-[#53bdeb]" />
+                ) : (
+                  <Check size={15} className="text-[#8696A0]" />
+                )}
+              </div>
             )}
             
-            <p className={`text-sm truncate ${hasUnread ? "text-[#E9EDEF] font-normal" : "text-[#8696A0] font-light"}`}>
-              {msg.message_type !== 'text' ? (
-                <span className="flex items-center gap-1 italic text-xs">
-                  [{msg.message_type}] {msg.caption || ""}
-                </span>
-              ) : (
-                truncate(msg.content || "", 40)
-              )}
-            </p>
+            <div className={`text-[14px] truncate leading-5 ${hasUnread ? "text-[#E9EDEF] font-medium" : "text-[#8696A0] font-light"}`}>
+              {renderMessagePreview()}
+            </div>
           </div>
           
-          <div className="flex items-center gap-2 ml-2">
-            {/* Nama Device/Sesi */}
-            <span className="text-[10px] text-[#00a884] bg-[#00a884]/10 px-1.5 py-0.5 rounded border border-[#00a884]/20 font-semibold uppercase">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-[9px] text-[#8696A0] bg-[#202C33] px-1.5 py-0.5 rounded border border-[#222d34] uppercase font-medium">
               {msg.session_name || "Device"}
             </span>
 
-            {/* Bulatan Unread ala WhatsApp */}
             {hasUnread && (
-              <div className="min-w-[19px] h-[19px] bg-[#00a884] rounded-full flex items-center justify-center px-1">
-                <span className="text-[#111B21] text-[10px] font-bold">
+              <div className="min-w-[20px] h-[20px] bg-[#00a884] rounded-full flex items-center justify-center px-1">
+                <span className="text-[#111B21] text-[11px] font-bold">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               </div>

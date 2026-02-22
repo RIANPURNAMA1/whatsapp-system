@@ -61,6 +61,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
 // ===============================================
 // Socket.IO Events
 // ===============================================
