@@ -580,14 +580,23 @@ async function processMessage(sessionId, msg, sock) {
     const timestamp = new Date(msg.messageTimestamp * 1000);
 
     const contentType = getContentType(msg.message);
+    
+    // 1. FILTER PESAN SISTEM / PROTOKOL YANG TIDAK PERLU
+    // Abaikan jika tidak ada content type (pesan kosong/error)
+    // Abaikan senderKeyDistributionMessage (enkripsi grup) agar tidak nyampah di Inbox
+    if (!contentType || contentType === 'senderKeyDistributionMessage') {
+      return null; 
+    }
+
     let messageType = "unknown";
-    let content = null;
+    let content = ""; // Default string kosong
     let caption = null;
     let mediaUrl = null;
     let mediaMimeType = null;
     let quotedMessageId = null;
     let quotedContent = null;
 
+    // 2. PROSES QUOTED MESSAGE (REPLY)
     const contextInfo = msg.message?.[contentType]?.contextInfo;
     if (contextInfo?.quotedMessage) {
       quotedMessageId = contextInfo.stanzaId;
@@ -595,9 +604,11 @@ async function processMessage(sessionId, msg, sock) {
       quotedContent =
         contextInfo.quotedMessage?.[quotedType]?.text ||
         contextInfo.quotedMessage?.[quotedType]?.caption ||
+        contextInfo.quotedMessage?.conversation ||
         "[Media]";
     }
 
+    // 3. MAPPING KONTEN BERDASARKAN TIPE
     switch (contentType) {
       case "conversation":
         messageType = "text";
@@ -649,14 +660,23 @@ async function processMessage(sessionId, msg, sock) {
         content = msg.message.reactionMessage?.text;
         break;
       case "protocolMessage":
+        // Tipe 0 berarti pesan dihapus oleh pengirim
         if (msg.message.protocolMessage?.type === 0) {
           messageType = "deleted";
           content = "[Pesan dihapus]";
+        } else {
+          // Protokol lain (sync, dll) diabaikan saja
+          return null;
         }
         break;
       default:
-        if (!contentType) return null;
+        messageType = "unknown";
         content = "[Tipe pesan tidak dikenal]";
+    }
+
+    // 4. FINAL CHECK AGAR CONTENT TIDAK BERUPA OBJEK
+    if (typeof content === 'object') {
+        content = JSON.stringify(content);
     }
 
     return {
@@ -666,7 +686,7 @@ async function processMessage(sessionId, msg, sock) {
       fromJid: jidNormalizedUser(fromJid || jid),
       isFromMe,
       messageType,
-      content,
+      content: content || "",
       caption,
       mediaUrl,
       mediaMimeType,
@@ -675,10 +695,10 @@ async function processMessage(sessionId, msg, sock) {
       status: isFromMe ? "sent" : "received",
       timestamp,
       rawData: JSON.stringify(msg.message),
-      pushName: msg.pushName,
+      pushName: msg.pushName || null,
     };
   } catch (err) {
-    console.error("Error proses pesan:", err);
+    console.error("❌ Error proses pesan:", err);
     return null;
   }
 }
