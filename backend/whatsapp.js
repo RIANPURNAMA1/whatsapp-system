@@ -566,7 +566,6 @@ async function syncGroupMetadata(sessionId, metadata, sock) {
   }
 }
 
-// Proses pesan
 async function processMessage(sessionId, msg, sock) {
   try {
     const jid = msg.key.remoteJid;
@@ -581,34 +580,26 @@ async function processMessage(sessionId, msg, sock) {
 
     const contentType = getContentType(msg.message);
     
-    // 1. FILTER PESAN SISTEM / PROTOKOL YANG TIDAK PERLU
-    // Abaikan jika tidak ada content type (pesan kosong/error)
-    // Abaikan senderKeyDistributionMessage (enkripsi grup) agar tidak nyampah di Inbox
-    if (!contentType || contentType === 'senderKeyDistributionMessage') {
-      return null; 
-    }
+    // Filter pesan sistem agar tidak nyampah
+    if (!contentType || contentType === 'senderKeyDistributionMessage') return null;
 
     let messageType = "unknown";
-    let content = ""; // Default string kosong
+    let content = ""; 
     let caption = null;
-    let mediaUrl = null;
     let mediaMimeType = null;
     let quotedMessageId = null;
     let quotedContent = null;
 
-    // 2. PROSES QUOTED MESSAGE (REPLY)
+    // 1. PROSES QUOTED MESSAGE
     const contextInfo = msg.message?.[contentType]?.contextInfo;
     if (contextInfo?.quotedMessage) {
       quotedMessageId = contextInfo.stanzaId;
       const quotedType = getContentType(contextInfo.quotedMessage);
-      quotedContent =
-        contextInfo.quotedMessage?.[quotedType]?.text ||
-        contextInfo.quotedMessage?.[quotedType]?.caption ||
-        contextInfo.quotedMessage?.conversation ||
-        "[Media]";
+      const q = contextInfo.quotedMessage[quotedType];
+      quotedContent = typeof q === 'string' ? q : (q?.text || q?.caption || q?.conversation || "[Media]");
     }
 
-    // 3. MAPPING KONTEN BERDASARKAN TIPE
+    // 2. MAPPING KONTEN (PASTIKAN HANYA AMBIL STRING)
     switch (contentType) {
       case "conversation":
         messageType = "text";
@@ -621,63 +612,35 @@ async function processMessage(sessionId, msg, sock) {
       case "imageMessage":
         messageType = "image";
         caption = msg.message.imageMessage?.caption;
-        mediaMimeType = msg.message.imageMessage?.mimetype;
         content = caption || "[Foto]";
         break;
       case "videoMessage":
         messageType = "video";
         caption = msg.message.videoMessage?.caption;
-        mediaMimeType = msg.message.videoMessage?.mimetype;
         content = caption || "[Video]";
         break;
-      case "audioMessage":
-        messageType = "audio";
-        content = "[Pesan Suara]";
-        mediaMimeType = msg.message.audioMessage?.mimetype;
-        break;
-      case "documentMessage":
-        messageType = "document";
-        content = msg.message.documentMessage?.fileName || "[Dokumen]";
-        mediaMimeType = msg.message.documentMessage?.mimetype;
-        break;
-      case "stickerMessage":
-        messageType = "sticker";
-        content = "[Stiker]";
-        break;
-      case "locationMessage":
-        messageType = "location";
-        const lat = msg.message.locationMessage?.degreesLatitude;
-        const lng = msg.message.locationMessage?.degreesLongitude;
-        content = `📍 Lokasi: ${lat}, ${lng}`;
-        break;
-      case "contactMessage":
-      case "contactsArrayMessage":
-        messageType = "contact";
-        content = "[Kontak]";
-        break;
-      case "reactionMessage":
-        messageType = "reaction";
-        content = msg.message.reactionMessage?.text;
-        break;
       case "protocolMessage":
-        // Tipe 0 berarti pesan dihapus oleh pengirim
         if (msg.message.protocolMessage?.type === 0) {
           messageType = "deleted";
           content = "[Pesan dihapus]";
         } else {
-          // Protokol lain (sync, dll) diabaikan saja
           return null;
         }
         break;
       default:
-        messageType = "unknown";
-        content = "[Tipe pesan tidak dikenal]";
+        // Untuk tipe lain seperti sticker/audio/location
+        messageType = contentType.replace("Message", "");
+        content = `[${messageType}]`;
     }
 
-    // 4. FINAL CHECK AGAR CONTENT TIDAK BERUPA OBJEK
-    if (typeof content === 'object') {
-        content = JSON.stringify(content);
+    // 3. PEMBERSIHAN KRITIKAL (SAT_PAM TEKS)
+    // Jika content ternyata masih objek, ambil properti text-nya atau paksa jadi string kosong
+    if (typeof content === 'object' && content !== null) {
+        content = content.text || content.conversation || "";
     }
+
+    // Ubah ke string murni dan hapus spasi/line break berlebih
+    content = String(content || "").trim();
 
     return {
       sessionId,
@@ -686,10 +649,10 @@ async function processMessage(sessionId, msg, sock) {
       fromJid: jidNormalizedUser(fromJid || jid),
       isFromMe,
       messageType,
-      content: content || "",
+      content: content, 
       caption,
-      mediaUrl,
-      mediaMimeType,
+      mediaUrl: null,
+      mediaMimeType: msg.message?.[contentType]?.mimetype || null,
       quotedMessageId,
       quotedContent,
       status: isFromMe ? "sent" : "received",
