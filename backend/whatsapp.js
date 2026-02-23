@@ -271,138 +271,140 @@ export async function createSession(sessionId, io) {
     }
   });
 
-// ---- Event: messages.upsert ---- //
-sock.ev.on("messages.upsert", async ({ messages, type }) => {
-  if (type !== "notify") return;
+  // ---- Event: messages.upsert ---- //
+  sock.ev.on("messages.upsert", async ({ messages, type }) => {
+    if (type !== "notify") return;
 
-  for (const msg of messages) {
-    // 1. FILTER BROADCAST & STATUS
-    if (
-      msg.key.remoteJid === "status@broadcast" ||
-      isJidBroadcast(msg.key.remoteJid)
-    )
-      continue;
-
-    // 2. PROSES DOWNLOAD MEDIA (Jika ada)
-    let mediaUrl = null;
-    const messageType = Object.keys(msg.message || {})[0];
-    const isMedia = [
-      "imageMessage",
-      "videoMessage",
-      "documentMessage",
-    ].includes(messageType);
-
-    if (isMedia) {
-      try {
-        console.log(`📩 Downloading media: ${messageType}...`);
-        
-        const buffer = await downloadMediaMessage(
-          msg,
-          "buffer",
-          {},
-          {
-            logger: console,
-            reuploadRequest: sock.updateMediaMessage,
-          }
-        );
-
-        const uploadDir = path.join(process.cwd(), "public", "uploads");
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        // --- PERBAIKAN LOGIKA EKSTENSI FILE ---
-        let extension = "bin"; // default
-        if (messageType === "imageMessage") {
-          extension = "jpg";
-        } else if (messageType === "videoMessage") {
-          extension = "mp4";
-        } else if (messageType === "documentMessage") {
-          const docMsg = msg.message.documentMessage;
-          const fileNameOriginal = docMsg.fileName || "";
-          const mimeType = docMsg.mimetype || "";
-          
-          // Ambil ekstensi dari nama file asli, jika gagal gunakan mimetype
-          if (fileNameOriginal.includes(".")) {
-            extension = fileNameOriginal.split(".").pop().toLowerCase();
-          } else if (mimeType === "application/pdf") {
-            extension = "pdf";
-          } else if (mimeType.includes("word")) {
-            extension = "docx";
-          }
-        }
-        
-        const fileName = `${Date.now()}_${msg.key.id}.${extension}`;
-        const uploadPath = path.join(uploadDir, fileName);
-
-        fs.writeFileSync(uploadPath, buffer);
-
-        mediaUrl = `/uploads/${fileName}`;
-        console.log(`✅ Media saved: ${mediaUrl}`);
-      } catch (err) {
-        console.error("❌ Gagal download media:", err.message);
-      }
-    }
-
-    // 3. PROSES PESAN
-    const processed = await processMessage(sessionId, msg, sock);
-
-    if (processed) {
-      // Pastikan mediaUrl masuk ke objek
-      processed.mediaUrl = mediaUrl;
-      
-      // Bersihkan nama type
-      processed.messageType = messageType?.replace("Message", "") || processed.messageType;
-
-      // Ambil Caption asli jika ada (Penting untuk Gambar/Dokumen)
-      const caption = msg.message?.[messageType]?.caption || 
-                      msg.message?.extendedTextMessage?.text || 
-                      processed.content;
-      
-      processed.caption = caption;
-
-      // 4. FILTER PESAN PROTOKOL
+    for (const msg of messages) {
+      // 1. FILTER BROADCAST & STATUS
       if (
-        processed.messageType === "protocolMessage" ||
-        processed.messageType === "deleted"
+        msg.key.remoteJid === "status@broadcast" ||
+        isJidBroadcast(msg.key.remoteJid)
       )
         continue;
 
-      // 5. SIMPAN KE DATABASE
-      await saveMessage(sessionId, processed);
-      await updateChat(sessionId, processed);
+      // 2. PROSES DOWNLOAD MEDIA (Jika ada)
+      let mediaUrl = null;
+      const messageType = Object.keys(msg.message || {})[0];
+      const isMedia = [
+        "imageMessage",
+        "videoMessage",
+        "documentMessage",
+      ].includes(messageType);
 
-      // 6. NOTIFIKASI REALTIME (Socket.io)
-      const isGroupMsg = msg.key.remoteJid?.endsWith("@g.us");
-      const payload = {
-        ...processed,
-        message_id: processed.messageId,
-        chat_jid: processed.chatJid,
-        is_from_me: processed.isFromMe ? 1 : 0,
-        media_url: processed.mediaUrl,
-        caption: processed.caption,
-        sender_name: processed.pushName,
-      };
-
-      // Emit untuk UI Chat Utama
-      io.emit(`message:new:${sessionId}`, payload);
-
-      if (!msg.key.fromMe) {
-        io.emit("new_incoming_message", payload);
-      }
-
-      if (isGroupMsg) {
-        io.emit(`group:message:${sessionId}`, payload);
+      if (isMedia) {
         try {
-          const metadata = await sock.groupMetadata(msg.key.remoteJid);
-          await syncGroupMetadata(sessionId, metadata, sock);
-        } catch (err) {}
+          console.log(`📩 Downloading media: ${messageType}...`);
+
+          const buffer = await downloadMediaMessage(
+            msg,
+            "buffer",
+            {},
+            {
+              logger: console,
+              reuploadRequest: sock.updateMediaMessage,
+            },
+          );
+
+          const uploadDir = path.join(process.cwd(), "public", "uploads");
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+
+          // --- PERBAIKAN LOGIKA EKSTENSI FILE ---
+          let extension = "bin"; // default
+          if (messageType === "imageMessage") {
+            extension = "jpg";
+          } else if (messageType === "videoMessage") {
+            extension = "mp4";
+          } else if (messageType === "documentMessage") {
+            const docMsg = msg.message.documentMessage;
+            const fileNameOriginal = docMsg.fileName || "";
+            const mimeType = docMsg.mimetype || "";
+
+            // Ambil ekstensi dari nama file asli, jika gagal gunakan mimetype
+            if (fileNameOriginal.includes(".")) {
+              extension = fileNameOriginal.split(".").pop().toLowerCase();
+            } else if (mimeType === "application/pdf") {
+              extension = "pdf";
+            } else if (mimeType.includes("word")) {
+              extension = "docx";
+            }
+          }
+
+          const fileName = `${Date.now()}_${msg.key.id}.${extension}`;
+          const uploadPath = path.join(uploadDir, fileName);
+
+          fs.writeFileSync(uploadPath, buffer);
+
+          mediaUrl = `/uploads/${fileName}`;
+          console.log(`✅ Media saved: ${mediaUrl}`);
+        } catch (err) {
+          console.error("❌ Gagal download media:", err.message);
+        }
       }
 
-      io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
+      // 3. PROSES PESAN
+      const processed = await processMessage(sessionId, msg, sock);
+
+      if (processed) {
+        // Pastikan mediaUrl masuk ke objek
+        processed.mediaUrl = mediaUrl;
+
+        // Bersihkan nama type
+        processed.messageType =
+          messageType?.replace("Message", "") || processed.messageType;
+
+        // Ambil Caption asli jika ada (Penting untuk Gambar/Dokumen)
+        const caption =
+          msg.message?.[messageType]?.caption ||
+          msg.message?.extendedTextMessage?.text ||
+          processed.content;
+
+        processed.caption = caption;
+
+        // 4. FILTER PESAN PROTOKOL
+        if (
+          processed.messageType === "protocolMessage" ||
+          processed.messageType === "deleted"
+        )
+          continue;
+
+        // 5. SIMPAN KE DATABASE
+        await saveMessage(sessionId, processed);
+        await updateChat(sessionId, processed);
+
+        // 6. NOTIFIKASI REALTIME (Socket.io)
+        const isGroupMsg = msg.key.remoteJid?.endsWith("@g.us");
+        const payload = {
+          ...processed,
+          message_id: processed.messageId,
+          chat_jid: processed.chatJid,
+          is_from_me: processed.isFromMe ? 1 : 0,
+          media_url: processed.mediaUrl,
+          caption: processed.caption,
+          sender_name: processed.pushName,
+        };
+
+        // Emit untuk UI Chat Utama
+        io.emit(`message:new:${sessionId}`, payload);
+
+        if (!msg.key.fromMe) {
+          io.emit("new_incoming_message", payload);
+        }
+
+        if (isGroupMsg) {
+          io.emit(`group:message:${sessionId}`, payload);
+          try {
+            const metadata = await sock.groupMetadata(msg.key.remoteJid);
+            await syncGroupMetadata(sessionId, metadata, sock);
+          } catch (err) {}
+        }
+
+        io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
+      }
     }
-  }
-});
+  });
   // ---- Event: messages.update ----
   sock.ev.on("messages.update", async (updates) => {
     for (const { key, update } of updates) {
@@ -579,14 +581,13 @@ async function processMessage(sessionId, msg, sock) {
     const timestamp = new Date(msg.messageTimestamp * 1000);
 
     const contentType = getContentType(msg.message);
-    
-    // Filter pesan sistem agar tidak nyampah
-    if (!contentType || contentType === 'senderKeyDistributionMessage') return null;
 
-    let messageType = "unknown";
-    let content = ""; 
+    if (!contentType || contentType === "senderKeyDistributionMessage")
+      return null;
+
+    let messageType = "unknown"; // Default ke unknown jika tidak terdaftar di ENUM
+    let content = "";
     let caption = null;
-    let mediaMimeType = null;
     let quotedMessageId = null;
     let quotedContent = null;
 
@@ -596,18 +597,19 @@ async function processMessage(sessionId, msg, sock) {
       quotedMessageId = contextInfo.stanzaId;
       const quotedType = getContentType(contextInfo.quotedMessage);
       const q = contextInfo.quotedMessage[quotedType];
-      quotedContent = typeof q === 'string' ? q : (q?.text || q?.caption || q?.conversation || "[Media]");
+      quotedContent =
+        typeof q === "string"
+          ? q
+          : q?.text || q?.caption || q?.conversation || "[Media]";
     }
 
-    // 2. MAPPING KONTEN (PASTIKAN HANYA AMBIL STRING)
+    // 2. MAPPING KONTEN - WAJIB SESUAI ENUM DATABASE
     switch (contentType) {
       case "conversation":
-        messageType = "text";
-        content = msg.message.conversation;
-        break;
       case "extendedTextMessage":
-        messageType = "text";
-        content = msg.message.extendedTextMessage?.text;
+        messageType = "text"; // Kita paksa ke 'text' agar diterima ENUM
+        content =
+          msg.message.conversation || msg.message.extendedTextMessage?.text;
         break;
       case "imageMessage":
         messageType = "image";
@@ -619,6 +621,31 @@ async function processMessage(sessionId, msg, sock) {
         caption = msg.message.videoMessage?.caption;
         content = caption || "[Video]";
         break;
+      case "audioMessage":
+        messageType = "audio";
+        content = "[Pesan Suara]";
+        break;
+      case "documentMessage":
+        messageType = "document";
+        content = msg.message.documentMessage?.fileName || "[Dokumen]";
+        break;
+      case "stickerMessage":
+        messageType = "sticker";
+        content = "[Stiker]";
+        break;
+      case "locationMessage":
+        messageType = "location";
+        content = "[Lokasi]";
+        break;
+      case "contactMessage":
+      case "contactsArrayMessage":
+        messageType = "contact";
+        content = "[Kontak]";
+        break;
+      case "reactionMessage":
+        messageType = "reaction";
+        content = msg.message.reactionMessage?.text;
+        break;
       case "protocolMessage":
         if (msg.message.protocolMessage?.type === 0) {
           messageType = "deleted";
@@ -628,18 +655,14 @@ async function processMessage(sessionId, msg, sock) {
         }
         break;
       default:
-        // Untuk tipe lain seperti sticker/audio/location
-        messageType = contentType.replace("Message", "");
-        content = `[${messageType}]`;
+        messageType = "unknown"; // Pastikan masuk ke 'unknown' jika tipe aneh muncul
+        content = "[Pesan]";
     }
 
-    // 3. PEMBERSIHAN KRITIKAL (SAT_PAM TEKS)
-    // Jika content ternyata masih objek, ambil properti text-nya atau paksa jadi string kosong
-    if (typeof content === 'object' && content !== null) {
-        content = content.text || content.conversation || "";
+    // 3. PEMBERSIHAN FINAL
+    if (typeof content === "object" && content !== null) {
+      content = content.text || content.conversation || "";
     }
-
-    // Ubah ke string murni dan hapus spasi/line break berlebih
     content = String(content || "").trim();
 
     return {
@@ -648,8 +671,8 @@ async function processMessage(sessionId, msg, sock) {
       chatJid: jid,
       fromJid: jidNormalizedUser(fromJid || jid),
       isFromMe,
-      messageType,
-      content: content, 
+      messageType, // Nilai ini sekarang DIJAMIN ada di list ENUM database
+      content: content,
       caption,
       mediaUrl: null,
       mediaMimeType: msg.message?.[contentType]?.mimetype || null,
