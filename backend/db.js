@@ -198,7 +198,7 @@ async function initDatabase() {
       UNIQUE KEY unique_message (session_id, message_id),
       INDEX idx_chat (session_id, chat_jid),
       INDEX idx_timestamp (timestamp DESC)
-    )`
+    )`,
     // wa_groups
     `CREATE TABLE IF NOT EXISTS wa_groups (
       id INT AUTO_INCREMENT PRIMARY KEY,
