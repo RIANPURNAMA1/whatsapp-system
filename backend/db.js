@@ -170,8 +170,8 @@ async function initDatabase() {
   INDEX idx_session (session_id)
 )`,
 
-    // wa_messages
-    `CREATE TABLE IF NOT EXISTS wa_messages (
+// wa_messages
+`CREATE TABLE IF NOT EXISTS wa_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       session_id VARCHAR(50) NOT NULL,
       message_id VARCHAR(200) NOT NULL,
@@ -179,7 +179,8 @@ async function initDatabase() {
       from_jid VARCHAR(100) NOT NULL,
       to_jid VARCHAR(100) DEFAULT NULL,
       is_from_me TINYINT(1) DEFAULT 0,
-      message_type ENUM('text','image','video','audio','document','sticker','location','contact','reaction','deleted','unknown') DEFAULT 'text',
+      -- DIUBAH DARI ENUM KE VARCHAR AGAR TIDAK ERROR "DATA TRUNCATED"
+      message_type VARCHAR(50) DEFAULT 'text', 
       content TEXT DEFAULT NULL,
       caption TEXT DEFAULT NULL,
       media_url TEXT DEFAULT NULL,
@@ -187,7 +188,8 @@ async function initDatabase() {
       media_file_size BIGINT DEFAULT NULL,
       quoted_message_id VARCHAR(200) DEFAULT NULL,
       quoted_content TEXT DEFAULT NULL,
-  status ENUM('pending','sent','delivered','read','failed','received') DEFAULT 'pending',
+      -- STATUS TETAP ENUM KARENA NILAINYA PASTI (sent, read, dll)
+      status ENUM('pending','sent','delivered','read','failed','received') DEFAULT 'pending',
       is_deleted TINYINT(1) DEFAULT 0,
       timestamp DATETIME NOT NULL,
       raw_data JSON DEFAULT NULL,
@@ -196,8 +198,7 @@ async function initDatabase() {
       UNIQUE KEY unique_message (session_id, message_id),
       INDEX idx_chat (session_id, chat_jid),
       INDEX idx_timestamp (timestamp DESC)
-    )`,
-
+    )`
     // wa_groups
     `CREATE TABLE IF NOT EXISTS wa_groups (
       id INT AUTO_INCREMENT PRIMARY KEY,
