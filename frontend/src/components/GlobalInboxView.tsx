@@ -148,10 +148,21 @@ const GlobalInboxItem: React.FC<{ msg: any, onClick: () => void }> = ({ msg, onC
   const name = msg.display_name || msg.chat_jid.split('@')[0];
 
   // Helper untuk merender isi preview pesan agar tidak muncul [] kosong
+// Helper untuk merender isi preview pesan agar tidak muncul label teknis
   const renderMessagePreview = () => {
     const type = msg.message_type;
-    const content = msg.content || "";
+    let content = msg.content || "";
     const caption = msg.caption || "";
+
+    // --- LOGIKA PEMBERSIH (ADD THIS) ---
+    // Membersihkan teks jika mengandung prefix 'conversation:' atau 'extendedText:'
+    if (typeof content === 'string') {
+      content = content
+        .replace(/^conversation:\s*/i, '')
+        .replace(/^extendedText(Message)?:\s*/i, '')
+        .trim();
+    }
+    // ------------------------------------
 
     if (type === 'text' || !type) {
       return truncate(content || caption || "Pesan kosong", 60);
