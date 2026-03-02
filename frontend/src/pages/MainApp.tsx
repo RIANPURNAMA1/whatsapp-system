@@ -116,6 +116,7 @@ const [activeTab, setActiveTab] = useState<
 
   // Cek apakah user adalah System atau Manager
 const canSeeDashboard = user?.role_type === 'system' || user?.role_type === 'manager';
+const canDashboad = user?.role_type === 'system' || user?.role_type === 'custom';
 const isSystemAdmin = user?.role_type === 'system';
   // logout
   // Fungsi untuk Logout dari Sistem/Aplikasi
@@ -312,7 +313,7 @@ const isSystemAdmin = user?.role_type === 'system';
       )}
 
       {/* GROUP 2: MONITORING - Sekarang bisa diakses Manager */}
-      {canSeeDashboard && (
+      {canDashboad && (
         <NavButton
           icon={<BarChart2 className="w-5 h-5" />}
           active={activeTab === "dashboard"}
