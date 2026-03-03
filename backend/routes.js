@@ -13,6 +13,11 @@ import {
   getSessionInfo, // ⭐ TAMBAHKAN INI
   sessions, // ⭐ TAMBAHKAN INI
 } from "./whatsapp.js";
+import { GoogleGenAI } from "@google/genai";
+
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
 
 const router = express.Router();
 import bcrypt from "bcryptjs";
@@ -975,6 +980,53 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
 //   }
 // });
 
+// analisis AI
+
+router.post("/ai/analyze-dashboard", async (req, res) => {
+  try {
+    const { stats } = req.body;
+
+    if (!stats) {
+      return res.status(400).json({
+        success: false,
+        message: "Data statistik tidak ditemukan",
+      });
+    }
+
+    const prompt = `
+Anda adalah pakar strategi bisnis WhatsApp Marketing.
+
+Analisis data performa hari ini:
+- Total Pesan Masuk: ${stats.pesanMasukToday}
+- Total Pesan Terkirim: ${stats.pesanKeluar}
+- Leads Baru: ${stats.leadMasuk}
+- Leads Aktif: ${stats.leadAktif}
+- Slow Response: ${stats.slowResponse}
+- Chat Belum Terjawab: ${stats.unanswered}
+
+Berikan 3 poin analisis profesional:
+1. Kesimpulan performa saat ini.
+2. Peringatan masalah (jika ada).
+3. Strategi konversi leads.
+`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+
+    res.json({
+      success: true,
+      analysis: response.text,
+    });
+  } catch (error) {
+    console.error("Gemini AI Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
 // GET: Stats Dashboard dengan Role-Based Access Control
 router.get("/stats/dashboard", authenticateToken, async (req, res) => {
   try {
@@ -1089,9 +1141,9 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
       ),
 
       // 5. Lead Masuk
-// CARI BAGIAN QUERY 5 (Lead Masuk) DI BACKEND ANDA, GANTI JADI INI:
-query(
-  `SELECT COUNT(DISTINCT m.chat_jid) AS count 
+      // CARI BAGIAN QUERY 5 (Lead Masuk) DI BACKEND ANDA, GANTI JADI INI:
+      query(
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
    FROM wa_messages m 
    WHERE m.is_from_me = 0 
    AND m.chat_jid NOT LIKE '%@g.us' 
@@ -1102,8 +1154,8 @@ query(
      WHERE older.chat_jid = m.chat_jid 
      AND older.timestamp < m.timestamp -- Perubahan di sini: bandingkan dengan timestamp pesan itu sendiri
    )`,
-  [...sessionParams],
-),
+        [...sessionParams],
+      ),
 
       // 6. Lead Aktif
       query(
@@ -1208,6 +1260,72 @@ router.get("/sessions/:sessionId/stats", async (req, res) => {
 // ===============================================
 // GLOBAL INBOX - MENGAMBIL PESAN TERAKHIR (FIXED)
 // ===============================================
+
+// ===============================================
+// GET: LEADS ONLY - PESAN DARI NOMOR NON-KONTAK
+// ===============================================
+router.get("/chats/leads-only", async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        m.id,
+        m.session_id,
+        m.message_id,
+        m.chat_jid AS remoteJid,
+        m.from_jid,
+        m.message_type,
+        m.content,
+        m.timestamp AS updatedAt,
+        s.name AS session_name,
+        -- Mengambil nama dari raw_data jika tidak ada di wa_contacts
+        -- (Biasanya Baileys menyimpan pushName di dalam JSON raw_data)
+        COALESCE(
+          ct.name, 
+          ct.push_name, 
+          JSON_UNQUOTE(JSON_EXTRACT(m.raw_data, '$.pushName')),
+          m.chat_jid
+        ) AS pushName,
+        ch.unread_count,
+        ct.profile_pic_url
+      FROM wa_messages m
+      INNER JOIN (
+        -- Ambil ID pesan terakhir per chat_jid dan session_id
+        SELECT MAX(id) as last_id
+        FROM wa_messages
+        WHERE chat_jid NOT LIKE '%@g.us' 
+          AND chat_jid NOT LIKE '%@newsletter'
+          AND chat_jid NOT LIKE 'status@broadcast'
+        GROUP BY chat_jid, session_id
+      ) latest ON m.id = latest.last_id
+      LEFT JOIN wa_chats ch ON ch.session_id = m.session_id AND ch.jid = m.chat_jid
+      LEFT JOIN wa_sessions s ON s.id = m.session_id
+      -- Filter: Join ke wa_contacts, ambil yang NULL (artinya tidak ada di kontak)
+      LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
+      WHERE ct.jid IS NULL 
+        AND m.is_from_me = 0 -- Hanya pesan masuk (bukan kita yang mulai duluan)
+        AND (ch.is_group = 0 OR ch.is_group IS NULL)
+      ORDER BY m.timestamp DESC
+      LIMIT 100
+    `;
+
+    const leads = await query(sql);
+
+    // Pastikan unread_count bertipe Number
+    const formattedLeads = leads.map((l) => ({
+      ...l,
+      unread_count: Number(l.unread_count || 0),
+    }));
+
+    res.json({
+      success: true,
+      data: formattedLeads,
+    });
+  } catch (err) {
+    console.error("Leads Query Error:", err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get("/all-global-messages", async (req, res) => {
   try {
     const sql = `

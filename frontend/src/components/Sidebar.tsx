@@ -10,6 +10,7 @@ import {
   PlusCircle,
   LogOut,
   Settings,
+  UserSearch, // Icon tambahan untuk Leads
 } from "lucide-react";
 import NavButton from "./NavButton";
 
@@ -37,14 +38,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const canSeeDashboard =
     user?.role_type === "system" || user?.role_type === "custom";
 
-  /**
-   * FUNGSI KRUSIAL UNTUK HP (VPS DEPLOYMENT):
-   * Menutup sidebar secara otomatis setelah menu diklik
-   */
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
-
-    // Jika lebar layar di bawah 768px (Mobile), tutup sidebar setelah klik
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
@@ -52,10 +47,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* BACKDROP / OVERLAY: 
-        Muncul di HP saat sidebar terbuka. 
-        Jika area gelap diklik, sidebar otomatis slide ke kiri (close).
-      */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300"
@@ -129,6 +120,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 title="Chat WhatsApp"
               />
 
+              {/* MENU BARU: LEADS ONLY */}
+              <NavButton
+                icon={<UserSearch className="w-5 h-5 text-orange-400" />}
+                active={activeTab === "leads-only"}
+                onClick={() => handleNavClick("leads-only")}
+                title="Pesan Leads Baru (Non-Kontak)"
+              />
+
               {canSeeGlobalInbox && (
                 <NavButton
                   icon={<Inbox className="w-5 h-5" />}
@@ -158,11 +157,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* BAGIAN BAWAH: SETTINGS & LOGOUT */}
+        {/* BAGIAN BAWAH */}
         <div className="flex flex-col gap-4 items-center pb-6">
           {isSystemAdmin && (
             <div
-              onClick={() => handleNavClick("settings")} // Pastikan fungsi ini ada
+              onClick={() => handleNavClick("settings")}
               className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-colors group ${
                 activeTab === "settings"
                   ? "bg-[#00a884]/20"
@@ -182,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => {
               onLogout();
-              setIsSidebarOpen(false); // Pastikan sidebar tutup saat logout
+              setIsSidebarOpen(false);
             }}
             className="w-10 h-10 rounded-xl hover:bg-red-500/10 flex items-center justify-center cursor-pointer transition-colors group"
             title="Keluar Aplikasi"

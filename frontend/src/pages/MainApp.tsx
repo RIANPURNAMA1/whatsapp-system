@@ -19,7 +19,8 @@ import StatDashboard from "../components/StatDashboard";
 import RoleManagementView from "../components/RoleManagementView";
 import UserManagementView from "../components/UserManagementView";
 import Sidebar from "../components/Sidebar";
-import { Settings } from "../components/Settings"; // 1. IMPORT KOMPONEN SETTINGS
+import { Settings } from "../components/Settings";
+import LeadsChatList from "../components/LeadsChatList"; // <--- Komponen Baru
 import { Menu } from "lucide-react";
 
 interface UserData {
@@ -34,7 +35,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
   user,
   onLogout,
 }) => {
-  // 1. Store State
+  // 1. Store State (Zustand)
   const {
     activeSession,
     sessions,
@@ -78,6 +79,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
     }
   }, [activeSession?.id, fetchStats]);
 
+  // Jika ada chat terpilih, otomatis pindah ke view chat (Mobile)
   useEffect(() => {
     if (selectedChat) setMobileView("chat");
   }, [selectedChat?.jid]);
@@ -186,7 +188,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
     <div className="h-screen bg-[#0B141A] text-[#E9EDEF] flex overflow-hidden font-sans relative">
       <Toaster position="bottom-right" />
 
-      {/* Sidebar */}
+      {/* Sidebar Navigasi */}
       <Sidebar
         user={user}
         isSystemAdmin={user?.role_type === "system"}
@@ -194,8 +196,11 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
         setActiveTab={(tab: string) => {
           setActiveTab(tab);
           setIsSidebarOpen(false);
-          // Jika pindah tab, kembalikan tampilan mobile ke list
           setMobileView("list");
+          // Bersihkan seleksi chat jika pindah ke menu non-komunikasi
+          if (!["chats", "leads-only", "all-messages"].includes(tab)) {
+            selectChat(null as any);
+          }
         }}
         onLogout={handleSystemLogout}
         isSidebarOpen={isSidebarOpen}
@@ -203,7 +208,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
       />
 
       <main className="flex flex-1 overflow-hidden relative">
-        {/* Konten Full Screen (Tanpa Left Panel) */}
+        {/* --- KATEGORI 1: FULL SCREEN VIEW (Tanpa List di Kiri) --- */}
         {[
           "dashboard",
           "groups",
@@ -212,7 +217,6 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
           "settings",
         ].includes(activeTab) ? (
           <div className="flex flex-1 flex-col overflow-hidden relative">
-            {/* Toggle Sidebar Mobile untuk tab full screen */}
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="md:hidden absolute top-4 left-4 z-40 p-2 bg-[#202C33] rounded-lg border border-[#313D45] text-[#00a884]"
@@ -226,22 +230,18 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
             )}
             {activeTab === "role-management" && <RoleManagementView />}
             {activeTab === "user-management" && <UserManagementView />}
-
-            {/* 2. LOGIKA RENDER HALAMAN SETTINGS */}
             {activeTab === "settings" && (
-              <Settings
-                // Opsional: Jika ingin tombol back di settings berfungsi
-                onBack={() => setActiveTab("chats")}
-              />
+              <Settings onBack={() => setActiveTab("chats")} />
             )}
           </div>
         ) : (
-          /* Konten Standard (Split Screen: List + Chat) */
+          /* --- KATEGORI 2: SPLIT SCREEN VIEW (List + Chat Window) --- */
           <>
+            {/* PANEL KIRI: Daftar Chat / Pesan */}
             <section
               className={`${mobileView === "chat" ? "hidden" : "flex"} md:flex flex-col w-full md:w-[380px] lg:w-[420px] bg-[#111B21] border-r border-[#222d34] z-20`}
             >
-              {/* Mobile Header */}
+              {/* Mobile Header Custom */}
               <div className="md:hidden flex items-center p-4 border-b border-[#222d34] bg-[#202C33] gap-4">
                 <button
                   onClick={() => setIsSidebarOpen(true)}
@@ -249,11 +249,16 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
                 >
                   <Menu size={24} />
                 </button>
-                <h1 className="font-bold text-lg capitalize">{activeTab}</h1>
+                <h1 className="font-bold text-lg capitalize">
+                  {activeTab === "leads-only" ? "Leads Baru" : activeTab}
+                </h1>
               </div>
 
               <div className="flex-1 overflow-hidden flex flex-col">
+                {/* View Pesan Global */}
                 {activeTab === "all-messages" && <GlobalInboxView />}
+
+                {/* View Chat WhatsApp Normal */}
                 {activeTab === "chats" &&
                   (isConnected ? (
                     <ChatList sessionId={activeSession?.id || ""} />
@@ -262,6 +267,23 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
                       onManageDevices={() => setActiveTab("devices")}
                     />
                   ))}
+
+                {/* View LEADS ONLY (Nomor Non-Kontak) */}
+                {activeTab === "leads-only" && (
+                  <LeadsChatList
+                    isDarkMode={true}
+                    onSelectChat={(jid) => {
+                      // Saat lead diklik, set sebagai chat aktif
+                      selectChat({
+                        jid: jid,
+                        session_id: activeSession?.id || "default",
+                        display_name: jid.split("@")[0],
+                      } as any);
+                    }}
+                  />
+                )}
+
+                {/* View Manajemen Perangkat */}
                 {activeTab === "devices" && (
                   <DevicePanel
                     sessions={sessions}
@@ -280,6 +302,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
               </div>
             </section>
 
+            {/* PANEL KANAN: Jendela Percakapan */}
             <section
               className={`${mobileView === "list" ? "hidden" : "flex"} md:flex flex-1 flex-col bg-[#0B141A] z-10`}
             >
@@ -292,7 +315,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
         )}
       </main>
 
-      {/* Modals */}
+      {/* MODALS AREA */}
       {showQRModal && (
         <QRModal
           sessionId={addDeviceSessionId || currentSessionId}
