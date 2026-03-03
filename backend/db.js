@@ -11,7 +11,6 @@ const db = mysql.createPool({
   waitForConnections: true,
   connectionLimit: Number(process.env.DB_CONNECTION_LIMIT) || 10,
   queueLimit: 0,
-
 });
 
 // Status kontrol agar tidak balapan (Race Condition)
@@ -148,8 +147,8 @@ async function initDatabase() {
       INDEX idx_jid (jid)
     )`,
 
-   // wa_chats
-`CREATE TABLE IF NOT EXISTS wa_chats (
+    // wa_chats
+    `CREATE TABLE IF NOT EXISTS wa_chats (
   id INT AUTO_INCREMENT PRIMARY KEY,
   session_id VARCHAR(50) NOT NULL,
   jid VARCHAR(100) NOT NULL,
@@ -170,8 +169,8 @@ async function initDatabase() {
   INDEX idx_session (session_id)
 )`,
 
-// wa_messages
-`CREATE TABLE IF NOT EXISTS wa_messages (
+    // wa_messages
+    `CREATE TABLE IF NOT EXISTS wa_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       session_id VARCHAR(50) NOT NULL,
       message_id VARCHAR(200) NOT NULL,
@@ -262,15 +261,8 @@ async function initDatabase() {
     await db.promise().query(`
   INSERT IGNORE INTO sys_roles (id, name, type, description) VALUES 
   (1, 'Super Admin', 'system', 'Akses penuh ke seluruh sistem'),
-  (2, 'Pusat', 'manager', 'Akses tingkat manajer untuk operasional pusat'),
   (3, 'Cabang', 'custom', 'Akses terbatas pada session yang didaftarkan')
 `);
-
-    // 2. Insert Default Session
-    await db.promise().query(`
-      INSERT IGNORE INTO wa_sessions (id, name, status) 
-      VALUES ('default', 'Session Utama', 'disconnected')
-    `);
 
     // 3. Insert Default Labels
     const defaultLabels = [

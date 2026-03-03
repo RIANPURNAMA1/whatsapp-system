@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
-import { MainApp } from './pages/MainApp';
-import LoginPage from './components/LoginPage';
+import { MainApp } from "./pages/MainApp";
+import LoginPage from "./components/LoginPage";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  
+
   const socketRef = useRef<Socket | null>(null);
   const lastSpeakTime = useRef<number>(0);
 
@@ -15,9 +15,9 @@ function App() {
   const handleLogin = (userData: any) => {
     // Simpan token jika tersedia agar sesi tidak hilang saat refresh
     if (userData.token) {
-      localStorage.setItem('token', userData.token);
+      localStorage.setItem("token", userData.token);
     }
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
     setIsLoggedIn(true);
     console.log("Login sukses! Monitoring aktivitas dimulai...");
@@ -25,11 +25,11 @@ function App() {
 
   const handleLogout = useCallback(() => {
     console.warn("Logout otomatis dipicu karena tidak ada aktivitas.");
-    
+
     // 1. Bersihkan Storage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
     // 2. Putus Koneksi Socket
     if (socketRef.current) {
       socketRef.current.disconnect();
@@ -46,12 +46,12 @@ function App() {
     if (!isLoggedIn) return;
 
     let timer: ReturnType<typeof setTimeout>;
-    
-    // --- DIUBAH MENJADI 5 DETIK ---
-    const TIMEOUT_DURATION = 50000; 
+
+    // 1 jam = 60 menit * 60 detik * 1000 ms
+    const TIMEOUT_DURATION = 3600000;
 
     const resetTimer = () => {
-      // console.log("Aktivitas terdeteksi, timer direset."); 
+      // console.log("Aktivitas terdeteksi, timer direset.");
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         handleLogout();
@@ -59,10 +59,16 @@ function App() {
     };
 
     // Daftar aktivitas yang dipantau (gerakan mouse, klik, ketik, scroll)
-    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    
+    const activityEvents = [
+      "mousedown",
+      "mousemove",
+      "keypress",
+      "scroll",
+      "touchstart",
+    ];
+
     // Pasang event listener ke window
-    activityEvents.forEach(event => {
+    activityEvents.forEach((event) => {
       window.addEventListener(event, resetTimer, true);
     });
 
@@ -71,7 +77,7 @@ function App() {
 
     return () => {
       if (timer) clearTimeout(timer);
-      activityEvents.forEach(event => {
+      activityEvents.forEach((event) => {
         window.removeEventListener(event, resetTimer, true);
       });
     };
@@ -85,9 +91,13 @@ function App() {
     synth.cancel();
     const msg = new SpeechSynthesisUtterance("Ada pesan masuk, cek sekarang");
     const voices = synth.getVoices();
-    const googleVoice = voices.find(v => (v.name.includes("Google") || v.name.includes("Indonesian")) && v.lang === "id-ID");
+    const googleVoice = voices.find(
+      (v) =>
+        (v.name.includes("Google") || v.name.includes("Indonesian")) &&
+        v.lang === "id-ID",
+    );
     if (googleVoice) msg.voice = googleVoice;
-    msg.lang = 'id-ID';
+    msg.lang = "id-ID";
     synth.speak(msg);
     lastSpeakTime.current = now;
   };
@@ -98,7 +108,7 @@ function App() {
 
     const apiUrl = import.meta.env.VITE_SOCKET_URL;
     socketRef.current = io(apiUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ["websocket", "polling"],
       reconnection: true,
     });
 
@@ -113,8 +123,8 @@ function App() {
 
   // --- INITIAL SESSION CHECK ---
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
+    const token = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
 
     if (token && savedUser) {
       try {

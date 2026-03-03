@@ -10,6 +10,8 @@ import {
   ChevronDown,
   Loader2,
   ArrowLeft,
+  FileText,
+  Image as ImageIcon,
 } from "lucide-react";
 import useStore from "../store/useStore";
 import Avatar from "./Avatar";
@@ -58,7 +60,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewCaption, setPreviewCaption] = useState("");
-  // Polling logic
+
+  // --- LOGIC: Polling & Fetching ---
   useEffect(() => {
     if (!sessionId || !selectedChat) return;
     const pollInterval = setInterval(async () => {
@@ -71,7 +74,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     return () => clearInterval(pollInterval);
   }, [sessionId, selectedChat?.jid, fetchMessages]);
 
-  // Initial Load
   useEffect(() => {
     if (selectedChat && sessionId) {
       fetchMessages(sessionId, selectedChat.jid);
@@ -80,131 +82,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [selectedChat?.jid, sessionId, fetchMessages, resetUnread]);
 
+  // --- LOGIC: Scrolling ---
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior });
       setShowScrollBtn(false);
     }
   }, []);
-
-  useEffect(() => {
-    if (messages.length > 0 && !isLoadingMore) {
-      const container = messagesContainerRef.current;
-      if (container) {
-        const isNearBottom =
-          container.scrollHeight -
-            container.scrollTop -
-            container.clientHeight <
-          400;
-        if (isNearBottom) {
-          setTimeout(() => scrollToBottom("smooth"), 100);
-        }
-      }
-    }
-  }, [messages.length, isLoadingMore, scrollToBottom]);
-
-  // 1. Tambahkan fungsi handler untuk file
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type.startsWith("image/")) {
-      const url = URL.createObjectURL(file);
-      setPreviewFile(file);
-      setPreviewUrl(url);
-      setPreviewCaption(""); // Reset caption
-    } else {
-      // Jika bukan gambar (PDF/Doc), bisa langsung kirim atau buat preview berbeda
-      handleSendMedia(file, "document", file.name);
-    }
-  };
-
-  const handleSendMedia = async (file: File, type: string, caption: string) => {
-    if (!selectedChat || !sessionId) return;
-
-    setIsSending(true);
-    try {
-      const response = await messageApi.sendMedia(
-        sessionId,
-        selectedChat.jid,
-        file,
-        type,
-        caption,
-      );
-
-      if (response.success) {
-        toast.success(
-          `${type === "image" ? "Gambar" : "File"} berhasil dikirim`,
-        );
-        // Refresh pesan agar yang baru dikirim muncul di chat
-        fetchMessages(sessionId, selectedChat.jid);
-        scrollToBottom("smooth");
-      }
-    } catch (err) {
-      console.error("Error sending media:", err);
-      toast.error("Gagal mengirim media");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
- const handleSendPreview = async () => {
-  if (!previewFile || !selectedChat || !sessionId) return;
-
-  const fileToSend = previewFile;
-  const caption = previewCaption;
-  const chatJid = selectedChat.jid;
-
-  cancelPreview(); // Tutup modal preview
-
-  try {
-    setIsSending(true);
-    const response = await messageApi.sendMedia(
-      sessionId,
-      chatJid,
-      fileToSend,
-      "image",
-      caption || fileToSend.name
-    );
-
-    if (response.success) {
-      // --- TAMBAHKAN LOGIKA OPTIMISTIC UPDATE DI SINI ---
-      const newMessage = {
-        ...response.data, // Data dari backend (message_id, dll)
-        chat_jid: chatJid,
-        message_type: "image",
-        content: caption || "Images",
-        caption: caption,
-        media_url: response.data.media_url, // URL yang baru disimpan di backend
-        is_from_me: 1,
-        timestamp: new Date().toISOString(),
-        status: "sent",
-      };
-
-      addMessage(newMessage); // Tambah ke store agar langsung muncul di UI
-      
-      updateChat(chatJid, {
-        last_message: "📷 Gambar",
-        last_message_time: newMessage.timestamp,
-        last_message_from: "me",
-      });
-
-      setTimeout(() => scrollToBottom("smooth"), 100);
-    }
-  } catch (err) {
-    console.error("Gagal kirim gambar:", err);
-    toast.error("Gagal mengirim gambar");
-  } finally {
-    setIsSending(false);
-  }
-};
-
-  const cancelPreview = () => {
-    setPreviewFile(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-    setPreviewCaption("");
-  };
 
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -226,6 +110,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [hasMoreMessages, isLoadingMore, selectedChat, sessionId, fetchMessages]);
 
+  // --- LOGIC: Sending Messages ---
   const handleSend = async () => {
     if (!inputText.trim() || !selectedChat || isSending) return;
     const text = inputText.trim();
@@ -241,7 +126,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         text,
         replyTo?.message_id,
       );
-
       if (response.success) {
         const newMessage = {
           ...response.data,
@@ -257,7 +141,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           last_message_time: newMessage.timestamp,
           last_message_from: "me",
         });
-        scrollToBottom("smooth");
+        setTimeout(() => scrollToBottom("smooth"), 100);
       }
     } catch (err) {
       toast.error("Gagal mengirim pesan");
@@ -268,52 +152,71 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+  // --- LOGIC: Media Handling ---
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setPreviewFile(file);
+      setPreviewUrl(url);
+    } else {
+      handleSendMedia(file, "document", file.name);
     }
   };
 
+  const handleSendMedia = async (file: File, type: string, caption: string) => {
+    if (!selectedChat || !sessionId) return;
+    setIsSending(true);
+    try {
+      const response = await messageApi.sendMedia(
+        sessionId,
+        selectedChat.jid,
+        file,
+        type,
+        caption,
+      );
+      if (response.success) {
+        toast.success("File dikirim");
+        fetchMessages(sessionId, selectedChat.jid);
+        scrollToBottom("smooth");
+      }
+    } catch (err) {
+      toast.error("Gagal mengirim file");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSendPreview = async () => {
+    if (!previewFile || !selectedChat) return;
+    const file = previewFile;
+    const cap = previewCaption;
+    cancelPreview();
+    await handleSendMedia(file, "image", cap);
+  };
+
+  const cancelPreview = () => {
+    setPreviewFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setPreviewCaption("");
+  };
+
   if (!selectedChat) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0B141A] border-l border-[#222d34] h-full">
-        <div className="w-32 h-32 bg-[#202C33] rounded-full flex items-center justify-center shadow-2xl mb-8 relative">
-          <div className="absolute inset-0 rounded-full bg-[#00a884] opacity-5 animate-ping" />
-          <svg
-            className="w-16 h-16 text-[#00a884]"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-            />
-          </svg>
-        </div>
-        <h2 className="text-[#E9EDEF] text-3xl font-bold tracking-tight text-center px-4">
-          Ke Satu <span className="text-[#00a884]">Pintu</span>
-        </h2>
-        <p className="text-[#8696A0] text-sm mt-4 text-center px-6">
-          Hubungkan interaksi Anda dalam satu kendali terpusat.
-        </p>
-      </div>
-    );
+    return <WelcomeScreen />;
   }
 
   const displayName = getDisplayName(selectedChat);
 
   return (
-    /* Perbaikan: Menggunakan h-[100dvh] agar pas di layar mobile browser */
-    <div className="flex-1 flex flex-col bg-[#0B141A] relative overflow-hidden h-[100dvh] w-full">
-      {/* Header: Ditambahkan flex-none agar tidak mengecil saat chat penuh */}
-      <div className="flex-none bg-[#202C33] px-2 md:px-4 py-2 flex items-center gap-1 md:gap-3 border-b border-[#111B21] z-20 min-h-[60px]">
+    <div className="flex-1 flex flex-col bg-[#0B141A] h-[100dvh] w-full relative overflow-hidden">
+      {/* HEADER: Dibuat Flex-None agar tidak mengecil/tergeser */}
+      <div className="flex-none h-[60px] md:h-[65px] bg-[#202C33] px-3 md:px-4 flex items-center gap-2 border-b border-[#111B21] z-20">
+        {/* Tombol Back di Header hanya muncul di Desktop/Tablet */}
         <button
           onClick={onBack}
-          className="md:hidden p-2 text-[#8696A0] hover:bg-[#2A3942] rounded-full transition-colors shrink-0"
+          className="hidden md:flex p-2 text-[#8696A0] hover:bg-[#2A3942] rounded-full"
         >
           <ArrowLeft className="w-6 h-6" />
         </button>
@@ -326,33 +229,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         />
 
         <div className="flex-1 min-w-0 ml-1">
-          <p className="text-[#E9EDEF] font-medium text-[15px] truncate leading-tight">
+          <p className="text-[#E9EDEF] font-medium text-[15px] truncate">
             {displayName}
           </p>
-          <p className="text-[#8696A0] text-[11px] truncate uppercase tracking-widest mt-0.5 font-semibold">
+          <p className="text-[#00a884] text-[11px] font-bold uppercase tracking-widest">
             Online
           </p>
         </div>
 
-        <div className="flex items-center shrink-0">
-          <button className="p-2 text-[#8696A0] hover:text-white transition-colors">
+        <div className="flex items-center">
+          <button className="p-2 text-[#8696A0] hover:text-white">
             <Search className="w-5 h-5" />
           </button>
-          <button className="p-2 text-[#8696A0] hover:text-white transition-colors">
+          <button className="p-2 text-[#8696A0] hover:text-white">
             <MoreVertical className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      {/* Chat Messages: flex-1 mengambil sisa ruang antara header dan input */}
+      {/* MESSAGES AREA */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-[#0B141A] relative scroll-smooth"
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-[#0B141A] relative"
         style={{
-          backgroundImage: `linear-gradient(rgba(11, 20, 26, 0.96), rgba(11, 20, 26, 0.96)), url('/bg-chat.png')`,
+          backgroundImage: `linear-gradient(rgba(11, 20, 26, 0.97), rgba(11, 20, 26, 0.97)), url('/bg-chat.png')`,
           backgroundSize: "400px",
-          backgroundRepeat: "repeat",
         }}
       >
         {isLoadingMessages && messages.length === 0 ? (
@@ -368,16 +270,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   msg.timestamp,
                 )) && (
                 <div className="flex justify-center my-4">
-                  <span className="bg-[#182229] text-[#8696A0] text-[11px] px-3 py-1 rounded-full uppercase tracking-wider">
+                  <span className="bg-[#182229] text-[#8696A0] text-[11px] px-3 py-1 rounded-md uppercase">
                     {formatDateSeparator(msg.timestamp)}
                   </span>
                 </div>
               )}
               <MessageBubble
                 message={msg}
-                showAvatar={
-                  isGroupJid(selectedChat.jid) && Number(msg.is_from_me) !== 1
-                }
+                isGroup={isGroupJid(selectedChat.jid)}
                 onReply={() => setReplyTo(msg)}
               />
             </React.Fragment>
@@ -386,20 +286,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Button Scroll Ke Bawah */}
+      {/* SCROLL TO BOTTOM BUTTON */}
       {showScrollBtn && (
         <button
           onClick={() => scrollToBottom()}
-          className="absolute bottom-28 right-6 w-10 h-10 bg-[#202C33] rounded-full shadow-lg flex items-center justify-center text-[#8696A0] border border-[#2A3942] z-30 hover:text-white transition-all active:scale-90"
+          className="absolute bottom-24 right-6 w-10 h-10 bg-[#202C33] rounded-full shadow-lg flex items-center justify-center text-[#8696A0] border border-[#2A3942] z-30"
         >
           <ChevronDown className="w-6 h-6" />
         </button>
       )}
 
-      {/* Input Area: flex-none agar tetap di posisi bawah */}
+      {/* INPUT AREA: Pindah tombol Back ke sini untuk Mobile */}
       <div className="flex-none bg-[#202C33] flex flex-col border-t border-[#111B21] pb-safe">
         {replyTo && (
-          <div className="px-4 py-2 flex items-center gap-3 bg-[#1e272d] border-l-4 border-[#00a884] animate-in slide-in-from-bottom-2">
+          <div className="mx-2 mt-2 px-4 py-2 flex items-center gap-3 bg-[#1e272d] border-l-4 border-[#00a884] rounded-t-lg">
             <div className="flex-1 truncate">
               <p className="text-[#00a884] text-xs font-bold">
                 {Number(replyTo.is_from_me) === 1
@@ -410,22 +310,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 {replyTo.content}
               </p>
             </div>
-            <button
-              onClick={() => setReplyTo(null)}
-              className="p-1 hover:bg-[#2a3942] rounded-full"
-            >
+            <button onClick={() => setReplyTo(null)} className="p-1">
               <X className="w-4 h-4 text-[#8696A0]" />
             </button>
           </div>
         )}
 
-        <div className="px-2 md:px-3 py-2 flex items-end gap-1 md:gap-2">
-          <button className="p-2 text-[#8696A0] hover:text-white shrink-0">
+        <div className="px-2 py-2 flex items-end gap-1 md:gap-2">
+          {/* TOMBOL KEMBALI (Back) MOBILE: Di samping kiri input */}
+          <button
+            onClick={onBack}
+            className="md:hidden p-2.5 text-[#8696A0] hover:bg-[#2A3942] rounded-full transition-colors mb-1 shrink-0"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+
+          <button className="p-2.5 text-[#8696A0] hover:text-white mb-1">
             <Smile className="w-6 h-6" />
           </button>
+
           <button
-            className="p-2 text-[#8696A0] hover:text-white shrink-0"
             onClick={() => fileInputRef.current?.click()}
+            className="p-2.5 text-[#8696A0] hover:text-white mb-1"
           >
             <Paperclip className="w-6 h-6" />
           </button>
@@ -433,8 +339,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept="image/*, .pdf, .doc, .docx, .xls, .xlsx" // Batasi tipe file jika perlu
-            onChange={handleFileChange} // <--- Hubungkan ke fungsi baru
+            accept="image/*,.pdf,.doc,.docx"
+            onChange={handleFileChange}
           />
 
           <div className="flex-1 bg-[#2A3942] rounded-xl overflow-hidden mb-1">
@@ -447,9 +353,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 e.target.style.height =
                   Math.min(e.target.scrollHeight, 120) + "px";
               }}
-              onKeyDown={handleKeyDown}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
               placeholder="Ketik pesan"
-              className="w-full bg-transparent text-[#E9EDEF] px-4 py-2.5 outline-none resize-none text-[15px] min-h-[40px] max-h-[120px]"
+              className="w-full bg-transparent text-[#E9EDEF] px-4 py-2.5 outline-none resize-none text-[15px] min-h-[42px] max-h-[120px]"
               rows={1}
             />
           </div>
@@ -467,10 +378,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </button>
         </div>
       </div>
-      {/* MODAL PREVIEW GAMBAR (ALA WHATSAPP) */}
+
+      {/* PREVIEW MODAL */}
       {previewUrl && (
         <div className="absolute inset-0 z-[100] bg-[#0B141A] flex flex-col animate-in fade-in zoom-in duration-200">
-          {/* Header Preview */}
           <div className="flex items-center p-4 gap-4 bg-[#202C33]">
             <button
               onClick={cancelPreview}
@@ -480,8 +391,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </button>
             <span className="text-[#E9EDEF] font-medium">Preview Gambar</span>
           </div>
-
-          {/* Area Gambar */}
           <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
             <img
               src={previewUrl}
@@ -489,73 +398,63 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               className="max-w-full max-h-full object-contain shadow-2xl"
             />
           </div>
-
-          {/* Input Caption & Tombol Kirim */}
-          <div className="bg-[#111B21] p-4 flex flex-col gap-4">
-            <div className="flex items-center gap-3 bg-[#2A3942] rounded-xl px-4 py-2">
-              <textarea
-                placeholder="Tambahkan keterangan..."
-                className="flex-1 bg-transparent text-[#E9EDEF] outline-none resize-none text-[15px] py-1"
-                rows={1}
-                value={previewCaption}
-                onChange={(e) => setPreviewCaption(e.target.value)}
-                autoFocus
-              />
-            </div>
-
-            <div className="flex justify-end items-center">
-              <button
-                onClick={handleSendPreview}
-                disabled={isSending}
-                className="w-14 h-14 bg-[#00a884] rounded-full flex items-center justify-center text-[#111B21] shadow-lg hover:scale-105 active:scale-95 transition-all"
-              >
-                {isSending ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  <Send className="w-6 h-6 ml-1" />
-                )}
-              </button>
-            </div>
+          <div className="bg-[#111B21] p-4 flex items-center gap-3">
+            <input
+              className="flex-1 bg-[#2A3942] text-[#E9EDEF] rounded-xl px-4 py-3 outline-none"
+              placeholder="Tambahkan keterangan..."
+              value={previewCaption}
+              onChange={(e) => setPreviewCaption(e.target.value)}
+            />
+            <button
+              onClick={handleSendPreview}
+              className="w-14 h-14 bg-[#00a884] rounded-full flex items-center justify-center text-[#111B21] shadow-lg"
+            >
+              <Send className="w-6 h-6 ml-1" />
+            </button>
           </div>
         </div>
       )}
     </div>
   );
 };
-const MessageBubble = ({ message, showAvatar, onReply }: any) => {
-  const isFromMe = Number(message.is_from_me) === 1;
 
-  // 1. Ambil URL Base dari ENV Vite
-  // Kita hapus '/api' jika ada, karena kita butuh akses ke folder /uploads
+// --- SUB-COMPONENT: Welcome Screen ---
+const WelcomeScreen = () => (
+  <div className="flex-1 flex flex-col items-center justify-center bg-[#0B141A] border-l border-[#222d34] h-full">
+    <div className="w-32 h-32 bg-[#202C33] rounded-full flex items-center justify-center shadow-2xl mb-8">
+      <ImageIcon className="w-16 h-16 text-[#00a884] opacity-20" />
+    </div>
+    <h2 className="text-[#E9EDEF] text-3xl font-bold">
+      Ke Satu <span className="text-[#00a884]">Pintu</span>
+    </h2>
+    <p className="text-[#8696A0] text-sm mt-4">
+      Pilih percakapan untuk memulai chat.
+    </p>
+  </div>
+);
+
+// --- SUB-COMPONENT: Message Bubble ---
+const MessageBubble = ({ message, isGroup, onReply }: any) => {
+  const isFromMe = Number(message.is_from_me) === 1;
   const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
 
-  const isImage = message.message_type === "image";
-  const isDocument = message.message_type === "document";
-
-  // 2. Fungsi helper untuk format URL Media
   const getMediaUrl = (path: string) => {
     if (!path) return "";
-    if (path.startsWith("http")) return path;
-    // Gabungkan URL socket (backend) dengan path uploads
-    return `${BASE_URL}${path}`;
+    return path.startsWith("http") ? path : `${BASE_URL}${path}`;
   };
 
   return (
     <div
-      className={`flex items-end gap-2 mb-1 ${
-        isFromMe
-          ? "justify-end"
-          : "justify-start animate-in fade-in slide-in-from-left-2"
-      }`}
+      className={`flex items-end gap-2 mb-1 ${isFromMe ? "justify-end" : "justify-start"}`}
     >
-      {showAvatar && <Avatar name={message.sender_name} size="sm" />}
+      {!isFromMe && isGroup && <Avatar name={message.sender_name} size="sm" />}
 
       <div
         className={`group relative max-w-[85%] md:max-w-[75%] rounded-lg shadow-sm ${
           isFromMe
             ? "bg-[#005C4B] rounded-tr-none"
             : "bg-[#202C33] rounded-tl-none"
-        } ${isImage ? "p-1" : "px-2.5 py-1.5"}`}
+        } ${message.message_type === "image" ? "p-1" : "px-2.5 py-1.5"}`}
       >
         <button
           onClick={onReply}
@@ -564,90 +463,50 @@ const MessageBubble = ({ message, showAvatar, onReply }: any) => {
           <Reply className="w-3 h-3 text-[#8696A0]" />
         </button>
 
-        {message.quoted_content && (
-          <div className="bg-black/20 border-l-4 border-[#00a884] p-2 rounded mb-1 text-[11px]">
-            <p className="text-[#00a884] font-bold">Dikutip</p>
-            <p className="text-[#8696A0] line-clamp-2 italic">
-              {message.quoted_content}
-            </p>
-          </div>
+        {message.message_type === "image" && (
+          <img
+            src={getMediaUrl(message.media_url)}
+            className="max-h-[300px] w-full object-cover rounded-md cursor-pointer"
+            onClick={() =>
+              window.open(getMediaUrl(message.media_url), "_blank")
+            }
+          />
         )}
 
-        {/* TAMPILAN JIKA GAMBAR */}
-        {isImage && (
-          <div className="relative mb-1 overflow-hidden rounded-md">
-            <img
-              src={getMediaUrl(message.media_url)}
-              alt="Sent Media"
-              className="max-h-[300px] w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
-              onClick={() =>
-                window.open(getMediaUrl(message.media_url), "_blank")
-              }
-              onError={(e: any) => {
-                e.target.onerror = null;
-                e.target.src =
-                  "https://placehold.co/400x300?text=Gambar+Rusak/Proses";
-              }}
-            />
-          </div>
-        )}
-
-        {/* TAMPILAN JIKA DOKUMEN */}
-        {isDocument && (
+        {message.message_type === "document" && (
           <div
-            className="flex items-center gap-3 bg-[#111B21]/50 p-3 rounded-md mb-1 cursor-pointer"
+            className="flex items-center gap-3 bg-black/20 p-3 rounded-md cursor-pointer"
             onClick={() =>
               window.open(getMediaUrl(message.media_url), "_blank")
             }
           >
-            <div className="bg-[#182229] p-2 rounded">
-              <Paperclip className="w-5 h-5 text-[#8696A0]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[#E9EDEF] text-[13px] truncate">
-                {message.content || "Document"}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* TEKS PESAN / CAPTION */}
-        {/* Filter: Jangan tampilkan teks jika isinya cuma "Images" atau "Foto" */}
-        {/* TEKS PESAN / CAPTION */}
-        {!isDocument && (
-          <div className="px-1">
-            {/* 1. Tampilkan Caption jika ada (untuk gambar) */}
-            {message.caption &&
-              !["Images", "Foto", "[Foto]"].includes(message.caption) && (
-                <p className="text-[#E9EDEF] text-[14.5px] leading-relaxed whitespace-pre-wrap break-words">
-                  {message.caption}
-                </p>
-              )}
-
-            {/* 2. Tampilkan Content jika bukan caption dan bukan placeholder "Images" */}
-            {message.content &&
-              message.content !== message.caption &&
-              !["Images", "Foto", "[Foto]"].includes(message.content) && (
-                <p className="text-[#E9EDEF] text-[14.5px] leading-relaxed whitespace-pre-wrap break-words">
-                  {message.content}
-                </p>
-              )}
-          </div>
-        )}
-
-        <div
-          className={`flex items-center justify-end gap-1 mt-0.5 h-4 ${isImage ? "px-1" : ""}`}
-        >
-          <span className="text-[#8696A0] text-[9px] tabular-nums">
-            {formatMessageTime(message.timestamp)}
-          </span>
-          {isFromMe && (
-            <span
-              className={`text-[12px] ${message.status === "read" ? "text-[#53BDEB]" : "text-[#8696A0]"}`}
-            >
-              {message.status === "read" ? "✓✓" : "✓"}
+            <FileText className="w-6 h-6 text-[#8696A0]" />
+            <span className="text-xs truncate text-[#E9EDEF]">
+              {message.content || "Dokumen"}
             </span>
-          )}
+          </div>
+        )}
+
+        <div className="px-1 mt-1">
+          <p className="text-[#E9EDEF] text-[14.5px] leading-relaxed break-words whitespace-pre-wrap">
+            {message.caption || message.content}
+          </p>
+          <div className="flex items-center justify-end gap-1 h-4">
+            <span className="text-[#8696A0] text-[9px]">
+              {formatMessageTime(message.timestamp)}
+            </span>
+            {isFromMe && (
+              <span
+                className={
+                  message.status === "read"
+                    ? "text-[#53BDEB]"
+                    : "text-[#8696A0]"
+                }
+              >
+                {message.status === "read" ? "✓✓" : "✓"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

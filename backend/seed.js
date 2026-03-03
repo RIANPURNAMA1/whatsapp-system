@@ -35,7 +35,7 @@ async function seed() {
             `INSERT INTO sys_roles (name, description, type) 
              VALUES (?, ?, ?) 
              ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)`,
-            ['Manager Cabang', 'Mengelola tim dan melihat dashboard cabang', 'manager']
+            ['Pusat', 'Mengelola tim dan melihat dashboard cabang', 'manager']
         );
         const managerRoleId = managerRoleResult.insertId;
         console.log(`✅ Role 'Manager' siap (ID: ${managerRoleId})`);
@@ -49,17 +49,6 @@ async function seed() {
              full_name = VALUES(full_name),
              role_id = VALUES(role_id)`,
             ['admin', hashedPassword, 'Administrator System', adminRoleId, 'Head Office']
-        );
-
-        // --- 4. SEED USER MANAGER (Contoh) ---
-        await connection.execute(
-            `INSERT INTO wa_users (username, password, full_name, role_id, branch) 
-             VALUES (?, ?, ?, ?, ?) 
-             ON DUPLICATE KEY UPDATE 
-             password = VALUES(password), 
-             full_name = VALUES(full_name),
-             role_id = VALUES(role_id)`,
-            ['manager1', hashedPassword, 'Manager Area Barat', managerRoleId, 'Cabang Jakarta']
         );
 
         console.log("\n---");

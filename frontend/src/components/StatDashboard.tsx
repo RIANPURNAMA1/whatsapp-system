@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   MessageSquare,
   Users,
@@ -10,57 +10,20 @@ import {
   Activity,
   ChevronDown,
   Loader2,
-  Calendar,
+  RotateCcw,
+  Moon,
+  Sun,
 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
+import useStore from "../store/useStore"; // <--- Import Store
+import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
+import LiveFeed from "./LiveChatFeed";
+import StatCard from "./StatCard";
 
-// --- Komponen Sub: Kartu Statistik ---
-const StatCard = ({
-  title,
-  value,
-  subValue,
-  icon: Icon,
-  color = "text-blue-400",
-}: any) => (
-  <div className="bg-[#202C33] border border-[#313D45] p-5 rounded-xl flex flex-col justify-between hover:border-[#41525d] transition-all shadow-sm group">
-    <div className="flex justify-between items-start">
-      <h3 className="text-[#8696A0] text-[10px] font-bold uppercase tracking-[0.1em]">
-        {title}
-      </h3>
-      <div
-        className={`${color} p-2 rounded-lg bg-[#0B141A]/50 group-hover:scale-110 transition-transform`}
-      >
-        {Icon && <Icon size={18} />}
-      </div>
-    </div>
-    <div className="mt-4">
-      <div className="text-3xl font-black text-white">
-        {(value || 0).toLocaleString("id-ID")}
-      </div>
-      {subValue && (
-        <div className="text-[10px] text-[#8696A0] mt-1 font-medium">
-          {subValue}
-        </div>
-      )}
-    </div>
-  </div>
-);
+interface StatDashboardProps {
+  onOpenChat?: () => void;
+  stats?: any;
+}
 
-const API_URL = `${import.meta.env.VITE_API_URL}/stats/dashboard`;
 const FILTER_MAP: Record<string, string> = {
   "Hari ini": "Hari ini",
   Kemarin: "Kemarin",
@@ -69,428 +32,349 @@ const FILTER_MAP: Record<string, string> = {
   Custom: "Custom",
 };
 
-interface StatDashboardProps {
-  stats: any; // Ini akan menerima objek apa pun
-}
+const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
+  const initialDate = new Date().toISOString().split("T")[0];
 
-const StatDashboard: React.FC<StatDashboardProps> = () => {
+  // Ambil state dan action tema dari Zustand Store
+  const { isDarkMode, toggleDarkMode } = useStore();
+
   const [activeFilter, setActiveFilter] = useState("Hari ini");
   const [selectedDevice, setSelectedDevice] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [startDate, setStartDate] = useState(initialDate);
+  const [endDate, setEndDate] = useState(initialDate);
 
-  // State untuk Custom Range Tanggal
-  const [startDate, setStartDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
-  const [endDate, setEndDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
-
-  const [stats, setStats] = useState<any>({
-    pesanMasukAllTime: 0,
-    pesanMasukToday: 0,
-    pesanKeluar: 0,
-    totalDevice: 0,
-    deviceConnected: 0,
-    leadMasuk: 0,
-    leadAktif: 0,
-    slowResponse: 0,
-    unanswered: 0,
+  const [data, setData] = useState<any>({
+    stats: {
+      pesanMasukAllTime: 0,
+      pesanMasukToday: 0,
+      pesanKeluar: 0,
+      totalDevice: 0,
+      deviceConnected: 0,
+      leadMasuk: 0,
+      leadAktif: 0,
+      slowResponse: 0,
+      unanswered: 0,
+    },
+    messages: [],
+    sessions: [],
+    chartData: [],
+    deviceStats: [],
   });
 
-  const [messages, setMessages] = useState<any[]>([]);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [deviceStats, setDeviceStats] = useState<any[]>([]);
+  const fetchDashboard = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (showLoader) setLoading(true);
+        const token = localStorage.getItem("token");
+        const period = FILTER_MAP[activeFilter];
 
-  const fetchDashboard = async () => {
-    try {
-      const period = FILTER_MAP[activeFilter];
-      let url = `${API_URL}?period=${period}`;
+        let url = `${import.meta.env.VITE_API_URL}/stats/dashboard?period=${period}`;
+        if (selectedDevice !== "all") url += `&sessionId=${selectedDevice}`;
+        if (activeFilter === "Custom")
+          url += `&startDate=${startDate}&endDate=${endDate}`;
 
-      if (selectedDevice !== "all") {
-        url += `&sessionId=${selectedDevice}`;
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        const json = await res.json();
+        if (json.success) {
+          setData({
+            stats: json.stats,
+            messages: json.messages,
+            sessions: json.devices || [],
+            chartData: json.chartData || [],
+            deviceStats: json.deviceStats || [],
+          });
+        }
+      } catch (err) {
+        console.error("Dashboard Error:", err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      // Tambahkan parameter tanggal jika filter Custom dipilih
-      if (activeFilter === "Custom") {
-        url += `&startDate=${startDate}&endDate=${endDate}`;
-      }
-
-      const res = await fetch(url);
-      const json = await res.json();
-
-      if (json.success) {
-        setStats(json.stats);
-        setMessages(json.messages);
-        setSessions(json.devices || []);
-        setChartData(json.chartData || []);
-        setDeviceStats(json.deviceStats || []);
-      }
-    } catch (err) {
-      console.error("Gagal fetch data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [activeFilter, selectedDevice, startDate, endDate],
+  );
 
   useEffect(() => {
     fetchDashboard();
-    const interval = setInterval(fetchDashboard, 30000); // Naikkan ke 30s agar tidak terlalu berat saat filter custom
+    const interval = setInterval(() => fetchDashboard(false), 30000);
     return () => clearInterval(interval);
-  }, [activeFilter, selectedDevice, startDate, endDate]);
+  }, [fetchDashboard]);
+
+  const handleReset = () => {
+    setRefreshing(true);
+    setActiveFilter("Hari ini");
+    setSelectedDevice("all");
+    setStartDate(initialDate);
+    setEndDate(initialDate);
+  };
 
   const slaData = useMemo(
     () => [
       {
         name: "Sesuai SLA",
-        value: Math.max(0, stats.pesanMasukToday - stats.slowResponse),
+        value: Math.max(
+          0,
+          (data.stats.pesanMasukToday || 0) - (data.stats.slowResponse || 0),
+        ),
         color: "#00a884",
       },
-      { name: "Slow Response", value: stats.slowResponse, color: "#f97316" },
-      { name: "Tak Terjawab", value: stats.unanswered, color: "#ef4444" },
+      {
+        name: "Slow Response",
+        value: data.stats.slowResponse || 0,
+        color: "#f97316",
+      },
+      {
+        name: "Tak Terjawab",
+        value: data.stats.unanswered || 0,
+        color: "#ef4444",
+      },
     ],
-    [stats],
+    [data.stats],
   );
 
-  if (loading && !stats.pesanMasukAllTime) {
+  if (loading && !data.stats.pesanMasukAllTime) {
     return (
-      <div className="flex-1 bg-[#0B141A] flex items-center justify-center">
+      <div
+        className={`flex-1 flex items-center justify-center min-h-screen ${isDarkMode ? "bg-[#0B141A]" : "bg-[#F0F2F5]"}`}
+      >
         <Loader2 className="text-[#00a884] animate-spin" size={40} />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 bg-[#0B141A] p-4 md:p-8 overflow-y-auto custom-scrollbar">
-      {/* Header Dropdown & Filter */}
-      <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center mb-8 max-w-7xl mx-auto gap-4 px-4 lg:px-0">
-        <div className="flex flex-col md:flex-row gap-3 flex-1">
-          {/* Device Selector */}
-          <div className="relative group">
+    <div
+      className={`flex-1 p-4 md:p-8 overflow-y-auto transition-colors duration-300 ${
+        isDarkMode
+          ? "bg-[#0B141A] custom-scrollbar"
+          : "bg-[#F0F2F5] custom-scrollbar-light"
+      }`}
+    >
+      {/* --- HEADER & FILTERS --- */}
+      <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center mb-10 max-w-7xl mx-auto gap-6">
+        <div className="flex justify-between items-start lg:block">
+          <div>
+            <h1
+              className={`text-2xl font-black tracking-widest uppercase flex items-center gap-3 ${
+                isDarkMode ? "text-white" : "text-[#3B4A54]"
+              }`}
+            >
+              SATU PINTU
+              {refreshing && (
+                <Loader2 size={18} className="animate-spin text-[#00a884]" />
+              )}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse"></div>
+              <p
+                className={`text-[9px] font-bold tracking-[0.2em] uppercase ${
+                  isDarkMode ? "text-[#8696A0]" : "text-[#667781]"
+                }`}
+              >
+                Monitoring Dashboard
+              </p>
+            </div>
+          </div>
+
+          {/* Theme Switcher Mobile Only */}
+          <button
+            onClick={toggleDarkMode}
+            className="lg:hidden p-2 rounded-full bg-[#00a884]/10 text-[#00a884]"
+          >
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+        </div>
+
+        <div className="flex flex-col md:flex-row items-center gap-3">
+          {/* Theme Switcher Desktop */}
+          <button
+            onClick={toggleDarkMode}
+            className={`hidden lg:flex p-2.5 rounded-xl border transition-all shadow-sm ${
+              isDarkMode
+                ? "bg-[#202C33] border-[#313D45] text-yellow-400 hover:bg-[#2A3942]"
+                : "bg-white border-[#E9EDEF] text-gray-600 hover:bg-gray-50"
+            }`}
+            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+
+          {/* Reset Button */}
+          <button
+            onClick={handleReset}
+            className={`p-2.5 border rounded-xl transition-all group shadow-sm ${
+              isDarkMode
+                ? "bg-[#202C33] border-[#313D45] text-[#8696A0] hover:text-[#ef4444]"
+                : "bg-white border-[#E9EDEF] text-[#667781] hover:text-[#ef4444]"
+            }`}
+          >
+            <RotateCcw
+              size={16}
+              className={`${refreshing ? "animate-spin" : ""} group-active:scale-90`}
+            />
+          </button>
+
+          {/* Device Dropdown */}
+          <div className="relative w-full md:w-auto">
             <Smartphone
               className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00a884]"
-              size={18}
+              size={15}
             />
             <select
               value={selectedDevice}
               onChange={(e) => setSelectedDevice(e.target.value)}
-              className="pl-10 pr-10 py-3 bg-[#202C33] border border-[#313D45] rounded-xl text-sm text-white focus:ring-2 focus:ring-[#00a884]/50 focus:border-[#00a884] outline-none appearance-none cursor-pointer shadow-xl min-w-[240px] w-full transition-all hover:bg-[#2a3942]"
+              className={`pl-9 pr-10 py-2.5 border rounded-xl text-[11px] font-bold focus:ring-1 focus:ring-[#00a884] outline-none appearance-none cursor-pointer w-full transition-all shadow-sm ${
+                isDarkMode
+                  ? "bg-[#202C33] border-[#313D45] text-white"
+                  : "bg-white border-[#E9EDEF] text-[#3B4A54]"
+              }`}
             >
-              <option value="all">Semua Device</option>
-              {sessions.map((s) => (
+              <option value="all">SEMUA DEVICE SAYA</option>
+              {data.sessions.map((s: any) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}
+                  {s.name.toUpperCase()}
                 </option>
               ))}
             </select>
             <ChevronDown
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8696A0] pointer-events-none group-hover:text-white transition-colors"
-              size={16}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${
+                isDarkMode ? "text-[#8696A0]" : "text-[#667781]"
+              }`}
+              size={14}
             />
           </div>
 
-          {/* Date Range Inputs - Elegant Custom Date Filter */}
-          {activeFilter === "Custom" && (
-            <div className="flex items-center animate-in fade-in slide-in-from-left-4 duration-300">
-              <div className="flex items-center gap-3 bg-[#202C33] border border-[#313D45] p-2 rounded-xl shadow-xl w-full">
-                <div className="relative flex-1 group">
-                  <Calendar
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#00a884]"
-                    size={14}
-                  />
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-[#111B21] text-[12px] text-white pl-9 pr-2 py-1.5 rounded-lg border border-[#313D45] outline-none cursor-pointer w-full focus:border-[#00a884] [color-scheme:dark]"
-                  />
-                </div>
-
-                <span className="text-[#8696A0] text-xs font-medium px-1">
-                  s/d
-                </span>
-
-                <div className="relative flex-1 group">
-                  <Calendar
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#00a884]"
-                    size={14}
-                  />
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="bg-[#111B21] text-[12px] text-white pl-9 pr-2 py-1.5 rounded-lg border border-[#313D45] outline-none cursor-pointer w-full focus:border-[#00a884] [color-scheme:dark]"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Filter Period Buttons */}
-        <div className="flex bg-[#202C33] p-1.5 rounded-2xl border border-[#313D45] shadow-2xl overflow-x-auto scrollbar-hide no-scrollbar">
-          <div className="flex gap-1">
+          {/* Period Filter */}
+          <div
+            className={`flex items-center p-1 rounded-xl border w-full md:w-auto overflow-x-auto no-scrollbar shadow-sm ${
+              isDarkMode
+                ? "bg-[#202C33] border-[#313D45]"
+                : "bg-white border-[#E9EDEF]"
+            }`}
+          >
             {Object.keys(FILTER_MAP).map((item) => (
               <button
                 key={item}
                 onClick={() => setActiveFilter(item)}
-                className={`px-6 py-2.5 rounded-xl text-[11px] font-bold transition-all uppercase tracking-widest whitespace-nowrap ${
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase whitespace-nowrap transition-all ${
                   activeFilter === item
-                    ? "bg-[#00a884] text-[#0B141A] shadow-lg scale-105"
-                    : "text-[#8696A0] hover:text-white hover:bg-[#2a3942]"
+                    ? "bg-[#00a884] text-white shadow-lg"
+                    : isDarkMode
+                      ? "text-[#8696A0] hover:text-white"
+                      : "text-[#667781] hover:bg-gray-100"
                 }`}
               >
                 {item}
               </button>
             ))}
-          </div>
-        </div>
-      </div>
 
-      {/* --- SECTION GRAFIK --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto mb-5">
-        {/* Tren Aktivitas */}
-        <div className="lg:col-span-2 bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[400px] shadow-xl">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-6">
-            Aktivitas Pesan
-          </h3>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#313D45"
-                  vertical={false}
+            {activeFilter === "Custom" && (
+              <div
+                className={`flex items-center gap-2 ml-2 pl-2 border-l animate-in fade-in slide-in-from-right-2 ${
+                  isDarkMode ? "border-[#313D45]" : "border-[#E9EDEF]"
+                }`}
+              >
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className={`bg-transparent text-[10px] font-bold outline-none w-24 ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
                 />
-                <XAxis
-                  dataKey="time"
-                  stroke="#8696A0"
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                  dy={10}
+                <span className="text-gray-500 text-[10px]">-</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className={`bg-transparent text-[10px] font-bold outline-none w-24 ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
                 />
-                <YAxis
-                  stroke="#8696A0"
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#202C33",
-                    border: "1px solid #313D45",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Legend
-                  verticalAlign="top"
-                  align="right"
-                  wrapperStyle={{ fontSize: "10px", paddingBottom: "20px" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="masuk"
-                  name="Masuk"
-                  stroke="#00a884"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="keluar"
-                  name="Keluar"
-                  stroke="#f97316"
-                  strokeWidth={3}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* SLA Status */}
-        <div className="bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[400px] shadow-xl flex flex-col">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-4">
-            Efisiensi Respon
-          </h3>
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={slaData}
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {slaData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend
-                  layout="vertical"
-                  verticalAlign="bottom"
-                  align="center"
-                  wrapperStyle={{ fontSize: "10px" }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Lead per Device */}
-        <div className="lg:col-span-3 bg-[#202C33] border border-[#313D45] p-6 rounded-2xl h-[350px] shadow-xl">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0] mb-6">
-            Performa Lead per Device
-          </h3>
-          <div className="h-[240px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={deviceStats}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#313D45"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="name"
-                  stroke="#8696A0"
-                  fontSize={10}
-                  tickLine={false}
-                />
-                <YAxis stroke="#8696A0" fontSize={10} tickLine={false} />
-                <Tooltip cursor={{ fill: "rgba(255,255,255,0.05)" }} />
-                <Bar
-                  dataKey="lead_count"
-                  name="Total Lead"
-                  fill="#3b82f6"
-                  radius={[4, 4, 0, 0]}
-                  barSize={40}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid Utama (Live Message & Stat Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 max-w-7xl mx-auto mb-10">
-        {/* KOTAK LIVE STREAM */}
-        <div className="md:col-span-2 md:row-span-2 bg-[#202C33] border border-[#313D45] p-6 rounded-2xl min-h-[450px] flex flex-col shadow-xl">
-          <div className="flex justify-between items-start mb-6 pb-4 border-b border-[#313D45]/50">
-            <div className="flex flex-col">
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8696A0]">
-                Live Stream
-              </h3>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="w-2 h-2 rounded-full bg-[#00a884] animate-pulse"></div>
-                <span className="text-[10px] text-[#00a884] uppercase font-bold tracking-tighter">
-                  Live Updates
-                </span>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-4xl font-black text-white">
-                {(stats.pesanMasukAllTime || 0).toLocaleString("id-ID")}
-              </div>
-              <div className="text-[9px] text-[#8696A0] uppercase font-bold tracking-widest">
-                {" "}
-                Total Pesan{" "}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar max-h-[350px] space-y-3">
-            {messages.length > 0 ? (
-              messages.map((chat, idx) => (
-                <div
-                  key={idx}
-                  className="group flex gap-4 p-3 rounded-xl transition-all hover:bg-[#2A3942] border border-transparent hover:border-[#41525d]"
-                >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#313D45] flex items-center justify-center text-[#8696A0]">
-                    <Users size={18} />
-                  </div>
-                  <div className="flex-grow min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[13px] font-bold text-white truncate">
-                        {chat.sender}
-                      </span>
-                      <span className="text-[10px] text-[#8696A0]">
-                        {chat.received_at?.split(" ")[1]?.substring(0, 5)}
-                      </span>
-                    </div>
-                    <p className="text-[12px] text-[#8696A0] line-clamp-1">
-                      {chat.message_text}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="h-full flex items-center justify-center text-[#8696A0] text-xs italic">
-                Belum ada pesan masuk
               </div>
             )}
           </div>
         </div>
+      </div>
 
-        {/* KARTU STATISTIK */}
+      {/* --- CHARTS GRID --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto mb-8">
+        <ActivityChart data={data.chartData} dark={isDarkMode} />
+        <SLAChart data={slaData} dark={isDarkMode} />
+        <DeviceBarChart data={data.deviceStats} dark={isDarkMode} />
+      </div>
+
+      {/* --- STAT CARDS & LIVE FEED --- */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 max-w-7xl mx-auto pb-10">
+        <LiveFeed
+          messages={data.messages}
+          totalPesan={data.stats.pesanMasukAllTime}
+          dark={isDarkMode}
+        />
+
         <StatCard
+          dark={isDarkMode}
           title={`Masuk ${activeFilter}`}
-          value={stats.pesanMasukToday}
-          subValue="Berdasarkan Filter"
+          value={data.stats.pesanMasukToday}
           icon={MessageSquare}
           color="text-[#00a884]"
         />
         <StatCard
+          dark={isDarkMode}
           title="Pesan Terkirim"
-          value={stats.pesanKeluar}
-          subValue="Output WhatsApp"
+          value={data.stats.pesanKeluar}
           icon={Send}
-          color="text-orange-400"
+          color="text-orange-500"
         />
         <StatCard
+          dark={isDarkMode}
           title="Lead Masuk"
-          value={stats.leadMasuk}
-          subValue="Database Prospek"
+          value={data.stats.leadMasuk}
           icon={Users}
           color="text-green-500"
         />
         <StatCard
+          dark={isDarkMode}
           title="Lead Aktif"
-          value={stats.leadAktif}
-          subValue="Aktif 30 Menit"
+          value={data.stats.leadAktif}
           icon={Activity}
           color="text-cyan-500"
         />
         <StatCard
+          dark={isDarkMode}
           title="Slow Response"
-          value={stats.slowResponse}
-          subValue="Respon > 10m"
+          value={data.stats.slowResponse}
           icon={Clock}
           color="text-red-500"
         />
         <StatCard
+          dark={isDarkMode}
           title="Tak Terjawab"
-          value={stats.unanswered}
-          subValue="Batas > 24 Jam"
+          value={data.stats.unanswered}
           icon={AlertCircle}
           color="text-gray-400"
         />
         <StatCard
+          dark={isDarkMode}
           title="Device Online"
-          value={stats.deviceConnected}
-          subValue={`Dari ${stats.totalDevice} Device`}
+          value={data.stats.deviceConnected}
+          subValue={`Dari ${data.stats.totalDevice} Device`}
           icon={Smartphone}
           color="text-indigo-400"
         />
         <StatCard
+          dark={isDarkMode}
           title="Status Koneksi"
-          value={stats.deviceConnected > 0 ? "Stabil" : "Offline"}
-          subValue="Network Status"
+          value={data.stats.deviceConnected > 0 ? "STABIL" : "OFFLINE"}
+          subValue="Service Engine"
           icon={CheckCircle}
-          color="text-[#00a884]"
+          color={
+            data.stats.deviceConnected > 0 ? "text-[#00a884]" : "text-red-500"
+          }
         />
       </div>
     </div>

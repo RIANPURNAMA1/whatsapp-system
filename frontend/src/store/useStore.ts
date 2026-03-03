@@ -3,8 +3,15 @@ import type { Session, Chat, Message, Stats } from '../types';
 import { sessionApi, chatApi, statsApi } from '../services/api';
 import axios from 'axios';
 
+interface User {
+  id: string;
+  username: string;
+  role_type: string;
+}
+
 interface AppState {
   sessions: Session[];
+  user: User | null;
   activeSession: Session | null;
   isLoadingSessions: boolean;
   chats: Chat[];
@@ -19,12 +26,16 @@ interface AppState {
   showNewChatModal: boolean;
   sidebarOpen: boolean;
   stats: Stats | null;
-  groups: Chat[]; // <--- 1. Tambahkan ini agar tidak merah
-  activeTab: string; // <--- 1. TAMBAHKAN INI
+  groups: Chat[];
+  activeTab: string;
+  
+  // --- STATE TEMA ---
+  isDarkMode: boolean;
 
   // Actions
-  setActiveTab: (tab: string) => void; // Tambahkan ini
-  deleteSession: (sessionId: string) => Promise<void>; // <--- TAMBAHKAN INI
+  setUser: (user: User | null) => void;
+  setActiveTab: (tab: string) => void;
+  deleteSession: (sessionId: string) => Promise<void>;
   fetchSessions: () => Promise<void>;
   setActiveSession: (session: Session | null) => void;
   updateSession: (session: Partial<Session> & { id: string }) => void;
@@ -43,11 +54,14 @@ interface AppState {
   setShowNewChatModal: (show: boolean) => void;
   setSidebarOpen: (open: boolean) => void;
   fetchGroups: (sessionId: string) => Promise<void>;
-  // Actions
+  
+  // --- ACTION TEMA ---
+  toggleDarkMode: () => void;
 }
 
 const useStore = create<AppState>((set, get) => ({
   sessions: [],
+  user: null,
   activeSession: null,
   isLoadingSessions: false,
   chats: [],
@@ -62,37 +76,39 @@ const useStore = create<AppState>((set, get) => ({
   showNewChatModal: false,
   sidebarOpen: true,
   stats: null,
-  groups: [], // Default value kosong
-  activeTab: 'dashboard', // <--- 2. TAMBAHKAN NILAI AWAL INI
-  
+  groups: [],
+  activeTab: 'dashboard',
 
-   // 3. Implementasi fetchGroups (Sesuaikan URL-nya dengan routes.js)
+  // Initial Value Tema dari LocalStorage
+  isDarkMode: localStorage.getItem("theme") ? localStorage.getItem("theme") === "dark" : true,
+
+  // Implementasi Actions
+  setUser: (user) => set({ user }),
+  setActiveTab: (tab) => set({ activeTab: tab }),
+
+  toggleDarkMode: () => set((state) => {
+    const newMode = !state.isDarkMode;
+    localStorage.setItem("theme", newMode ? "dark" : "light");
+    return { isDarkMode: newMode };
+  }),
+
   fetchGroups: async (sessionId) => {
     try {
-      // Hilangkan "/api" jika axios base URL Anda sudah mengarah ke backend
-      const res = await axios.get(`/sessions/${sessionId}/groups`); 
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/sessions/${sessionId}/groups`); 
       if (res.data.success) {
-        set({ groups: res.data.data }); // <--- Sekarang set tidak akan merah
+        set({ groups: res.data.data });
       }
     } catch (err) {
       console.error("Gagal ambil grup:", err);
     }
   },
-  // ... action lainnya
-  setActiveTab: (tab) => set({ activeTab: tab }),
 
-  // --- TAMBAHKAN FUNGSI INI ---
   deleteSession: async (sessionId: string) => {
     try {
-      // 1. Panggil API untuk hapus di database & folder session
       await sessionApi.delete(sessionId); 
-      
-      // 2. Update state lokal
       const updatedSessions = get().sessions.filter(s => s.id !== sessionId);
-      
       set({ 
         sessions: updatedSessions,
-        // Jika yang dihapus adalah session yang sedang aktif, kosongkan activeSession
         activeSession: get().activeSession?.id === sessionId ? null : get().activeSession 
       });
     } catch (error) {
@@ -100,7 +116,6 @@ const useStore = create<AppState>((set, get) => ({
       throw error;
     }
   },
-
 
   fetchSessions: async () => {
     set({ isLoadingSessions: true });
@@ -126,42 +141,16 @@ const useStore = create<AppState>((set, get) => ({
   fetchChats: async (sessionId: string) => {
     set({ isLoadingChats: true });
     try {
-      // Pakai method baru yang support labels
-      const chats = await chatApi.getAllWithLabels(
-        sessionId,
-        get().chatSearch || '',
-        1  // page pertama, bisa di-expand nanti jika pakai infinite scroll
-      );
-
-      // Jika backend belum support labels, fallback ke cara manual (kurang efisien)
-      // const chatsWithLabels = await Promise.all(
-      //   chats.map(async (chat) => {
-      //     try {
-      //       const labelRes = await api.get(
-      //         `/sessions/${sessionId}/chats/${encodeURIComponent(chat.jid)}/labels`
-      //       );
-      //       return { ...chat, labels: labelRes.data.success ? labelRes.data.data : [] };
-      //     } catch {
-      //       return { ...chat, labels: [] };
-      //     }
-      //   })
-      // );
-
-      // Sort ulang berdasarkan waktu terbaru (aman)
+      const chats = await chatApi.getAllWithLabels(sessionId, get().chatSearch || '', 1);
       const sortedChats = [...chats].sort((a, b) => {
         const timeA = a.last_message_time ? new Date(a.last_message_time).getTime() : 0;
         const timeB = b.last_message_time ? new Date(b.last_message_time).getTime() : 0;
         return timeB - timeA;
       });
-
-      set({ 
-        chats: sortedChats,
-        isLoadingChats: false 
-      });
+      set({ chats: sortedChats, isLoadingChats: false });
     } catch (err) {
       console.error("Fetch chats failed:", err);
       set({ isLoadingChats: false });
-      // toast.error("Gagal memuat daftar chat") — jika pakai react-hot-toast
     }
   },
 
@@ -169,10 +158,7 @@ const useStore = create<AppState>((set, get) => ({
   setChatSearch: (search) => set({ chatSearch: search }),
 
   updateChat: (chatJid, updates) => set(state => {
-    const updatedChats = state.chats.map(c =>
-      c.jid === chatJid ? { ...c, ...updates } : c
-    );
-    // Sort: Terbaru di atas
+    const updatedChats = state.chats.map(c => c.jid === chatJid ? { ...c, ...updates } : c);
     updatedChats.sort((a, b) => {
       const timeA = new Date(a.last_message_time || 0).getTime();
       const timeB = new Date(b.last_message_time || 0).getTime();
@@ -204,24 +190,16 @@ const useStore = create<AppState>((set, get) => ({
   },
 
   addMessage: (message) => set(state => {
-    // 1. Cek duplikat ID (Penting!)
     const isDuplicate = state.messages.some(m => m.message_id === message.message_id);
     if (isDuplicate) return state;
-
-    // 2. Normalisasi JID untuk perbandingan (Buang spasi/kecilkan huruf)
     const currentJid = state.selectedChat?.jid?.toLowerCase().trim();
     const messageJid = message.chat_jid?.toLowerCase().trim();
-
-    // 3. Jika sedang membuka chat tersebut, tambahkan pesannya
     if (currentJid && messageJid && currentJid === messageJid) {
-      return {
-        messages: [...state.messages, message]
-      };
+      return { messages: [...state.messages, message] };
     }
-
-    // Jika pesan masuk untuk chat lain, biarkan updateChat yang bekerja (sidebar)
     return state;
   }),
+
   updateMessageStatus: (id, status) => set(state => ({
     messages: state.messages.map(m => m.message_id === id ? { ...m, status: status as any } : m)
   })),

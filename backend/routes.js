@@ -10,13 +10,13 @@ import {
   deleteMessage,
   logoutSession,
   isSessionConnected,
-  getSessionInfo,  // ⭐ TAMBAHKAN INI
-  sessions,         // ⭐ TAMBAHKAN INI
+  getSessionInfo, // ⭐ TAMBAHKAN INI
+  sessions, // ⭐ TAMBAHKAN INI
 } from "./whatsapp.js";
 
 const router = express.Router();
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -33,8 +33,6 @@ const upload = multer({
  * @param {string} column - nama kolom timestamp, default "timestamp"
  */
 // --- Helper: Membangun filter tanggal berdasarkan periode ---
-
-
 
 /**
  * HELPER: Membangun filter SQL berdasarkan periode atau custom date
@@ -67,25 +65,27 @@ const buildPeriodFilter = (period, columnName, startDate, endDate) => {
   }
 };
 
-
-const JWT_SECRET = "918cfb63fffbbc45a16b96beb5fca0deb9a33f0b2180997cc2f15b2affeab1e393c1630e3e9cb02aaf3fe5ae64fbaad1e5c03df2bbe29ca4ba9792c5c1f7ad0a";
-
+const JWT_SECRET =
+  "918cfb63fffbbc45a16b96beb5fca0deb9a33f0b2180997cc2f15b2affeab1e393c1630e3e9cb02aaf3fe5ae64fbaad1e5c03df2bbe29ca4ba9792c5c1f7ad0a";
 
 // --- LETAKKAN DI SINI ---
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
-  if (!token) return res.status(401).json({ success: false, message: "Akses ditolak" });
+  if (!token)
+    return res.status(401).json({ success: false, message: "Akses ditolak" });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ success: false, message: "Token tidak valid" });
+    if (err)
+      return res
+        .status(403)
+        .json({ success: false, message: "Token tidak valid" });
     req.user = user; // Data user dari JWT disimpan di sini agar bisa dipakai di route
     next();
   });
 };
 // -----------------------
-
 
 // login
 
@@ -95,7 +95,8 @@ router.post("/login", async (req, res) => {
 
   try {
     // JOIN wa_users dengan sys_roles
-    const user = await queryOne(`
+    const user = await queryOne(
+      `
       SELECT 
         u.id, u.username, u.password, u.full_name, u.branch,
         r.name as role_name, 
@@ -103,22 +104,28 @@ router.post("/login", async (req, res) => {
       FROM wa_users u
       LEFT JOIN sys_roles r ON u.role_id = r.id
       WHERE u.username = ?
-    `, [username]);
+    `,
+      [username],
+    );
 
     if (!user) {
-      return res.status(401).json({ success: false, message: "User tidak ditemukan" });
+      return res
+        .status(401)
+        .json({ success: false, message: "User tidak ditemukan" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Password salah" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Password salah" });
     }
 
     // Buat Token JWT
     const token = jwt.sign(
       { id: user.id, role_type: user.role_type },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: "24h" },
     );
 
     // Kirim objek user yang bersih ke frontend
@@ -131,16 +138,13 @@ router.post("/login", async (req, res) => {
         full_name: user.full_name,
         role: user.role_name,
         role_type: user.role_type, // Ini akan berisi 'system' atau 'custom'
-        branch: user.branch
-      }
+        branch: user.branch,
+      },
     });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
-
-
 
 // role
 // ===============================================
@@ -154,15 +158,25 @@ router.put("/roles/:id", async (req, res) => {
 
   try {
     // Cek apakah role exists dan bukan role sistem
-    const role = await queryOne("SELECT type FROM sys_roles WHERE id = ?", [id]);
-    if (!role) return res.status(404).json({ success: false, message: "Role tidak ditemukan" });
-    if (role.type === 'system') return res.status(403).json({ success: false, message: "Role sistem tidak boleh diubah namanya" });
+    const role = await queryOne("SELECT type FROM sys_roles WHERE id = ?", [
+      id,
+    ]);
+    if (!role)
+      return res
+        .status(404)
+        .json({ success: false, message: "Role tidak ditemukan" });
+    if (role.type === "system")
+      return res.status(403).json({
+        success: false,
+        message: "Role sistem tidak boleh diubah namanya",
+      });
 
-    await query(
-      "UPDATE sys_roles SET name = ?, description = ? WHERE id = ?",
-      [name, description, id]
-    );
-    
+    await query("UPDATE sys_roles SET name = ?, description = ? WHERE id = ?", [
+      name,
+      description,
+      id,
+    ]);
+
     res.json({ success: true, message: "Role berhasil diperbarui" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Gagal memperbarui role" });
@@ -187,16 +201,25 @@ router.get("/roles", async (req, res) => {
 // POST: Tambah Role Baru
 router.post("/roles", async (req, res) => {
   const { name, description } = req.body;
-  if (!name) return res.status(400).json({ success: false, message: "Nama role wajib diisi" });
+  if (!name)
+    return res
+      .status(400)
+      .json({ success: false, message: "Nama role wajib diisi" });
 
   try {
     const result = await query(
       "INSERT INTO sys_roles (name, description, type) VALUES (?, ?, 'custom')",
-      [name, description]
+      [name, description],
     );
-    res.json({ success: true, message: "Role berhasil ditambahkan", id: result.insertId });
+    res.json({
+      success: true,
+      message: "Role berhasil ditambahkan",
+      id: result.insertId,
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Role sudah ada atau error database" });
+    res
+      .status(500)
+      .json({ success: false, message: "Role sudah ada atau error database" });
   }
 });
 
@@ -204,9 +227,17 @@ router.post("/roles", async (req, res) => {
 router.delete("/roles/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const role = await queryOne("SELECT type FROM sys_roles WHERE id = ?", [id]);
-    if (!role) return res.status(404).json({ success: false, message: "Role tidak ditemukan" });
-    if (role.type === 'system') return res.status(403).json({ success: false, message: "Role sistem tidak boleh dihapus" });
+    const role = await queryOne("SELECT type FROM sys_roles WHERE id = ?", [
+      id,
+    ]);
+    if (!role)
+      return res
+        .status(404)
+        .json({ success: false, message: "Role tidak ditemukan" });
+    if (role.type === "system")
+      return res
+        .status(403)
+        .json({ success: false, message: "Role sistem tidak boleh dihapus" });
 
     await query("DELETE FROM sys_roles WHERE id = ?", [id]);
     res.json({ success: true, message: "Role berhasil dihapus" });
@@ -243,7 +274,7 @@ router.post("/users", async (req, res) => {
   if (!username || !password) {
     return res.status(400).json({
       success: false,
-      message: "Username dan password wajib diisi"
+      message: "Username dan password wajib diisi",
     });
   }
 
@@ -255,24 +286,27 @@ router.post("/users", async (req, res) => {
     // 3. Simpan ke Database
     await query(
       "INSERT INTO wa_users (username, password, full_name, role_id, branch) VALUES (?, ?, ?, ?, ?)",
-      [username, hashedPassword, full_name, role_id, branch]
+      [username, hashedPassword, full_name, role_id, branch],
     );
 
     res.json({
       success: true,
-      message: "User berhasil didaftarkan dengan password aman"
+      message: "User berhasil didaftarkan dengan password aman",
     });
   } catch (err) {
     // Cek jika error karena username duplikat
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ success: false, message: "Username sudah digunakan" });
+    if (err.code === "ER_DUP_ENTRY") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Username sudah digunakan" });
     }
 
     console.error("Error Registration:", err);
-    res.status(500).json({ success: false, message: "Terjadi kesalahan pada database" });
+    res
+      .status(500)
+      .json({ success: false, message: "Terjadi kesalahan pada database" });
   }
 });
-
 
 // PUT: Update User (Edit)
 router.put("/users/:id", async (req, res) => {
@@ -281,13 +315,19 @@ router.put("/users/:id", async (req, res) => {
 
   try {
     // 1. Cek apakah user ada
-    const existingUser = await queryOne("SELECT id FROM wa_users WHERE id = ?", [id]);
+    const existingUser = await queryOne(
+      "SELECT id FROM wa_users WHERE id = ?",
+      [id],
+    );
     if (!existingUser) {
-      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User tidak ditemukan" });
     }
 
     // 2. Siapkan Query Dasar
-    let sql = "UPDATE wa_users SET username = ?, full_name = ?, role_id = ?, branch = ?";
+    let sql =
+      "UPDATE wa_users SET username = ?, full_name = ?, role_id = ?, branch = ?";
     let params = [username, full_name, role_id, branch];
 
     // 3. Logika Password (Hanya update jika password diisi)
@@ -304,17 +344,21 @@ router.put("/users/:id", async (req, res) => {
 
     await query(sql, params);
 
-    res.json({ 
-      success: true, 
-      message: "Data admin berhasil diperbarui" 
+    res.json({
+      success: true,
+      message: "Data admin berhasil diperbarui",
     });
-
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ success: false, message: "Username sudah digunakan oleh admin lain" });
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        success: false,
+        message: "Username sudah digunakan oleh admin lain",
+      });
     }
     console.error("Update User Error:", err);
-    res.status(500).json({ success: false, message: "Gagal memperbarui data database" });
+    res
+      .status(500)
+      .json({ success: false, message: "Gagal memperbarui data database" });
   }
 });
 
@@ -329,7 +373,9 @@ router.delete("/users/:id", async (req, res) => {
     await query("DELETE FROM wa_users WHERE id = ?", [id]);
     res.json({ success: true, message: "Akun admin berhasil dihapus" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Gagal menghapus data dari server" });
+    res
+      .status(500)
+      .json({ success: false, message: "Gagal menghapus data dari server" });
   }
 });
 
@@ -344,8 +390,10 @@ router.get("/sessions", authenticateToken, async (req, res) => {
 
     let sessionsData;
 
-    if (roleType === 'system') {
-      sessionsData = await query("SELECT * FROM wa_sessions ORDER BY created_at DESC");
+    if (roleType === "system") {
+      sessionsData = await query(
+        "SELECT * FROM wa_sessions ORDER BY created_at DESC",
+      );
     } else {
       // Query ini mencakup Manager & Custom sekaligus
       // Mengambil semua session yang terhubung dengan user ini di tabel pivot
@@ -354,11 +402,13 @@ router.get("/sessions", authenticateToken, async (req, res) => {
          INNER JOIN wa_user_sessions us ON s.id = us.session_id
          WHERE us.user_id = ?
          ORDER BY s.created_at DESC`,
-        [userId]
+        [userId],
       );
     }
 
-    console.log(`[DEBUG] User ${userId} (${roleType}) menemukan ${sessionsData.length} sesi`);
+    console.log(
+      `[DEBUG] User ${userId} (${roleType}) menemukan ${sessionsData.length} sesi`,
+    );
     res.json({ success: true, data: sessionsData });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -397,13 +447,15 @@ router.post("/sessions", authenticateToken, async (req, res) => {
   if (!sessionId || !name) {
     return res.status(400).json({
       success: false,
-      message: "Session ID dan Nama Perangkat wajib diisi"
+      message: "Session ID dan Nama Perangkat wajib diisi",
     });
   }
 
   try {
     // 2. Cek apakah session ID sudah ada di database
-    const existing = await queryOne("SELECT id FROM wa_sessions WHERE id = ?", [sessionId]);
+    const existing = await queryOne("SELECT id FROM wa_sessions WHERE id = ?", [
+      sessionId,
+    ]);
 
     if (!existing) {
       // --- A. LOGIKA SESSION BARU ---
@@ -411,32 +463,33 @@ router.post("/sessions", authenticateToken, async (req, res) => {
       // Simpan ke tabel utama
       await query(
         "INSERT INTO wa_sessions (id, name, status, created_at, updated_at) VALUES (?, ?, 'connecting', NOW(), NOW())",
-        [sessionId, name]
+        [sessionId, name],
       );
 
       // Jika pendaftar adalah Manager atau Custom, ikat ke tabel pivot
-      if (roleType === 'manager' || roleType === 'custom') {
+      if (roleType === "manager" || roleType === "custom") {
         await query(
           "INSERT IGNORE INTO wa_user_sessions (user_id, session_id) VALUES (?, ?)",
-          [userId, sessionId]
+          [userId, sessionId],
         );
-        console.log(`[Auth] Akses session ${sessionId} diberikan kepada ${roleType}: ${userId}`);
+        console.log(
+          `[Auth] Akses session ${sessionId} diberikan kepada ${roleType}: ${userId}`,
+        );
       }
-
     } else {
       // --- B. LOGIKA UPDATE / RECONNECT ---
 
       // Proteksi: Manager dan Custom hanya boleh mengupdate session miliknya sendiri
-      if (roleType === 'manager' || roleType === 'custom') {
+      if (roleType === "manager" || roleType === "custom") {
         const ownership = await queryOne(
           "SELECT * FROM wa_user_sessions WHERE user_id = ? AND session_id = ?",
-          [userId, sessionId]
+          [userId, sessionId],
         );
 
         if (!ownership) {
           return res.status(403).json({
             success: false,
-            message: "Akses ditolak. Anda bukan pemilik perangkat ini."
+            message: "Akses ditolak. Anda bukan pemilik perangkat ini.",
           });
         }
       }
@@ -444,24 +497,27 @@ router.post("/sessions", authenticateToken, async (req, res) => {
       // Update status menjadi connecting
       await query(
         "UPDATE wa_sessions SET name = ?, status = 'connecting', updated_at = NOW() WHERE id = ?",
-        [name, sessionId]
+        [name, sessionId],
       );
     }
 
     // 3. Inisialisasi Baileys (Async)
     createSession(sessionId, io)
       .then(() => console.log(`[WhatsApp] ${sessionId} mulai menghubungkan...`))
-      .catch((e) => console.error(`[WhatsApp] Gagal inisialisasi ${sessionId}:`, e.message));
+      .catch((e) =>
+        console.error(`[WhatsApp] Gagal inisialisasi ${sessionId}:`, e.message),
+      );
 
     res.json({
       success: true,
       sessionId,
       message: `Sesi ${name} sedang diproses...`,
     });
-
   } catch (err) {
     console.error("Error pada POST /sessions:", err);
-    res.status(500).json({ success: false, message: "Terjadi kesalahan server" });
+    res
+      .status(500)
+      .json({ success: false, message: "Terjadi kesalahan server" });
   }
 });
 
@@ -478,15 +534,15 @@ router.post("/sessions", authenticateToken, async (req, res) => {
 //     if (roleType === 'system') {
 //       // System Admin melihat SEMUA perangkat tanpa kecuali
 //       sessionsData = await query(
-//         `SELECT id, name, phone_number, status, connected_at, created_at 
-//          FROM wa_sessions 
+//         `SELECT id, name, phone_number, status, connected_at, created_at
+//          FROM wa_sessions
 //          ORDER BY created_at DESC`
 //       );
 //     } else {
 //       // Manager dan Custom hanya melihat perangkat yang terdaftar di wa_user_sessions
 //       // Pastikan fungsi ini tersedia di db.js Anda
 //       sessionsData = await query(
-//         `SELECT s.id, s.name, s.phone_number, s.status, s.connected_at, s.created_at 
+//         `SELECT s.id, s.name, s.phone_number, s.status, s.connected_at, s.created_at
 //          FROM wa_sessions s
 //          JOIN wa_user_sessions us ON s.id = us.session_id
 //          WHERE us.user_id = ?
@@ -502,8 +558,6 @@ router.post("/sessions", authenticateToken, async (req, res) => {
 //   }
 // });
 
-
-
 // ✅ PERBAIKAN ENDPOINT RECONNECT
 router.post("/sessions/reconnect/:sessionId", async (req, res) => {
   try {
@@ -515,21 +569,26 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
     const sessionData = await getSessionInfo(sessionId);
 
     if (!sessionData) {
-      console.error(`❌ [RECONNECT] Session ${sessionId} tidak ditemukan di database`);
+      console.error(
+        `❌ [RECONNECT] Session ${sessionId} tidak ditemukan di database`,
+      );
       return res.status(404).json({
         success: false,
-        message: "Session tidak ditemukan di database"
+        message: "Session tidak ditemukan di database",
       });
     }
 
     // 2. Ambil Socket.IO instance - COBA KEDUA NAMA
-    let io = req.app.get('socketio') || req.app.get('io');
+    let io = req.app.get("socketio") || req.app.get("io");
 
     if (!io) {
-      console.error("❌ [RECONNECT] Socket.IO instance tidak ditemukan di app!");
+      console.error(
+        "❌ [RECONNECT] Socket.IO instance tidak ditemukan di app!",
+      );
       return res.status(500).json({
         success: false,
-        message: "Socket.IO tidak tersedia di server. Pastikan server sudah diinisialisasi dengan benar."
+        message:
+          "Socket.IO tidak tersedia di server. Pastikan server sudah diinisialisasi dengan benar.",
       });
     }
 
@@ -537,13 +596,15 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
 
     // 3. Hapus session lama dari memori (jika ada)
     if (sessions.has(sessionId)) {
-      console.log(`🗑️ [RECONNECT] Menghapus session lama dari memori: ${sessionId}`);
+      console.log(
+        `🗑️ [RECONNECT] Menghapus session lama dari memori: ${sessionId}`,
+      );
       const oldSession = sessions.get(sessionId);
 
       try {
         if (oldSession?.sock) {
           // Gunakan end() atau ws.terminate() tergantung versi Baileys
-          if (typeof oldSession.sock.end === 'function') {
+          if (typeof oldSession.sock.end === "function") {
             await oldSession.sock.end();
           } else if (oldSession.sock.ws) {
             oldSession.sock.ws.terminate();
@@ -551,7 +612,10 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
           console.log(`✅ [RECONNECT] Socket lama berhasil ditutup`);
         }
       } catch (endError) {
-        console.error(`⚠️ [RECONNECT] Error saat menutup socket lama:`, endError.message);
+        console.error(
+          `⚠️ [RECONNECT] Error saat menutup socket lama:`,
+          endError.message,
+        );
         // Lanjutkan proses meskipun gagal menutup
       }
 
@@ -562,7 +626,7 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
     // 4. Update status di database
     await query(
       "UPDATE wa_sessions SET status = 'connecting', qr_code = NULL, updated_at = NOW() WHERE id = ?",
-      [sessionId]
+      [sessionId],
     );
 
     console.log(`✅ [RECONNECT] Status database diupdate ke 'connecting'`);
@@ -575,13 +639,16 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
       .then(() => {
         console.log(`✅ [RECONNECT] createSession berhasil untuk ${sessionId}`);
       })
-      .catch(err => {
-        console.error(`❌ [RECONNECT] Error saat createSession(${sessionId}):`, err);
+      .catch((err) => {
+        console.error(
+          `❌ [RECONNECT] Error saat createSession(${sessionId}):`,
+          err,
+        );
         // Update status error ke database
         query(
           "UPDATE wa_sessions SET status = 'error', updated_at = NOW() WHERE id = ?",
-          [sessionId]
-        ).catch(dbErr => console.error("Error update status:", dbErr));
+          [sessionId],
+        ).catch((dbErr) => console.error("Error update status:", dbErr));
       });
 
     // 6. Response sukses
@@ -589,17 +656,16 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
       success: true,
       message: "Proses reconnect dimulai. Silakan tunggu beberapa saat.",
       sessionId: sessionId,
-      status: 'connecting'
+      status: "connecting",
     });
 
     console.log(`✅ [RECONNECT] Response sukses dikirim untuk ${sessionId}`);
-
   } catch (error) {
     console.error("❌ [RECONNECT] ERROR:", error);
     res.status(500).json({
       success: false,
       message: error.message || "Terjadi kesalahan saat reconnect",
-      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 });
@@ -633,19 +699,23 @@ router.delete("/sessions/:sessionId", async (req, res) => {
     try {
       await logoutSession(sessionId);
     } catch (e) {
-      console.log(`[Warn] Sesi ${sessionId} mungkin sudah tidak aktif secara socket, lanjut penghapusan data.`);
+      console.log(
+        `[Warn] Sesi ${sessionId} mungkin sudah tidak aktif secara socket, lanjut penghapusan data.`,
+      );
     }
 
     // 2. Hapus Sesi dari Database
-    // Karena kita pakai FOREIGN KEY ... ON DELETE CASCADE, 
-    // semua data di tabel wa_messages, wa_chats, wa_contacts, dll 
+    // Karena kita pakai FOREIGN KEY ... ON DELETE CASCADE,
+    // semua data di tabel wa_messages, wa_chats, wa_contacts, dll
     // yang memiliki session_id ini akan otomatis DIHAPUS oleh MySQL.
-    const result = await query("DELETE FROM wa_sessions WHERE id = ?", [sessionId]);
+    const result = await query("DELETE FROM wa_sessions WHERE id = ?", [
+      sessionId,
+    ]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
-        message: "Sesi tidak ditemukan di database."
+        message: "Sesi tidak ditemukan di database.",
       });
     }
 
@@ -658,7 +728,9 @@ router.delete("/sessions/:sessionId", async (req, res) => {
     if (fs.existsSync(sessionDir)) {
       try {
         fs.rmSync(sessionDir, { recursive: true, force: true });
-        console.log(`[Storage] Folder auth 'sessions/${sessionId}' berhasil dihapus.`);
+        console.log(
+          `[Storage] Folder auth 'sessions/${sessionId}' berhasil dihapus.`,
+        );
       } catch (fsErr) {
         console.error(`[Error] Gagal menghapus folder fisik: ${fsErr.message}`);
         // Kita tidak menghentikan respon sukses karena data di DB sudah terhapus
@@ -668,15 +740,14 @@ router.delete("/sessions/:sessionId", async (req, res) => {
     // 4. Berikan Respon Sukses
     res.json({
       success: true,
-      message: `Sesi '${sessionId}' dan seluruh riwayat (pesan, chat, kontak) berhasil dihapus secara permanen dari sistem.`
+      message: `Sesi '${sessionId}' dan seluruh riwayat (pesan, chat, kontak) berhasil dihapus secara permanen dari sistem.`,
     });
-
   } catch (err) {
     console.error("Critical Error during session deletion:", err);
     res.status(500).json({
       success: false,
       message: "Terjadi kesalahan internal saat menghapus sesi.",
-      error: err.message
+      error: err.message,
     });
   }
 });
@@ -849,7 +920,7 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
 //     }
 
 //     const trendData = await query(
-//       `SELECT 
+//       `SELECT
 //           ${groupBy} AS time,
 //           SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk,
 //           SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar
@@ -864,12 +935,12 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
 
 //     // ── 11. Data Lead per Device (Bar Chart) ──────────────────────────
 //     const devicePerformance = await query(
-//       `SELECT 
+//       `SELECT
 //           s.name,
 //           COUNT(DISTINCT m.chat_jid) AS lead_count
 //        FROM wa_sessions s
-//        LEFT JOIN wa_messages m ON s.id = m.session_id 
-//           AND m.is_from_me = 0 
+//        LEFT JOIN wa_messages m ON s.id = m.session_id
+//           AND m.is_from_me = 0
 //           AND m.chat_jid NOT LIKE '%@g.us'
 //           AND ${periodFilter.replace(/m\./g, 'm.')}
 //        GROUP BY s.id, s.name`,
@@ -905,171 +976,187 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
 // });
 
 
-
-/**
- * HELPER: Membangun filter SQL berdasarkan periode atau custom date
- */
-
-
-router.get("/stats/dashboard", async (req, res) => {
+// GET: Stats Dashboard dengan Role-Based Access Control
+router.get("/stats/dashboard", authenticateToken, async (req, res) => {
   try {
     const { period = "Hari ini", sessionId, startDate, endDate } = req.query;
+    const userId = req.user.id;
+    const roleType = req.user.role_type.toLowerCase().trim();
 
-    // 1. Parameter filter untuk Device
-    const isSpecificDevice = sessionId && sessionId !== "Semua Device" && sessionId !== "all";
-    const sessionFilter = isSpecificDevice ? `AND m.session_id = ?` : "";
-    const sessionParams = isSpecificDevice ? [sessionId] : [];
+    // 1. Tentukan Device Mana Saja yang Berhak Diakses User Ini
+    let allowedSessions = [];
 
-    // 2. Build Period Filter
-    const periodFilter = buildPeriodFilter(period, "m.timestamp", startDate, endDate);
-
-    // Helper untuk Alias inc (Query No 7 & 8)
-    // Gunakan regex global agar semua instance m. diganti
-    const periodFilterInc = periodFilter.replace(/m\./g, 'inc.');
-    const sessionFilterInc = sessionFilter.replace(/m\./g, 'inc.');
-
-    // --- EXECUTE QUERIES ---
-
-    // 1. Total pesan masuk (ALL TIME)
-    const [rowPesanMasukAllTime] = await query(
-      `SELECT COUNT(*) AS count FROM wa_messages m 
-       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter}`,
-      [...sessionParams]
-    );
-
-    // 2. Pesan masuk (PERIODE)
-    const [rowPesanMasukPeriod] = await query(
-      `SELECT COUNT(*) AS count FROM wa_messages m 
-       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
-      [...sessionParams]
-    );
-
-    // 3. Pesan terkirim (PERIODE)
-    const [rowPesanKeluar] = await query(
-      `SELECT COUNT(*) AS count FROM wa_messages m 
-       WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
-      [...sessionParams]
-    );
-
-    // 4. Info device
-    const allSessions = await query(`SELECT id, name, status FROM wa_sessions ORDER BY created_at DESC`);
-    const totalDevice = allSessions.length;
-    const deviceConnected = allSessions.filter((s) => s.status === "connected").length;
-
-    // 5. Lead Masuk
-    let leadBaseDate = 'CURDATE()';
-    if (period === "Custom" && startDate) leadBaseDate = `'${startDate}'`;
-    const [rowLeadMasuk] = await query(
-      `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m 
-       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}
-       AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m.chat_jid AND older.timestamp < ${leadBaseDate})`,
-      [...sessionParams]
-    );
-
-    // 6. Lead Aktif (30 Menit Terakhir)
-    const [rowLeadAktif] = await query(
-      `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m 
-       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' 
-       AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`,
-      [...sessionParams]
-    );
-
-    // 7. Slow Response (> 10 mnt belum balas)
-    const [rowSlowResponse] = await query(
-      `SELECT COUNT(DISTINCT inc.chat_jid) AS count FROM wa_messages inc
-       WHERE inc.is_from_me = 0 AND inc.chat_jid NOT LIKE '%@g.us' 
-       AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-       AND ${periodFilterInc} ${sessionFilterInc}
-       AND NOT EXISTS (
-         SELECT 1 FROM wa_messages reply 
-         WHERE reply.chat_jid = inc.chat_jid AND reply.is_from_me = 1 AND reply.timestamp > inc.timestamp
-       )`,
-      [...sessionParams]
-    );
-
-    // 8. Tak Terjawab (> 24 jam belum balas)
-    const [rowUnanswered] = await query(
-      `SELECT COUNT(DISTINCT inc.chat_jid) AS count FROM wa_messages inc
-       WHERE inc.is_from_me = 0 AND inc.chat_jid NOT LIKE '%@g.us' 
-       AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-       AND ${periodFilterInc} ${sessionFilterInc}
-       AND NOT EXISTS (
-         SELECT 1 FROM wa_messages reply 
-         WHERE reply.chat_jid = inc.chat_jid AND reply.is_from_me = 1 AND reply.timestamp > inc.timestamp
-       )`,
-      [...sessionParams]
-    );
-
-    // 9. Live Messages Feed
-    const liveMessages = await query(
-      `SELECT m.id, COALESCE(ct.name, ct.push_name, m.from_jid, m.chat_jid) AS sender, 
-       COALESCE(m.content, m.caption, '[Media]') AS message_text, s.name AS received_via, 
-       DATE_FORMAT(m.timestamp, '%Y-%m-%d %H:%i:%s') AS received_at
-       FROM wa_messages m 
-       LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
-       LEFT JOIN wa_sessions s ON s.id = m.session_id
-       WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter}
-       ORDER BY m.timestamp DESC LIMIT 20`,
-      [...sessionParams]
-    );
-
-    // 10. Data Tren (Line Chart)
-    let groupBy = "DATE_FORMAT(m.timestamp, '%H:00')";
-    if (["Minggu", "week", "Bulan", "month", "Custom"].includes(period)) {
-      groupBy = "DATE(m.timestamp)";
+    // System dan Manager disamakan: Bisa melihat SEMUA device
+    if (roleType === "system" || roleType === "manager") {
+      const allSess = await query(
+        "SELECT id, name, status FROM wa_sessions ORDER BY name ASC",
+      );
+      allowedSessions = allSess;
+    } else {
+      // Role lain (Custom/Staff) hanya melihat yang di-assign di tabel pivot
+      allowedSessions = await query(
+        `SELECT s.id, s.name, s.status FROM wa_sessions s
+         INNER JOIN wa_user_sessions us ON s.id = us.session_id
+         WHERE us.user_id = ? 
+         ORDER BY s.name ASC`,
+        [userId],
+      );
     }
 
-    const trendData = await query(
-  `SELECT 
-      ${groupBy} AS time,
-      SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk,
-      SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar
-   FROM wa_messages m
-   WHERE m.chat_jid NOT LIKE '%@g.us'
-   AND ${periodFilter}
-   ${sessionFilter}
-   GROUP BY time
-   ORDER BY time ASC`, // <--- DIUBAH MENJADI time
-  [...sessionParams]
-);
+    const allowedIds = allowedSessions.map((s) => s.id);
 
-    // 11. Data Lead per Device (Bar Chart)
-    const devicePerformance = await query(
-      `SELECT s.name, COUNT(DISTINCT m.chat_jid) AS lead_count 
-       FROM wa_sessions s
-       LEFT JOIN wa_messages m ON s.id = m.session_id 
-       AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter}
-       GROUP BY s.id, s.name`,
-      []
+    // Jika user tidak punya akses ke device manapun, kembalikan data kosong
+    if (allowedIds.length === 0) {
+      return res.json({
+        success: true,
+        stats: {
+          pesanMasukAllTime: 0,
+          pesanMasukToday: 0,
+          pesanKeluar: 0,
+          totalDevice: 0,
+          deviceConnected: 0,
+          leadMasuk: 0,
+          leadAktif: 0,
+          slowResponse: 0,
+          unanswered: 0,
+        },
+        devices: [],
+        messages: [],
+        chartData: [],
+        deviceStats: [],
+      });
+    }
+
+    // 2. Filter Device (Security Check)
+    let finalSessionFilterIds = [];
+    const isSpecificDevice =
+      sessionId && sessionId !== "all" && sessionId !== "Semua Device";
+
+    if (isSpecificDevice) {
+      if (!allowedIds.includes(sessionId)) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Akses device ditolak!" });
+      }
+      finalSessionFilterIds = [sessionId];
+    } else {
+      finalSessionFilterIds = allowedIds;
+    }
+
+    // Helper untuk SQL IN Clause
+    const placeholders = finalSessionFilterIds.map(() => "?").join(",");
+    const sessionFilter = `AND m.session_id IN (${placeholders})`;
+    const sessionParams = finalSessionFilterIds;
+
+    // 3. Build Period Filter
+    const periodFilter = buildPeriodFilter(
+      period,
+      "m.timestamp",
+      startDate,
+      endDate,
     );
+    const periodFilterInc = periodFilter.replace(/m\./g, "inc.");
+    const sessionFilterInc = sessionFilter.replace(/m\./g, "inc.");
 
-    // --- 12. Response ---
+    // --- EXECUTE QUERIES (Parallelized for Performance) ---
+    const [
+      [rowPesanMasukAllTime],
+      [rowPesanMasukPeriod],
+      [rowPesanKeluar],
+      [rowLeadMasuk],
+      [rowLeadAktif],
+      [rowSlowResponse],
+      [rowUnanswered],
+      liveMessages,
+      trendData,
+      devicePerformance,
+    ] = await Promise.all([
+      // 1. Total pesan masuk (ALL TIME)
+      query(
+        `SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter}`,
+        [...sessionParams],
+      ),
+
+      // 2. Pesan masuk (PERIODE)
+      query(
+        `SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
+        [...sessionParams],
+      ),
+
+      // 3. Pesan terkirim (PERIODE)
+      query(
+        `SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
+        [...sessionParams],
+      ),
+
+      // 5. Lead Masuk
+      query(
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m.chat_jid AND older.timestamp < (CASE WHEN '${period}' = 'Custom' THEN '${startDate}' ELSE CURDATE() END))`,
+        [...sessionParams],
+      ),
+
+      // 6. Lead Aktif
+      query(
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`,
+        [...sessionParams],
+      ),
+
+      // 7. Slow Response
+      query(
+        `SELECT COUNT(DISTINCT inc.chat_jid) AS count FROM wa_messages inc WHERE inc.is_from_me = 0 AND inc.chat_jid NOT LIKE '%@g.us' AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) AND ${periodFilterInc} ${sessionFilterInc} AND NOT EXISTS (SELECT 1 FROM wa_messages reply WHERE reply.chat_jid = inc.chat_jid AND reply.is_from_me = 1 AND reply.timestamp > inc.timestamp)`,
+        [...sessionParams],
+      ),
+
+      // 8. Tak Terjawab
+      query(
+        `SELECT COUNT(DISTINCT inc.chat_jid) AS count FROM wa_messages inc WHERE inc.is_from_me = 0 AND inc.chat_jid NOT LIKE '%@g.us' AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) AND ${periodFilterInc} ${sessionFilterInc} AND NOT EXISTS (SELECT 1 FROM wa_messages reply WHERE reply.chat_jid = inc.chat_jid AND reply.is_from_me = 1 AND reply.timestamp > inc.timestamp)`,
+        [...sessionParams],
+      ),
+
+      // 9. Live Feed
+      query(
+        `SELECT m.id, COALESCE(ct.name, ct.push_name, m.from_jid, m.chat_jid) AS sender, COALESCE(m.content, m.caption, '[Media]') AS message_text, s.name AS received_via, DATE_FORMAT(m.timestamp, '%Y-%m-%d %H:%i:%s') AS received_at FROM wa_messages m LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid LEFT JOIN wa_sessions s ON s.id = m.session_id WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter} ORDER BY m.timestamp DESC LIMIT 20`,
+        [...sessionParams],
+      ),
+
+      // 10. Trend Data
+      query(
+        `SELECT ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk, SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar FROM wa_messages m WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} GROUP BY time ORDER BY time ASC`,
+        [...sessionParams],
+      ),
+
+      // 11. Performa Device (Bar Chart) - menggunakan placeholders asli dari allowedIds agar menampilkan semua perbandingan device yang dimiliki
+      query(
+        `SELECT s.name, COUNT(DISTINCT m.chat_jid) AS lead_count FROM wa_sessions s LEFT JOIN wa_messages m ON s.id = m.session_id AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} WHERE s.id IN (${allowedIds.map(() => "?").join(",")}) GROUP BY s.id, s.name`,
+        [...allowedIds],
+      ),
+    ]);
+
+    // 12. Final Response
     res.json({
       success: true,
       stats: {
         pesanMasukAllTime: rowPesanMasukAllTime?.count || 0,
         pesanMasukToday: rowPesanMasukPeriod?.count || 0,
         pesanKeluar: rowPesanKeluar?.count || 0,
-        totalDevice,
-        deviceConnected,
+        totalDevice: allowedSessions.length,
+        deviceConnected: allowedSessions.filter((s) => s.status === "connected")
+          .length,
         leadMasuk: rowLeadMasuk?.count || 0,
         leadAktif: rowLeadAktif?.count || 0,
         slowResponse: rowSlowResponse?.count || 0,
         unanswered: rowUnanswered?.count || 0,
       },
-      devices: allSessions,
+      devices: allowedSessions,
       messages: liveMessages || [],
       chartData: trendData || [],
       deviceStats: devicePerformance || [],
     });
-
   } catch (err) {
     console.error("Critical Dashboard Error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Terjadi kesalahan pada server saat memuat dashboard",
-      error: err.message
-    });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: err.message });
   }
 });
 
@@ -1109,7 +1196,7 @@ router.get("/sessions/:sessionId/stats", async (req, res) => {
 // CHAT ROUTES
 // ===============================================
 // ===============================================
-// GLOBAL INBOX - MENGAMBIL PESAN TERAKHIR
+// GLOBAL INBOX - MENGAMBIL PESAN TERAKHIR (FIXED)
 // ===============================================
 router.get("/all-global-messages", async (req, res) => {
   try {
@@ -1122,27 +1209,26 @@ router.get("/all-global-messages", async (req, res) => {
         ct.profile_pic_url
       FROM wa_messages m
       INNER JOIN (
-        -- Mengambil ID pesan terakhir untuk tiap chat di tiap sesi
-        -- Kita hapus filter 'is_from_me' agar balasan kita juga muncul
+        -- Mengambil ID pesan terakhir, abaikan Grup dan Saluran
         SELECT MAX(id) as last_id
         FROM wa_messages
-        WHERE chat_jid NOT LIKE '%@g.us'
+        WHERE chat_jid NOT LIKE '%@g.us' 
+          AND chat_jid NOT LIKE '%@newsletter'
+          AND chat_jid NOT LIKE 'status@broadcast'
         GROUP BY chat_jid, session_id
       ) latest ON m.id = latest.last_id
       LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
       LEFT JOIN wa_chats ch ON ch.session_id = m.session_id AND ch.jid = m.chat_jid
       LEFT JOIN wa_sessions s ON s.id = m.session_id
-      -- Filter agar hanya chat personal yang muncul
       WHERE (ch.is_group = 0 OR ch.is_group IS NULL)
+        AND m.chat_jid NOT LIKE '%@newsletter'
       ORDER BY m.timestamp DESC
       LIMIT 100
     `;
 
     const messages = await query(sql);
-    
-    // Debug: Cek di console terminal backend apakah datanya ada
-    console.log("Total pesan ditemukan:", messages.length);
-    
+    console.log("Total pesan global (tanpa saluran):", messages.length);
+
     res.json({ success: true, data: messages });
   } catch (err) {
     console.error("Query Error:", err.message);
@@ -1150,8 +1236,9 @@ router.get("/all-global-messages", async (req, res) => {
   }
 });
 
-// GET: Daftar semua chat
-// GET: Daftar semua chat personal (non-group) + labels dengan GROUP_CONCAT fallback
+// ===============================================
+// GET: DAFTAR CHAT PER SESI (FIXED)
+// ===============================================
 router.get("/sessions/:sessionId/chats", async (req, res) => {
   const { sessionId } = req.params;
   const { search = "", page = "1", limit = "50" } = req.query;
@@ -1175,7 +1262,6 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
         c.is_group,
         COALESCE(ct.name, ct.push_name, c.name, c.jid) AS display_name,
         ct.profile_pic_url,
-        -- Labels menggunakan GROUP_CONCAT + JSON_OBJECT (kompatibel MariaDB < 10.5)
         COALESCE(
           CONCAT(
             '[',
@@ -1208,8 +1294,10 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
       LEFT JOIN wa_labels l 
         ON l.id = cl.label_id 
         AND l.session_id = c.session_id
-      WHERE c.session_id = ?
-        AND c.is_group = 0
+      WHERE c.session_id = ? 
+        AND c.is_group = 0 
+        AND c.jid NOT LIKE '%@newsletter' -- FILTER SALURAN
+        AND c.jid NOT LIKE 'status@broadcast' -- FILTER STATUS
       GROUP BY c.jid, c.session_id
       ORDER BY c.pinned DESC, c.last_message_time DESC
       LIMIT ? OFFSET ?
@@ -1220,7 +1308,7 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
     if (search.trim()) {
       const searchTerm = `%${search.trim()}%`;
       sql = sql.replace(
-        'WHERE c.session_id = ?',
+        "WHERE c.session_id = ?",
         `WHERE c.session_id = ?
          AND (
            COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
@@ -1232,15 +1320,14 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
 
     const chats = await query(sql, params);
 
-    // Parse labels (GROUP_CONCAT menghasilkan string JSON array)
-    const parsedChats = chats.map(chat => {
+    const parsedChats = chats.map((chat) => {
       let labels = [];
       try {
-        if (chat.labels && chat.labels !== '[]') {
+        if (chat.labels && chat.labels !== "[]") {
           labels = JSON.parse(chat.labels);
         }
       } catch (e) {
-        console.warn("Gagal parse labels untuk chat", chat.jid, e);
+        console.warn("Gagal parse labels:", chat.jid, e);
       }
       return {
         ...chat,
@@ -1253,12 +1340,15 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
       };
     });
 
-    // Hitung total (sama seperti sebelumnya)
+    // Hitung total data untuk pagination (FIXED FILTER)
     let countSql = `
       SELECT COUNT(DISTINCT c.jid) as total 
       FROM wa_chats c
       LEFT JOIN wa_contacts ct ON ct.session_id = c.session_id AND ct.jid = c.jid
-      WHERE c.session_id = ? AND c.is_group = 0
+      WHERE c.session_id = ? 
+        AND c.is_group = 0 
+        AND c.jid NOT LIKE '%@newsletter'
+        AND c.jid NOT LIKE 'status@broadcast'
     `;
     let countParams = [sessionId];
 
@@ -1282,20 +1372,18 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
         page: pageNum,
         limit: limitNum,
         total: totalRow?.total || 0,
-        totalPages: Math.ceil((totalRow?.total || 0) / limitNum)
-      }
+        totalPages: Math.ceil((totalRow?.total || 0) / limitNum),
+      },
     });
   } catch (err) {
     console.error("Error fetching chats:", err);
-    res.status(500).json({
-      success: false,
-      message: "Gagal memuat daftar chat",
-      error: err.message
-    });
+    res.status(500).json({ success: false, message: "Gagal memuat daftar chat" });
   }
 });
 
-// GET: Pesan dalam satu chat
+// ===============================================
+// GET: PESAN DALAM SATU CHAT
+// ===============================================
 router.get("/sessions/:sessionId/chats/:chatJid/messages", async (req, res) => {
   const { sessionId, chatJid } = req.params;
   const { before, limit = 30 } = req.query;
@@ -1321,6 +1409,20 @@ router.get("/sessions/:sessionId/chats/:chatJid/messages", async (req, res) => {
   const messages = await query(sql, params);
   messages.reverse();
   res.json({ success: true, data: messages });
+});
+
+// ===============================================
+// PUT: MARK CHAT AS READ
+// ===============================================
+router.put("/sessions/:sessionId/chats/:chatJid/read", async (req, res) => {
+  const { sessionId, chatJid } = req.params;
+  const decodedJid = decodeURIComponent(chatJid);
+  try {
+    await markAsRead(sessionId, decodedJid);
+    res.json({ success: true, message: "Chat ditandai sudah dibaca" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // PUT: Mark chat as read
@@ -1360,26 +1462,27 @@ router.post("/sessions/:sessionId/messages/text", async (req, res) => {
     // 2. Berikan delay acak (Misal: antara 2 sampai 5 detik)
     // Tujuannya agar pola pengiriman tidak kaku/robotik
     const randomDelay = Math.floor(Math.random() * (5000 - 2000 + 1) + 2000);
-    console.log(`[WhatsApp] Menunggu ${randomDelay}ms sebelum mengirim ke ${to}...`);
+    console.log(
+      `[WhatsApp] Menunggu ${randomDelay}ms sebelum mengirim ke ${to}...`,
+    );
     await delay(randomDelay);
 
     // 3. (Opsional) Kirim status 'composing' (mengetik)
-    // Anda perlu akses ke object 'sock' (socket) di dalam sendTextMessage 
+    // Anda perlu akses ke object 'sock' (socket) di dalam sendTextMessage
     // atau panggil fungsi update kehadiran jika library Anda mendukungnya.
     // Contoh jika menggunakan instance langsung:
-    // await socket.sendPresenceUpdate('composing', to); 
+    // await socket.sendPresenceUpdate('composing', to);
     // await delay(2000); // Simulasi mengetik selama 2 detik
 
     // 4. Kirim pesan utama
     const sent = await sendTextMessage(sessionId, to, text, quotedMsgId);
-    
-    res.json({ 
-        success: true, 
-        data: sent, 
-        message: "Pesan berhasil dikirim dengan delay",
-        delayApplied: `${randomDelay}ms`
-    });
 
+    res.json({
+      success: true,
+      data: sent,
+      message: "Pesan berhasil dikirim dengan delay",
+      delayApplied: `${randomDelay}ms`,
+    });
   } catch (err) {
     console.error("Error kirim pesan:", err);
     res.status(500).json({ success: false, message: err.message });
@@ -1480,9 +1583,9 @@ router.get("/sessions/:sessionId/contacts", async (req, res) => {
 // GROUP ROUTES
 // ===============================================
 
-router.get('/sessions/:sessionId/groups', async (req, res) => {
+router.get("/sessions/:sessionId/groups", async (req, res) => {
   const { sessionId } = req.params;
-  const { search = '' } = req.query;
+  const { search = "" } = req.query;
 
   let sql = `
     SELECT 
@@ -1522,13 +1625,13 @@ router.get('/sessions/:sessionId/groups', async (req, res) => {
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
 
-  sql += ' ORDER BY c.pinned DESC, c.last_message_time DESC';
+  sql += " ORDER BY c.pinned DESC, c.last_message_time DESC";
 
   try {
     const groups = await query(sql, params);
     res.json({ success: true, data: groups });
   } catch (err) {
-    console.error('Error fetch groups:', err.message);
+    console.error("Error fetch groups:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -1661,7 +1764,6 @@ router.put("/sessions/:sessionId/groups/:groupJid/read", async (req, res) => {
   }
 });
 
-
 // ===============================================
 // LABEL ROUTES - NEW FEATURE
 // ===============================================
@@ -1680,7 +1782,7 @@ router.get("/sessions/:sessionId/labels", async (req, res) => {
        WHERE l.session_id = ?
        GROUP BY l.id
        ORDER BY l.sort_order ASC, l.created_at DESC`,
-      [sessionId]
+      [sessionId],
     );
     res.json({ success: true, data: labels });
   } catch (err) {
@@ -1692,43 +1794,47 @@ router.get("/sessions/:sessionId/labels", async (req, res) => {
 router.post("/sessions/:sessionId/labels", async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { name, color = '#00a884', icon = 'tag', description = '' } = req.body;
+    const {
+      name,
+      color = "#00a884",
+      icon = "tag",
+      description = "",
+    } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Nama label wajib diisi"
+        message: "Nama label wajib diisi",
       });
     }
 
     // Check if label already exists
     const existing = await queryOne(
       "SELECT id FROM wa_labels WHERE session_id = ? AND name = ?",
-      [sessionId, name.trim()]
+      [sessionId, name.trim()],
     );
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "Label dengan nama ini sudah ada"
+        message: "Label dengan nama ini sudah ada",
       });
     }
 
     const result = await query(
       `INSERT INTO wa_labels (session_id, name, color, icon, description) 
        VALUES (?, ?, ?, ?, ?)`,
-      [sessionId, name.trim(), color, icon, description]
+      [sessionId, name.trim(), color, icon, description],
     );
 
-    const newLabel = await queryOne(
-      "SELECT * FROM wa_labels WHERE id = ?",
-      [result.insertId]
-    );
+    const newLabel = await queryOne("SELECT * FROM wa_labels WHERE id = ?", [
+      result.insertId,
+    ]);
 
     res.json({
       success: true,
       data: newLabel,
-      message: "Label berhasil dibuat"
+      message: "Label berhasil dibuat",
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -1764,7 +1870,7 @@ router.put("/sessions/:sessionId/labels/:labelId", async (req, res) => {
     if (updates.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Tidak ada data yang diupdate"
+        message: "Tidak ada data yang diupdate",
       });
     }
 
@@ -1773,18 +1879,18 @@ router.put("/sessions/:sessionId/labels/:labelId", async (req, res) => {
     await query(
       `UPDATE wa_labels SET ${updates.join(", ")}, updated_at = NOW() 
        WHERE session_id = ? AND id = ?`,
-      params
+      params,
     );
 
     const updated = await queryOne(
       "SELECT * FROM wa_labels WHERE session_id = ? AND id = ?",
-      [sessionId, labelId]
+      [sessionId, labelId],
     );
 
     res.json({
       success: true,
       data: updated,
-      message: "Label berhasil diupdate"
+      message: "Label berhasil diupdate",
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -1797,14 +1903,14 @@ router.delete("/sessions/:sessionId/labels/:labelId", async (req, res) => {
     const { sessionId, labelId } = req.params;
 
     // Delete akan cascade ke wa_chat_labels karena foreign key
-    await query(
-      "DELETE FROM wa_labels WHERE session_id = ? AND id = ?",
-      [sessionId, labelId]
-    );
+    await query("DELETE FROM wa_labels WHERE session_id = ? AND id = ?", [
+      sessionId,
+      labelId,
+    ]);
 
     res.json({
       success: true,
-      message: "Label berhasil dihapus"
+      message: "Label berhasil dihapus",
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -1823,7 +1929,7 @@ router.get("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
        INNER JOIN wa_chat_labels cl ON cl.label_id = l.id
        WHERE cl.session_id = ? AND cl.chat_jid = ?
        ORDER BY l.sort_order ASC, l.name ASC`,
-      [sessionId, decodedJid]
+      [sessionId, decodedJid],
     );
 
     res.json({ success: true, data: labels });
@@ -1842,44 +1948,44 @@ router.post("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
     if (!labelId) {
       return res.status(400).json({
         success: false,
-        message: "Label ID wajib diisi"
+        message: "Label ID wajib diisi",
       });
     }
 
     // Check if label exists
     const label = await queryOne(
       "SELECT id FROM wa_labels WHERE session_id = ? AND id = ?",
-      [sessionId, labelId]
+      [sessionId, labelId],
     );
 
     if (!label) {
       return res.status(404).json({
         success: false,
-        message: "Label tidak ditemukan"
+        message: "Label tidak ditemukan",
       });
     }
 
     // Check if already assigned
     const existing = await queryOne(
       "SELECT id FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND label_id = ?",
-      [sessionId, decodedJid, labelId]
+      [sessionId, decodedJid, labelId],
     );
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "Label sudah ditambahkan ke chat ini"
+        message: "Label sudah ditambahkan ke chat ini",
       });
     }
 
     await query(
       "INSERT INTO wa_chat_labels (session_id, chat_jid, label_id) VALUES (?, ?, ?)",
-      [sessionId, decodedJid, labelId]
+      [sessionId, decodedJid, labelId],
     );
 
     res.json({
       success: true,
-      message: "Label berhasil ditambahkan ke chat"
+      message: "Label berhasil ditambahkan ke chat",
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -1887,25 +1993,26 @@ router.post("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
 });
 
 // DELETE: Remove label dari chat
-router.delete("/sessions/:sessionId/chats/:chatJid/labels/:labelId", async (req, res) => {
-  try {
-    const { sessionId, chatJid, labelId } = req.params;
-    const decodedJid = decodeURIComponent(chatJid);
+router.delete(
+  "/sessions/:sessionId/chats/:chatJid/labels/:labelId",
+  async (req, res) => {
+    try {
+      const { sessionId, chatJid, labelId } = req.params;
+      const decodedJid = decodeURIComponent(chatJid);
 
-    await query(
-      "DELETE FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND label_id = ?",
-      [sessionId, decodedJid, labelId]
-    );
+      await query(
+        "DELETE FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND label_id = ?",
+        [sessionId, decodedJid, labelId],
+      );
 
-    res.json({
-      success: true,
-      message: "Label berhasil dihapus dari chat"
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
+      res.json({
+        success: true,
+        message: "Label berhasil dihapus dari chat",
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+);
 
 export default router;
