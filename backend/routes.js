@@ -975,7 +975,6 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
 //   }
 // });
 
-
 // GET: Stats Dashboard dengan Role-Based Access Control
 router.get("/stats/dashboard", authenticateToken, async (req, res) => {
   try {
@@ -1090,10 +1089,21 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
       ),
 
       // 5. Lead Masuk
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m.chat_jid AND older.timestamp < (CASE WHEN '${period}' = 'Custom' THEN '${startDate}' ELSE CURDATE() END))`,
-        [...sessionParams],
-      ),
+// CARI BAGIAN QUERY 5 (Lead Masuk) DI BACKEND ANDA, GANTI JADI INI:
+query(
+  `SELECT COUNT(DISTINCT m.chat_jid) AS count 
+   FROM wa_messages m 
+   WHERE m.is_from_me = 0 
+   AND m.chat_jid NOT LIKE '%@g.us' 
+   AND ${periodFilter} 
+   ${sessionFilter} 
+   AND NOT EXISTS (
+     SELECT 1 FROM wa_messages older 
+     WHERE older.chat_jid = m.chat_jid 
+     AND older.timestamp < m.timestamp -- Perubahan di sini: bandingkan dengan timestamp pesan itu sendiri
+   )`,
+  [...sessionParams],
+),
 
       // 6. Lead Aktif
       query(
@@ -1313,7 +1323,7 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
          AND (
            COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
            OR c.jid LIKE ?
-         )`
+         )`,
       );
       params.splice(1, 0, searchTerm, searchTerm);
     }
@@ -1377,7 +1387,9 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching chats:", err);
-    res.status(500).json({ success: false, message: "Gagal memuat daftar chat" });
+    res
+      .status(500)
+      .json({ success: false, message: "Gagal memuat daftar chat" });
   }
 });
 

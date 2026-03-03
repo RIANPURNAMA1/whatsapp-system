@@ -14,7 +14,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import useStore from "../store/useStore"; // <--- Import Store
+import useStore from "../store/useStore";
 import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
 import LiveFeed from "./LiveChatFeed";
 import StatCard from "./StatCard";
@@ -35,7 +35,6 @@ const FILTER_MAP: Record<string, string> = {
 const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
   const initialDate = new Date().toISOString().split("T")[0];
 
-  // Ambil state dan action tema dari Zustand Store
   const { isDarkMode, toggleDarkMode } = useStore();
 
   const [activeFilter, setActiveFilter] = useState("Hari ini");
@@ -68,12 +67,22 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
       try {
         if (showLoader) setLoading(true);
         const token = localStorage.getItem("token");
-        const period = FILTER_MAP[activeFilter];
 
-        let url = `${import.meta.env.VITE_API_URL}/stats/dashboard?period=${period}`;
-        if (selectedDevice !== "all") url += `&sessionId=${selectedDevice}`;
-        if (activeFilter === "Custom")
-          url += `&startDate=${startDate}&endDate=${endDate}`;
+        // 1. Gunakan URLSearchParams agar query string rapi dan aman
+        const params = new URLSearchParams();
+        params.append("period", FILTER_MAP[activeFilter]);
+
+        if (selectedDevice !== "all") {
+          params.append("sessionId", selectedDevice);
+        }
+
+        // 2. Hanya kirim tanggal jika filter adalah Custom
+        if (activeFilter === "Custom") {
+          params.append("startDate", startDate);
+          params.append("endDate", endDate);
+        }
+
+        const url = `${import.meta.env.VITE_API_URL}/stats/dashboard?${params.toString()}`;
 
         const res = await fetch(url, {
           headers: {
@@ -99,11 +108,12 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
         setRefreshing(false);
       }
     },
-    [activeFilter, selectedDevice, startDate, endDate],
+    [activeFilter, selectedDevice, startDate, endDate], // Dependensi lengkap
   );
 
   useEffect(() => {
     fetchDashboard();
+    // Auto refresh setiap 30 detik
     const interval = setInterval(() => fetchDashboard(false), 30000);
     return () => clearInterval(interval);
   }, [fetchDashboard]);
@@ -163,9 +173,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
         <div className="flex justify-between items-start lg:block">
           <div>
             <h1
-              className={`text-2xl font-black tracking-widest uppercase flex items-center gap-3 ${
-                isDarkMode ? "text-white" : "text-[#3B4A54]"
-              }`}
+              className={`text-2xl font-black tracking-widest uppercase flex items-center gap-3 ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
             >
               SATU PINTU
               {refreshing && (
@@ -175,16 +183,13 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
             <div className="flex items-center gap-2 mt-1">
               <div className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse"></div>
               <p
-                className={`text-[9px] font-bold tracking-[0.2em] uppercase ${
-                  isDarkMode ? "text-[#8696A0]" : "text-[#667781]"
-                }`}
+                className={`text-[9px] font-bold tracking-[0.2em] uppercase ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
               >
                 Monitoring Dashboard
               </p>
             </div>
           </div>
 
-          {/* Theme Switcher Mobile Only */}
           <button
             onClick={toggleDarkMode}
             className="lg:hidden p-2 rounded-full bg-[#00a884]/10 text-[#00a884]"
@@ -202,7 +207,6 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
                 ? "bg-[#202C33] border-[#313D45] text-yellow-400 hover:bg-[#2A3942]"
                 : "bg-white border-[#E9EDEF] text-gray-600 hover:bg-gray-50"
             }`}
-            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -245,9 +249,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
               ))}
             </select>
             <ChevronDown
-              className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${
-                isDarkMode ? "text-[#8696A0]" : "text-[#667781]"
-              }`}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
               size={14}
             />
           </div>
@@ -263,7 +265,11 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
             {Object.keys(FILTER_MAP).map((item) => (
               <button
                 key={item}
-                onClick={() => setActiveFilter(item)}
+                onClick={() => {
+                  setActiveFilter(item);
+                  // Reset loader agar user tahu data sedang ditarik
+                  setRefreshing(true);
+                }}
                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase whitespace-nowrap transition-all ${
                   activeFilter === item
                     ? "bg-[#00a884] text-white shadow-lg"
@@ -278,9 +284,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
 
             {activeFilter === "Custom" && (
               <div
-                className={`flex items-center gap-2 ml-2 pl-2 border-l animate-in fade-in slide-in-from-right-2 ${
-                  isDarkMode ? "border-[#313D45]" : "border-[#E9EDEF]"
-                }`}
+                className={`flex items-center gap-2 ml-2 pl-2 border-l animate-in fade-in slide-in-from-right-2 ${isDarkMode ? "border-[#313D45]" : "border-[#E9EDEF]"}`}
               >
                 <input
                   type="date"
