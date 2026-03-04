@@ -151,15 +151,31 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
     return chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
   }, [chats]);
 
-  // Filter dan sort chats
+ // Filter dan sort chats (FULL VERSION: SINKRON & DEDUPLIKASI)
   const processedChats = React.useMemo(() => {
-    let filtered = chats.filter((c) => {
-      // --- 1. FILTER JID SAMPAH (TAMBAHKAN INI) ---
-      // Menghilangkan status broadcast dan nomor yang hanya mengirim status media
+    // 1. DEDUPLIKASI: Pastikan satu JID hanya muncul satu kali (mengambil pesan terbaru)
+    const uniqueChatsMap = new Map<string, Chat>();
+
+    chats.forEach((c) => {
+      // --- FILTER JID SAMPAH ---
       if (c.jid === "status@broadcast" || c.jid.includes("broadcast")) {
-        return false;
+        return;
       }
 
+      const existing = uniqueChatsMap.get(c.jid);
+      
+      // Ambil waktu pesan saat ini dan pesan yang sudah tersimpan (jika ada)
+      const currentTime = c.last_message_time ? new Date(c.last_message_time).getTime() : 0;
+      const existingTime = existing?.last_message_time ? new Date(existing.last_message_time).getTime() : 0;
+
+      // Jika belum ada di Map ATAU pesan ini lebih baru dari yang sudah ada di Map
+      if (!existing || currentTime > existingTime) {
+        uniqueChatsMap.set(c.jid, c);
+      }
+    });
+
+    // 2. FILTERING: Terapkan Search, Unread, dan Label Filter
+    let filtered = Array.from(uniqueChatsMap.values()).filter((c) => {
       // Filter berdasarkan search
       if (chatSearch) {
         const name = getDisplayName(c).toLowerCase();
@@ -187,7 +203,7 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
       return true;
     });
 
-    // Sort
+    // 3. SORTING: Urutkan berdasarkan Pin dan Waktu Terakhir
     return [...filtered].sort((a, b) => {
       // Prioritaskan yang di-pin
       if (a.pinned !== b.pinned) {
@@ -205,7 +221,6 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
       return timeB - timeA;
     });
   }, [chats, chatSearch, selectedLabelFilter, showUnreadOnly]);
-
   // Hitung unread filtered
   const filteredUnread = React.useMemo(() => {
     return processedChats.reduce(
