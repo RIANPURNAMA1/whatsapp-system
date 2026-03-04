@@ -207,16 +207,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     return <WelcomeScreen />;
   }
 
-  const displayName = getDisplayName(selectedChat);
+  // --- CLEAN DISPLAY NAME ---
+  const rawDisplayName = getDisplayName(selectedChat);
+  const displayName = rawDisplayName.includes('@') ? "Potential Lead" : rawDisplayName;
 
   return (
     <div className="flex-1 flex flex-col bg-[#0B141A] h-[100dvh] w-full relative overflow-hidden">
-      {/* HEADER: Dibuat Flex-None agar tidak mengecil/tergeser */}
+      {/* HEADER */}
       <div className="flex-none h-[60px] md:h-[65px] bg-[#202C33] px-3 md:px-4 flex items-center gap-2 border-b border-[#111B21] z-20">
-        {/* Tombol Back di Header hanya muncul di Desktop/Tablet */}
         <button
           onClick={onBack}
-          className="hidden md:flex p-2 text-[#8696A0] hover:bg-[#2A3942] rounded-full"
+          className="md:hidden p-2 text-[#8696A0] hover:bg-[#2A3942] rounded-full mr-1"
         >
           <ArrowLeft className="w-6 h-6" />
         </button>
@@ -228,13 +229,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           isGroup={isGroupJid(selectedChat.jid)}
         />
 
-        <div className="flex-1 min-w-0 ml-1">
-          <p className="text-[#E9EDEF] font-medium text-[15px] truncate">
+        <div className="flex-1 min-w-0 ml-2">
+          <p className="text-[#E9EDEF] font-bold text-[15px] truncate">
             {displayName}
           </p>
-          <p className="text-[#00a884] text-[11px] font-bold uppercase tracking-widest">
-            Online
-          </p>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse"></div>
+            <p className="text-[#00a884] text-[10px] font-black uppercase tracking-[0.1em]">
+              Online
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center">
@@ -253,7 +257,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-[#0B141A] relative"
         style={{
-          backgroundImage: `linear-gradient(rgba(11, 20, 26, 0.97), rgba(11, 20, 26, 0.97)), url('/bg-chat.png')`,
+          backgroundImage: `linear-gradient(rgba(11, 20, 26, 0.95), rgba(11, 20, 26, 0.95)), url('/bg-chat.png')`,
           backgroundSize: "400px",
         }}
       >
@@ -270,7 +274,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   msg.timestamp,
                 )) && (
                 <div className="flex justify-center my-4">
-                  <span className="bg-[#182229] text-[#8696A0] text-[11px] px-3 py-1 rounded-md uppercase">
+                  <span className="bg-[#182229] text-[#8696A0] text-[11px] px-3 py-1 rounded-md uppercase font-bold tracking-wider">
                     {formatDateSeparator(msg.timestamp)}
                   </span>
                 </div>
@@ -296,7 +300,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </button>
       )}
 
-      {/* INPUT AREA: Pindah tombol Back ke sini untuk Mobile */}
+      {/* INPUT AREA */}
       <div className="flex-none bg-[#202C33] flex flex-col border-t border-[#111B21] pb-safe">
         {replyTo && (
           <div className="mx-2 mt-2 px-4 py-2 flex items-center gap-3 bg-[#1e272d] border-l-4 border-[#00a884] rounded-t-lg">
@@ -304,7 +308,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               <p className="text-[#00a884] text-xs font-bold">
                 {Number(replyTo.is_from_me) === 1
                   ? "Anda"
-                  : replyTo.sender_name}
+                  : (replyTo.sender_name?.includes('@') ? "Lead" : replyTo.sender_name)}
               </p>
               <p className="text-[#8696A0] text-xs truncate italic">
                 {replyTo.content}
@@ -317,14 +321,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         )}
 
         <div className="px-2 py-2 flex items-end gap-1 md:gap-2">
-          {/* TOMBOL KEMBALI (Back) MOBILE: Di samping kiri input */}
-          <button
-            onClick={onBack}
-            className="md:hidden p-2.5 text-[#8696A0] hover:bg-[#2A3942] rounded-full transition-colors mb-1 shrink-0"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-
           <button className="p-2.5 text-[#8696A0] hover:text-white mb-1">
             <Smile className="w-6 h-6" />
           </button>
@@ -389,7 +385,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             >
               <X className="w-6 h-6" />
             </button>
-            <span className="text-[#E9EDEF] font-medium">Preview Gambar</span>
+            <span className="text-[#E9EDEF] font-bold">Preview Media</span>
           </div>
           <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
             <img
@@ -400,7 +396,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
           <div className="bg-[#111B21] p-4 flex items-center gap-3">
             <input
-              className="flex-1 bg-[#2A3942] text-[#E9EDEF] rounded-xl px-4 py-3 outline-none"
+              className="flex-1 bg-[#2A3942] text-[#E9EDEF] rounded-xl px-4 py-3 outline-none border border-transparent focus:border-[#00a884]"
               placeholder="Tambahkan keterangan..."
               value={previewCaption}
               onChange={(e) => setPreviewCaption(e.target.value)}
@@ -418,22 +414,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   );
 };
 
-// --- SUB-COMPONENT: Welcome Screen ---
 const WelcomeScreen = () => (
-  <div className="flex-1 flex flex-col items-center justify-center bg-[#0B141A] border-l border-[#222d34] h-full">
-    <div className="w-32 h-32 bg-[#202C33] rounded-full flex items-center justify-center shadow-2xl mb-8">
-      <ImageIcon className="w-16 h-16 text-[#00a884] opacity-20" />
+  <div className="flex-1 flex flex-col items-center justify-center bg-[#0B141A] border-l border-[#222d34] h-full p-8 text-center">
+    <div className="w-32 h-32 bg-[#202C33] rounded-full flex items-center justify-center shadow-2xl mb-8 border border-[#2A3942]">
+      <ImageIcon className="w-16 h-16 text-[#00a884] opacity-40" />
     </div>
-    <h2 className="text-[#E9EDEF] text-3xl font-bold">
-      Ke Satu <span className="text-[#00a884]">Pintu</span>
+    <h2 className="text-[#E9EDEF] text-3xl font-black tracking-tighter">
+      SATU <span className="text-[#00a884]">PINTU</span>
     </h2>
-    <p className="text-[#8696A0] text-sm mt-4">
-      Pilih percakapan untuk memulai chat.
+    <p className="text-[#8696A0] text-xs mt-4 max-w-xs font-medium leading-relaxed uppercase tracking-widest">
+      Pilih pesan masuk untuk mulai berinteraksi dengan Leads Anda secara real-time.
     </p>
   </div>
 );
 
-// --- SUB-COMPONENT: Message Bubble ---
 const MessageBubble = ({ message, isGroup, onReply }: any) => {
   const isFromMe = Number(message.is_from_me) === 1;
   const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
@@ -447,18 +441,18 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
     <div
       className={`flex items-end gap-2 mb-1 ${isFromMe ? "justify-end" : "justify-start"}`}
     >
-      {!isFromMe && isGroup && <Avatar name={message.sender_name} size="sm" />}
+      {!isFromMe && isGroup && <Avatar name={message.sender_name?.includes('@') ? "Lead" : message.sender_name} size="sm" />}
 
       <div
-        className={`group relative max-w-[85%] md:max-w-[75%] rounded-lg shadow-sm ${
+        className={`group relative max-w-[85%] md:max-w-[70%] rounded-xl shadow-md ${
           isFromMe
             ? "bg-[#005C4B] rounded-tr-none"
-            : "bg-[#202C33] rounded-tl-none"
-        } ${message.message_type === "image" ? "p-1" : "px-2.5 py-1.5"}`}
+            : "bg-[#202C33] rounded-tl-none border border-[#2A3942]/30"
+        } ${message.message_type === "image" ? "p-1.5" : "px-3 py-2"}`}
       >
         <button
           onClick={onReply}
-          className="absolute top-1 right-1 p-1 bg-[#202C33]/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          className="absolute top-1 right-1 p-1 bg-[#202C33]/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-xl border border-[#313D45]"
         >
           <Reply className="w-3 h-3 text-[#8696A0]" />
         </button>
@@ -466,7 +460,7 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
         {message.message_type === "image" && (
           <img
             src={getMediaUrl(message.media_url)}
-            className="max-h-[300px] w-full object-cover rounded-md cursor-pointer"
+            className="max-h-[350px] w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
             onClick={() =>
               window.open(getMediaUrl(message.media_url), "_blank")
             }
@@ -475,24 +469,26 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
 
         {message.message_type === "document" && (
           <div
-            className="flex items-center gap-3 bg-black/20 p-3 rounded-md cursor-pointer"
+            className="flex items-center gap-3 bg-black/30 p-3 rounded-lg cursor-pointer hover:bg-black/40"
             onClick={() =>
               window.open(getMediaUrl(message.media_url), "_blank")
             }
           >
-            <FileText className="w-6 h-6 text-[#8696A0]" />
-            <span className="text-xs truncate text-[#E9EDEF]">
-              {message.content || "Dokumen"}
+            <div className="p-2 bg-white/10 rounded-lg">
+                <FileText className="w-5 h-5 text-[#E9EDEF]" />
+            </div>
+            <span className="text-[13px] font-medium truncate text-[#E9EDEF]">
+              {message.content || "Dokumen File"}
             </span>
           </div>
         )}
 
-        <div className="px-1 mt-1">
-          <p className="text-[#E9EDEF] text-[14.5px] leading-relaxed break-words whitespace-pre-wrap">
+        <div className="px-0.5 mt-1">
+          <p className="text-[#E9EDEF] text-[14.5px] leading-[1.4] break-words whitespace-pre-wrap font-medium">
             {message.caption || message.content}
           </p>
-          <div className="flex items-center justify-end gap-1 h-4">
-            <span className="text-[#8696A0] text-[9px]">
+          <div className="flex items-center justify-end gap-1.5 mt-1 h-3">
+            <span className="text-[#8696A0] text-[9.5px] font-bold">
               {formatMessageTime(message.timestamp)}
             </span>
             {isFromMe && (

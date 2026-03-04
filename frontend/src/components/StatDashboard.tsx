@@ -8,17 +8,16 @@ import {
   Send,
   Clock,
   Activity,
-  ChevronDown,
-  Loader2,
   RotateCcw,
   Moon,
   Sun,
+  Calendar,
+  Loader2,
 } from "lucide-react";
 import useStore from "../store/useStore";
 import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
 import LiveFeed from "./LiveChatFeed";
 import StatCard from "./StatCard";
-// Import komponen yang baru dipecah
 import AIAnalyticSection from "./AIAnalyticSection";
 
 interface StatDashboardProps {
@@ -35,15 +34,25 @@ const FILTER_MAP: Record<string, string> = {
 };
 
 const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
-  const initialDate = new Date().toISOString().split("T")[0];
+  // Setup format tanggal dan jam awal (YYYY-MM-DDTHH:mm)
+  const now = new Date();
+  const todayStart = new Date(now.setHours(0, 0, 0, 0))
+    .toISOString()
+    .slice(0, 16);
+  const todayEnd = new Date(now.setHours(23, 59, 59, 999))
+    .toISOString()
+    .slice(0, 16);
+
   const { isDarkMode, toggleDarkMode } = useStore();
 
   const [activeFilter, setActiveFilter] = useState("Hari ini");
   const [selectedDevice, setSelectedDevice] = useState("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [startDate, setStartDate] = useState(initialDate);
-  const [endDate, setEndDate] = useState(initialDate);
+
+  // State untuk tanggal + jam
+  const [startDate, setStartDate] = useState(todayStart);
+  const [endDate, setEndDate] = useState(todayEnd);
 
   const [data, setData] = useState<any>({
     stats: {
@@ -73,7 +82,9 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
 
         if (selectedDevice !== "all")
           params.append("sessionId", selectedDevice);
+
         if (activeFilter === "Custom") {
+          // Mengirim format lengkap ke backend (Backend harus siap menerima format datetime)
           params.append("startDate", startDate);
           params.append("endDate", endDate);
         }
@@ -116,8 +127,8 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
     setRefreshing(true);
     setActiveFilter("Hari ini");
     setSelectedDevice("all");
-    setStartDate(initialDate);
-    setEndDate(initialDate);
+    setStartDate(todayStart);
+    setEndDate(todayEnd);
   };
 
   const slaData = useMemo(
@@ -158,94 +169,146 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
     <div
       className={`flex-1 p-4 md:p-8 overflow-y-auto transition-colors duration-300 ${isDarkMode ? "bg-[#0B141A] custom-scrollbar" : "bg-[#F0F2F5] custom-scrollbar-light"}`}
     >
-      {/* HEADER */}
-      <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center mb-10 max-w-7xl mx-auto gap-6">
-        <div>
-          <h1
-            className={`text-2xl font-black tracking-widest uppercase flex items-center gap-3 ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
-          >
-            SATU PINTU
-            {refreshing && (
-              <Loader2 size={18} className="animate-spin text-[#00a884]" />
-            )}
-          </h1>
-          <div className="flex items-center gap-2 mt-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse"></div>
-            <p
-              className={`text-[9px] font-bold tracking-[0.2em] uppercase ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
+      {/* HEADER SECTION */}
+      <div className="max-w-7xl mx-auto mb-6">
+        {/* Baris Utama: Judul & Controls */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
+          {/* Branding */}
+          <div className="flex-shrink-0">
+            <h1
+              className={`text-2xl font-black tracking-widest uppercase flex items-center gap-3 ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
             >
-              Monitoring Dashboard
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col md:flex-row items-center gap-3">
-          <button
-            onClick={toggleDarkMode}
-            className={`p-2.5 rounded-xl border transition-all shadow-sm ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-yellow-400" : "bg-white border-[#E9EDEF] text-gray-600"}`}
-          >
-            {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-
-          <button
-            onClick={handleReset}
-            className={`p-2.5 border rounded-xl transition-all ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-[#8696A0]" : "bg-white border-[#E9EDEF] text-[#667781]"}`}
-          >
-            <RotateCcw size={16} className={refreshing ? "animate-spin" : ""} />
-          </button>
-
-          {/* Device Select */}
-          <div className="relative w-full md:w-auto">
-            <Smartphone
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00a884]"
-              size={15}
-            />
-            <select
-              value={selectedDevice}
-              onChange={(e) => setSelectedDevice(e.target.value)}
-              className={`pl-9 pr-10 py-2.5 border rounded-xl text-[11px] font-bold outline-none appearance-none w-full ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-white" : "bg-white border-[#E9EDEF] text-[#3B4A54]"}`}
-            >
-              <option value="all">SEMUA DEVICE SAYA</option>
-              {data.sessions.map((s: any) => (
-                <option key={s.id} value={s.id}>
-                  {s.name.toUpperCase()}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filter Buttons */}
-          <div
-            className={`flex items-center p-1 rounded-xl border w-full md:w-auto ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-[#E9EDEF]"}`}
-          >
-            {Object.keys(FILTER_MAP).map((item) => (
-              <button
-                key={item}
-                onClick={() => {
-                  setActiveFilter(item);
-                  setRefreshing(true);
-                }}
-                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === item ? "bg-[#00a884] text-white shadow-lg" : isDarkMode ? "text-[#8696A0] hover:text-white" : "text-[#667781] hover:bg-gray-100"}`}
+              SATU PINTU
+              {refreshing && (
+                <Loader2 size={18} className="animate-spin text-[#00a884]" />
+              )}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse"></div>
+              <p
+                className={`text-[9px] font-bold tracking-[0.2em] uppercase ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
               >
-                {item}
+                Monitoring Dashboard
+              </p>
+            </div>
+          </div>
+
+          {/* Controls Group */}
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-fit">
+            {/* Mode & Reset Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={toggleDarkMode}
+                className={`p-2.5 rounded-xl border transition-all shadow-sm ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-yellow-400" : "bg-white border-[#E9EDEF] text-gray-600"}`}
+              >
+                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
               </button>
-            ))}
+              <button
+                onClick={handleReset}
+                className={`p-2.5 border rounded-xl transition-all ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-[#8696A0]" : "bg-white border-[#E9EDEF] text-[#667781]"}`}
+              >
+                <RotateCcw
+                  size={16}
+                  className={refreshing ? "animate-spin" : ""}
+                />
+              </button>
+            </div>
+
+            {/* Device Selector */}
+            <div className="relative flex-1 md:flex-none">
+              <Smartphone
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00a884]"
+                size={14}
+              />
+              <select
+                value={selectedDevice}
+                onChange={(e) => setSelectedDevice(e.target.value)}
+                className={`pl-9 pr-10 py-2.5 border rounded-xl text-[11px] font-bold outline-none appearance-none w-full md:min-w-[180px] ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-white" : "bg-white border-[#E9EDEF] text-[#3B4A54]"}`}
+              >
+                <option value="all">SEMUA DEVICE SAYA</option>
+                {data.sessions.map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Tabs */}
+            <div
+              className={`flex items-center p-1 rounded-xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-[#E9EDEF]"}`}
+            >
+              {Object.keys(FILTER_MAP).map((item) => (
+                <button
+                  key={item}
+                  onClick={() => {
+                    setActiveFilter(item);
+                    setRefreshing(true);
+                  }}
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === item ? "bg-[#00a884] text-white shadow-md" : isDarkMode ? "text-[#8696A0] hover:text-white" : "text-[#667781] hover:bg-gray-100"}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+
+        {/* Baris Kedua: Custom Date Range (Hanya muncul jika filter "Custom" dipilih) */}
+        {activeFilter === "Custom" && (
+          <div className="flex justify-end animate-in fade-in slide-in-from-top-4 duration-500">
+            <div
+              className={`flex flex-col md:flex-row items-center gap-4 p-3 px-6 rounded-2xl border w-full md:w-fit ${isDarkMode ? "bg-[#202C33]/40 border-[#313D45] backdrop-blur-sm" : "bg-white border-[#E9EDEF] shadow-sm"}`}
+            >
+              <div className="flex items-center gap-3 md:border-r md:pr-4 border-gray-500/20">
+                <Calendar size={16} className="text-[#00a884]" />
+                <span
+                  className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
+                >
+                  Custom Range
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[8px] font-bold text-[#00a884] uppercase">
+                    Mulai Dari
+                  </span>
+                  <input
+                    type="datetime-local"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className={`bg-transparent text-xs font-bold outline-none [color-scheme:dark] ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
+                  />
+                </div>
+                <div className="h-8 w-px bg-gray-500/20 hidden md:block" />
+                <div className="flex flex-col gap-1">
+                  <span className="text-[8px] font-bold text-[#00a884] uppercase">
+                    Sampai
+                  </span>
+                  <input
+                    type="datetime-local"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className={`bg-transparent text-xs font-bold outline-none [color-scheme:dark] ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* CONTENT AREA */}
       <div className="max-w-7xl mx-auto">
-        {/* COMPONENT AI YANG DIPANGGIL */}
         <AIAnalyticSection stats={data.stats} dark={isDarkMode} />
 
-        {/* CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <ActivityChart data={data.chartData} dark={isDarkMode} />
           <SLAChart data={slaData} dark={isDarkMode} />
           <DeviceBarChart data={data.deviceStats} dark={isDarkMode} />
         </div>
 
-        {/* STATS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5 pb-10">
           <LiveFeed
             messages={data.messages}

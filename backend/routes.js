@@ -1141,22 +1141,45 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
       ),
 
       // 5. Lead Masuk
-      // CARI BAGIAN QUERY 5 (Lead Masuk) DI BACKEND ANDA, GANTI JADI INI:
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-   FROM wa_messages m 
+      //     // Query 5: Lead Masuk (Optimized)
+      //     query(
+      //       `SELECT COUNT(DISTINCT m.chat_jid) AS count
+      //  FROM wa_messages m
+      //  WHERE m.is_from_me = 0
+      //  AND m.chat_jid NOT LIKE '%@g.us'
+      //  AND ${periodFilter}
+      //  ${sessionFilter}
+      //  -- Pastikan pesan pertama yang pernah ada dari orang ini terjadi di dalam periode ini
+      //  AND (
+      //    SELECT MIN(timestamp)
+      //    FROM wa_messages
+      //    WHERE chat_jid = m.chat_jid
+      //  ) >= (SELECT MIN(timestamp) FROM wa_messages WHERE ${periodFilter} LIMIT 1)`,
+      //       [...sessionParams],
+      //     ),
+
+     // 5. Lead Masuk (Cek Tabel Kontak + Global History)
+query(
+  `SELECT COUNT(DISTINCT m.chat_jid) AS count 
+   FROM wa_messages m
+   INNER JOIN wa_contacts c ON m.chat_jid = c.jid AND m.session_id = c.session_id
    WHERE m.is_from_me = 0 
    AND m.chat_jid NOT LIKE '%@g.us' 
+   AND m.chat_jid NOT LIKE '%@newsletter'  -- TAMBAHKAN INI
    AND ${periodFilter} 
-   ${sessionFilter} 
+   ${sessionFilter}
+   -- 1. CEK KONTAK: Harus kontak yang baru terdaftar di periode ini
+   AND ${periodFilter.replace(/m\.timestamp/g, "c.created_at")}
+   -- 2. CEK PESAN GLOBAL: Benar-benar pesan pertama di seluruh sistem
    AND NOT EXISTS (
      SELECT 1 FROM wa_messages older 
      WHERE older.chat_jid = m.chat_jid 
-     AND older.timestamp < m.timestamp -- Perubahan di sini: bandingkan dengan timestamp pesan itu sendiri
+     AND older.timestamp < (
+       SELECT MIN(timestamp) FROM wa_messages WHERE ${periodFilter}
+     )
    )`,
-        [...sessionParams],
-      ),
-
+  [...sessionParams],
+),
       // 6. Lead Aktif
       query(
         `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`,
@@ -1187,11 +1210,36 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
         [...sessionParams],
       ),
 
-      // 11. Performa Device (Bar Chart) - menggunakan placeholders asli dari allowedIds agar menampilkan semua perbandingan device yang dimiliki
-      query(
-        `SELECT s.name, COUNT(DISTINCT m.chat_jid) AS lead_count FROM wa_sessions s LEFT JOIN wa_messages m ON s.id = m.session_id AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} WHERE s.id IN (${allowedIds.map(() => "?").join(",")}) GROUP BY s.id, s.name`,
-        [...allowedIds],
-      ),
+     // 11. Performa Device (Bar Chart) - FIX ERROR Unknown Column
+query(
+  `SELECT 
+    s.name, 
+    (
+      SELECT COUNT(DISTINCT m2.chat_jid)
+      FROM wa_messages m2
+      INNER JOIN wa_contacts c ON m2.chat_jid = c.jid AND m2.session_id = c.session_id
+      WHERE m2.session_id = s.id 
+      AND m2.is_from_me = 0 
+      AND m2.chat_jid NOT LIKE '%@g.us'
+      -- Filter berdasarkan periode (Gunakan m2)
+      AND ${periodFilter.replace(/m\./g, 'm2.')}
+      -- Logika Lead Baru
+      AND ${periodFilter.replace(/m\./g, 'c.').replace(/timestamp/g, 'created_at')}
+      -- Pastikan tidak ada chat dari nomor ini SEBELUM periode ini dimulai
+      AND NOT EXISTS (
+        SELECT 1 FROM wa_messages older 
+        WHERE older.chat_jid = m2.chat_jid 
+        AND older.timestamp < (
+           SELECT MIN(timestamp) FROM wa_messages WHERE ${periodFilter.replace(/m\./g, 'wa_messages.')}
+        )
+      )
+    ) AS lead_count
+  FROM wa_sessions s
+  WHERE s.id IN (${allowedIds.map(() => "?").join(",")})
+  GROUP BY s.id, s.name
+  ORDER BY lead_count DESC`,
+  [...allowedIds]
+)
     ]);
 
     // 12. Final Response
@@ -1262,67 +1310,58 @@ router.get("/sessions/:sessionId/stats", async (req, res) => {
 // ===============================================
 
 // ===============================================
-// GET: LEADS ONLY - PESAN DARI NOMOR NON-KONTAK
+// GET: LEADS ONLY - PESAN DARI NOMOR NON-KONTAK (LOGIKA DIPERBAIKI)
 // ===============================================
+// ===============================================
+// GET: LEADS ONLY - HANYA PESAN MASUK TERBARU
+// ===============================================
+// GET: /chats/leads-only
 router.get("/chats/leads-only", async (req, res) => {
   try {
     const sql = `
       SELECT 
         m.id,
-        m.session_id,
-        m.message_id,
         m.chat_jid AS remoteJid,
-        m.from_jid,
-        m.message_type,
         m.content,
         m.timestamp AS updatedAt,
-        s.name AS session_name,
-        -- Mengambil nama dari raw_data jika tidak ada di wa_contacts
-        -- (Biasanya Baileys menyimpan pushName di dalam JSON raw_data)
-        COALESCE(
-          ct.name, 
-          ct.push_name, 
-          JSON_UNQUOTE(JSON_EXTRACT(m.raw_data, '$.pushName')),
-          m.chat_jid
-        ) AS pushName,
-        ch.unread_count,
-        ct.profile_pic_url
+        COALESCE(ct.push_name, JSON_UNQUOTE(JSON_EXTRACT(m.raw_data, '$.pushName')), 'Unknown') AS pushName,
+        -- LOGIKA TRACKING SUMBER --
+        (
+          SELECT ls.source_name 
+          FROM wa_lead_sources ls 
+          WHERE m.content LIKE CONCAT('%', ls.keyword, '%') 
+          LIMIT 1
+        ) AS lead_source,
+        (
+          SELECT ls.color_code 
+          FROM wa_lead_sources ls 
+          WHERE m.content LIKE CONCAT('%', ls.keyword, '%') 
+          LIMIT 1
+        ) AS source_color
       FROM wa_messages m
       INNER JOIN (
-        -- Ambil ID pesan terakhir per chat_jid dan session_id
+        -- Ambil pesan pertama dari orang tersebut (untuk deteksi sumber asal)
+        SELECT MIN(id) as first_msg_id, chat_jid
+        FROM wa_messages
+        WHERE is_from_me = 0
+        GROUP BY chat_jid
+      ) first_msg ON m.chat_jid = first_msg.chat_jid
+      INNER JOIN (
+        -- Ambil pesan terakhir untuk ditampilkan di list
         SELECT MAX(id) as last_id
         FROM wa_messages
-        WHERE chat_jid NOT LIKE '%@g.us' 
-          AND chat_jid NOT LIKE '%@newsletter'
-          AND chat_jid NOT LIKE 'status@broadcast'
-        GROUP BY chat_jid, session_id
+        GROUP BY chat_jid
       ) latest ON m.id = latest.last_id
-      LEFT JOIN wa_chats ch ON ch.session_id = m.session_id AND ch.jid = m.chat_jid
-      LEFT JOIN wa_sessions s ON s.id = m.session_id
-      -- Filter: Join ke wa_contacts, ambil yang NULL (artinya tidak ada di kontak)
-      LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
-      WHERE ct.jid IS NULL 
-        AND m.is_from_me = 0 -- Hanya pesan masuk (bukan kita yang mulai duluan)
-        AND (ch.is_group = 0 OR ch.is_group IS NULL)
+      LEFT JOIN wa_contacts ct ON ct.jid = m.chat_jid
+      WHERE (ct.name IS NULL OR ct.name = '')
+        AND m.chat_jid NOT LIKE '%@g.us'
       ORDER BY m.timestamp DESC
-      LIMIT 100
     `;
 
     const leads = await query(sql);
-
-    // Pastikan unread_count bertipe Number
-    const formattedLeads = leads.map((l) => ({
-      ...l,
-      unread_count: Number(l.unread_count || 0),
-    }));
-
-    res.json({
-      success: true,
-      data: formattedLeads,
-    });
+    res.json({ success: true, data: leads });
   } catch (err) {
-    console.error("Leads Query Error:", err.message);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

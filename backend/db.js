@@ -84,6 +84,15 @@ export const assignSessionToUser = async (userId, sessionId) => {
 // 4. LOGIKA AUTO-MIGRATE / INIT TABEL
 async function initDatabase() {
   const tables = [
+    // ⭐ TABEL BARU: wa_lead_sources (UNTUK TRACKING IKLAN)
+    `CREATE TABLE IF NOT EXISTS wa_lead_sources (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      keyword VARCHAR(255) NOT NULL UNIQUE,
+      source_name VARCHAR(100) NOT NULL,
+      color_code VARCHAR(20) DEFAULT '#8696A0',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+
     // Tabel Role
     `CREATE TABLE IF NOT EXISTS sys_roles (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -263,6 +272,21 @@ async function initDatabase() {
   (1, 'Super Admin', 'system', 'Akses penuh ke seluruh sistem'),
   (3, 'Cabang', 'custom', 'Akses terbatas pada session yang didaftarkan')
 `);
+
+
+// 2. ⭐ SEEDING LEAD SOURCES (TRACKING IKLAN)
+    const leadSources = [
+      ['iklan-fb', 'Facebook Ads', '#1877F2'],
+      ['iklan-ig', 'Instagram Ads', '#E4405F'],
+      ['iklan-tk', 'TikTok Ads', '#000000'],
+      ['google-ads', 'Google Ads', '#4285F4']
+    ];
+    for (const source of leadSources) {
+      await db.promise().query(
+        `INSERT IGNORE INTO wa_lead_sources (keyword, source_name, color_code) VALUES (?, ?, ?)`,
+        source
+      );
+    }
 
     // 3. Insert Default Labels
     const defaultLabels = [
