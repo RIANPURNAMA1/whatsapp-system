@@ -1870,7 +1870,6 @@ router.post("/sessions/:sessionId/messages/text", async (req, res) => {
   const { sessionId } = req.params;
   const { to, text, quotedMsgId } = req.body;
 
-  // Validasi input dasar
   if (!to || !text) {
     return res.status(400).json({
       success: false,
@@ -1879,25 +1878,35 @@ router.post("/sessions/:sessionId/messages/text", async (req, res) => {
   }
 
   try {
-    // --- MODE INSTAN (TANPA DELAY) ---
-    console.log(`[WhatsApp] Mengirim pesan instan ke ${to} melalui sesi ${sessionId}...`);
+    // --- STRATEGI ANTI-BLOKIR ---
 
-    // Langsung panggil fungsi pengiriman pesan utama
+    // 2. Berikan delay acak (Misal: antara 2 sampai 5 detik)
+    // Tujuannya agar pola pengiriman tidak kaku/robotik
+    const randomDelay = Math.floor(Math.random() * (5000 - 2000 + 1) + 2000);
+    console.log(
+      `[WhatsApp] Menunggu ${randomDelay}ms sebelum mengirim ke ${to}...`,
+    );
+    await delay(randomDelay);
+
+    // 3. (Opsional) Kirim status 'composing' (mengetik)
+    // Anda perlu akses ke object 'sock' (socket) di dalam sendTextMessage
+    // atau panggil fungsi update kehadiran jika library Anda mendukungnya.
+    // Contoh jika menggunakan instance langsung:
+    // await socket.sendPresenceUpdate('composing', to);
+    // await delay(2000); // Simulasi mengetik selama 2 detik
+
+    // 4. Kirim pesan utama
     const sent = await sendTextMessage(sessionId, to, text, quotedMsgId);
 
-    // Kirim response sukses segera setelah fungsi sendTextMessage selesai
     res.json({
       success: true,
       data: sent,
-      message: "Pesan berhasil dikirim (Mode Instan)",
+      message: "Pesan berhasil dikirim dengan delay",
+      delayApplied: `${randomDelay}ms`,
     });
-
   } catch (err) {
-    console.error("Error kirim pesan instan:", err);
-    res.status(500).json({ 
-      success: false, 
-      message: "Gagal mengirim pesan: " + err.message 
-    });
+    console.error("Error kirim pesan:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
