@@ -224,7 +224,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
               <Menu size={20} />
             </button>
 
-            {activeTab === "dashboard" && <StatDashboard stats={stats} />}
+            {activeTab === "dashboard" && <StatDashboard />}
             {activeTab === "groups" && (
               <GroupsPage sessionId={currentSessionId} />
             )}
@@ -272,14 +272,9 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
                 {activeTab === "leads-only" && (
                   <LeadsChatList
                     isDarkMode={true}
-                    onSelectChat={(jid) => {
-                      // Saat lead diklik, set sebagai chat aktif
-                      selectChat({
-                        jid: jid,
-                        session_id: activeSession?.id || "default",
-                        display_name: jid.split("@")[0],
-                      } as any);
-                    }}
+                    // Tambahkan prop ini agar dropdown device di dalam LeadsChatList muncul
+                    sessions={sessions || []}
+                   
                   />
                 )}
 

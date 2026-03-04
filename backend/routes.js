@@ -1348,20 +1348,25 @@ router.get("/sessions/:sessionId/stats", async (req, res) => {
 // ===============================================
 // GET: LEADS ONLY - PESAN DARI NOMOR NON-KONTAK (LOGIKA DIPERBAIKI)
 // ===============================================
-// ===============================================
-// GET: LEADS ONLY - HANYA PESAN MASUK TERBARU
-// ===============================================
-// GET: /chats/leads-only
-router.get("/chats/leads-only", async (req, res) => {
+router.get("/chats/leads-only", authenticateToken, async (req, res) => {
   try {
+    const { sessionId } = req.query;
+    let params = [];
+    let sessionFilter = "";
+
+    if (sessionId && sessionId !== "all") {
+      sessionFilter = `AND m.session_id = ?`;
+      params.push(sessionId);
+    }
+
     const sql = `
       SELECT 
         m.id,
         m.chat_jid AS remoteJid,
         m.content,
         m.timestamp AS updatedAt,
-        COALESCE(ct.push_name, JSON_UNQUOTE(JSON_EXTRACT(m.raw_data, '$.pushName')), 'Unknown') AS pushName,
-        -- LOGIKA TRACKING SUMBER --
+        COALESCE(ct.push_name, 'Unknown') AS pushName,
+        /* Deteksi sumber lead berdasarkan keyword di pesan pertama */
         (
           SELECT ls.source_name 
           FROM wa_lead_sources ls 
@@ -1375,26 +1380,24 @@ router.get("/chats/leads-only", async (req, res) => {
           LIMIT 1
         ) AS source_color
       FROM wa_messages m
-      INNER JOIN (
-        -- Ambil pesan pertama dari orang tersebut (untuk deteksi sumber asal)
-        SELECT MIN(id) as first_msg_id, chat_jid
-        FROM wa_messages
-        WHERE is_from_me = 0
-        GROUP BY chat_jid
-      ) first_msg ON m.chat_jid = first_msg.chat_jid
-      INNER JOIN (
-        -- Ambil pesan terakhir untuk ditampilkan di list
-        SELECT MAX(id) as last_id
-        FROM wa_messages
-        GROUP BY chat_jid
-      ) latest ON m.id = latest.last_id
       LEFT JOIN wa_contacts ct ON ct.jid = m.chat_jid
-      WHERE (ct.name IS NULL OR ct.name = '')
-        AND m.chat_jid NOT LIKE '%@g.us'
+      WHERE m.is_from_me = 0 
+        AND m.chat_jid NOT LIKE '%@g.us' 
+        AND m.chat_jid NOT LIKE '%@newsletter'
+        ${sessionFilter}
+        /* LOGIKA LEADS BARU: Tidak boleh ada pesan sebelum ID ini untuk JID yang sama */
+        AND NOT EXISTS (
+          SELECT 1 FROM wa_messages older 
+          WHERE older.chat_jid = m.chat_jid 
+          AND older.id < m.id
+        )
+        /* Tambahan: Jika sudah disimpan namanya di kontak, jangan dianggap lead lagi */
+        AND (ct.name IS NULL OR ct.name = '')
       ORDER BY m.timestamp DESC
+      LIMIT 50
     `;
 
-    const leads = await query(sql);
+    const leads = await query(sql, params);
     res.json({ success: true, data: leads });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
