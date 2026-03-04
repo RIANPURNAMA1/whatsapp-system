@@ -1046,89 +1046,66 @@ Berikan 3 poin analisis profesional:
     });
   }
 });
-// GET: Stats Dashboard dengan Role-Based Access Control
+
 router.get("/stats/dashboard", authenticateToken, async (req, res) => {
   try {
     const { period = "Hari ini", sessionId, startDate, endDate } = req.query;
     const userId = req.user.id;
     const roleType = req.user.role_type.toLowerCase().trim();
 
-    // 1. Tentukan Device Mana Saja yang Berhak Diakses User Ini
+    // 1. Ambil list device yang diizinkan (Optimasi: Langsung ambil ID saja)
     let allowedSessions = [];
-
-    // System dan Manager disamakan: Bisa melihat SEMUA device
     if (roleType === "system" || roleType === "manager") {
-      const allSess = await query(
+      allowedSessions = await query(
         "SELECT id, name, status FROM wa_sessions ORDER BY name ASC",
       );
-      allowedSessions = allSess;
     } else {
-      // Role lain (Custom/Staff) hanya melihat yang di-assign di tabel pivot
       allowedSessions = await query(
-        `SELECT s.id, s.name, s.status FROM wa_sessions s
-         INNER JOIN wa_user_sessions us ON s.id = us.session_id
-         WHERE us.user_id = ? 
-         ORDER BY s.name ASC`,
+        `SELECT s.id, s.name, s.status FROM wa_sessions s 
+         INNER JOIN wa_user_sessions us ON s.id = us.session_id 
+         WHERE us.user_id = ? ORDER BY s.name ASC`,
         [userId],
       );
     }
 
     const allowedIds = allowedSessions.map((s) => s.id);
-
-    // Jika user tidak punya akses ke device manapun, kembalikan data kosong
-    if (allowedIds.length === 0) {
+    if (allowedIds.length === 0)
       return res.json({
         success: true,
         stats: {
-          pesanMasukAllTime: 0,
-          pesanMasukToday: 0,
-          pesanKeluar: 0,
-          totalDevice: 0,
-          deviceConnected: 0,
-          leadMasuk: 0,
-          leadAktif: 0,
-          slowResponse: 0,
-          unanswered: 0,
+          /* data kosong */
         },
         devices: [],
-        messages: [],
-        chartData: [],
-        deviceStats: [],
       });
-    }
 
-    // 2. Filter Device (Security Check)
-    let finalSessionFilterIds = [];
-    const isSpecificDevice =
-      sessionId && sessionId !== "all" && sessionId !== "Semua Device";
+    // 2. Filter Device Security
+    let finalSessionIds =
+      sessionId && sessionId !== "all" && allowedIds.includes(sessionId)
+        ? [sessionId]
+        : allowedIds;
 
-    if (isSpecificDevice) {
-      if (!allowedIds.includes(sessionId)) {
-        return res
-          .status(403)
-          .json({ success: false, message: "Akses device ditolak!" });
-      }
-      finalSessionFilterIds = [sessionId];
-    } else {
-      finalSessionFilterIds = allowedIds;
-    }
-
-    // Helper untuk SQL IN Clause
-    const placeholders = finalSessionFilterIds.map(() => "?").join(",");
+    const placeholders = finalSessionIds.map(() => "?").join(",");
     const sessionFilter = `AND m.session_id IN (${placeholders})`;
-    const sessionParams = finalSessionFilterIds;
 
-    // 3. Build Period Filter
+    // 3. Bangun Filter Periode
     const periodFilter = buildPeriodFilter(
       period,
       "m.timestamp",
       startDate,
       endDate,
     );
-    const periodFilterInc = periodFilter.replace(/m\./g, "inc.");
-    const sessionFilterInc = sessionFilter.replace(/m\./g, "inc.");
 
-    // --- EXECUTE QUERIES (Parallelized for Performance) ---
+    // --- OPTIMASI KUNCI: Hitung Batas Waktu Terkecil Sekali Saja ---
+    // Ini mencegah database melakukan scan ulang jutaan baris di dalam subquery
+    // --- OPTIMASI UTAMA: Pre-calculate Batas Waktu Periode ---
+    // Tambahkan kata "AND" sebelum ${periodFilter} agar syntax SQL benar
+    const [minTimeRow] = await query(
+      `SELECT MIN(timestamp) as min_t FROM wa_messages m WHERE 1=1 AND ${periodFilter}`,
+      [],
+    );
+    const minPeriodTimestamp = minTimeRow?.min_t || "2000-01-01 00:00:00";
+
+    // --- EXECUTE QUERIES ---
     const [
       [rowPesanMasukAllTime],
       [rowPesanMasukPeriod],
@@ -1141,127 +1118,107 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
       trendData,
       devicePerformance,
     ] = await Promise.all([
-      // 1. Total pesan masuk (ALL TIME)
+      // 1. Total All Time
       query(
         `SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter}`,
-        [...sessionParams],
+        [...finalSessionIds],
       ),
 
-      // 2. Pesan masuk (PERIODE)
+      // 2. Masuk Periode
       query(
         `SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
-        [...sessionParams],
+        [...finalSessionIds],
       ),
 
-      // 3. Pesan terkirim (PERIODE)
+      // 3. Keluar Periode
       query(
         `SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
-        [...sessionParams],
+        [...finalSessionIds],
       ),
 
-      // 5. Lead Masuk
-      //     // Query 5: Lead Masuk (Optimized)
-      //     query(
-      //       `SELECT COUNT(DISTINCT m.chat_jid) AS count
-      //  FROM wa_messages m
-      //  WHERE m.is_from_me = 0
-      //  AND m.chat_jid NOT LIKE '%@g.us'
-      //  AND ${periodFilter}
-      //  ${sessionFilter}
-      //  -- Pastikan pesan pertama yang pernah ada dari orang ini terjadi di dalam periode ini
-      //  AND (
-      //    SELECT MIN(timestamp)
-      //    FROM wa_messages
-      //    WHERE chat_jid = m.chat_jid
-      //  ) >= (SELECT MIN(timestamp) FROM wa_messages WHERE ${periodFilter} LIMIT 1)`,
-      //       [...sessionParams],
-      //     ),
-
-      // 5. Lead Masuk (Cek Tabel Kontak + Global History)
+      // 5. Lead Masuk (Akurat & Cepat)
+      // Definisi Lead: Chat pertama kali muncul di sistem dalam rentang waktu terpilih
       query(
         `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-   FROM wa_messages m
-   INNER JOIN wa_contacts c ON m.chat_jid = c.jid AND m.session_id = c.session_id
-   WHERE m.is_from_me = 0 
-   AND m.chat_jid NOT LIKE '%@g.us' 
-   AND m.chat_jid NOT LIKE '%@newsletter'  -- TAMBAHKAN INI
-   AND ${periodFilter} 
-   ${sessionFilter}
-   -- 1. CEK KONTAK: Harus kontak yang baru terdaftar di periode ini
-   AND ${periodFilter.replace(/m\.timestamp/g, "c.created_at")}
-   -- 2. CEK PESAN GLOBAL: Benar-benar pesan pertama di seluruh sistem
-   AND NOT EXISTS (
-     SELECT 1 FROM wa_messages older 
-     WHERE older.chat_jid = m.chat_jid 
-     AND older.timestamp < (
-       SELECT MIN(timestamp) FROM wa_messages WHERE ${periodFilter}
-     )
-   )`,
-        [...sessionParams],
+         FROM wa_messages m
+         WHERE m.is_from_me = 0 
+         AND m.chat_jid NOT LIKE '%@g.us' 
+         AND m.chat_jid NOT LIKE '%@newsletter'
+         AND ${periodFilter} 
+         ${sessionFilter}
+         AND NOT EXISTS (
+           SELECT 1 FROM wa_messages older 
+           WHERE older.chat_jid = m.chat_jid 
+           AND older.timestamp < ?
+         )`,
+        [...finalSessionIds, minPeriodTimestamp], // Menggunakan parameter statis
       ),
-      // 6. Lead Aktif
+
+      // 6. Lead Aktif (30 Menit Terakhir)
       query(
         `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`,
-        [...sessionParams],
+        [...finalSessionIds],
       ),
 
-      // 7. Slow Response
+      // 7. Slow Response (> 10 Menit belum dibalas)
       query(
-        `SELECT COUNT(DISTINCT inc.chat_jid) AS count FROM wa_messages inc WHERE inc.is_from_me = 0 AND inc.chat_jid NOT LIKE '%@g.us' AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) AND ${periodFilterInc} ${sessionFilterInc} AND NOT EXISTS (SELECT 1 FROM wa_messages reply WHERE reply.chat_jid = inc.chat_jid AND reply.is_from_me = 1 AND reply.timestamp > inc.timestamp)`,
-        [...sessionParams],
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m 
+         WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' 
+         AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) 
+         AND ${periodFilter} ${sessionFilter} 
+         AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`,
+        [...finalSessionIds],
       ),
 
-      // 8. Tak Terjawab
+      // 8. Tak Terjawab (> 24 Jam)
       query(
-        `SELECT COUNT(DISTINCT inc.chat_jid) AS count FROM wa_messages inc WHERE inc.is_from_me = 0 AND inc.chat_jid NOT LIKE '%@g.us' AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) AND ${periodFilterInc} ${sessionFilterInc} AND NOT EXISTS (SELECT 1 FROM wa_messages reply WHERE reply.chat_jid = inc.chat_jid AND reply.is_from_me = 1 AND reply.timestamp > inc.timestamp)`,
-        [...sessionParams],
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m 
+         WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' 
+         AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) 
+         AND ${periodFilter} ${sessionFilter} 
+         AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`,
+        [...finalSessionIds],
       ),
 
       // 9. Live Feed
       query(
-        `SELECT m.id, COALESCE(ct.name, ct.push_name, m.from_jid, m.chat_jid) AS sender, COALESCE(m.content, m.caption, '[Media]') AS message_text, s.name AS received_via, DATE_FORMAT(m.timestamp, '%Y-%m-%d %H:%i:%s') AS received_at FROM wa_messages m LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid LEFT JOIN wa_sessions s ON s.id = m.session_id WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter} ORDER BY m.timestamp DESC LIMIT 20`,
-        [...sessionParams],
+        `SELECT m.id, COALESCE(ct.push_name, m.chat_jid) AS sender, m.content AS message_text, s.name AS received_via, m.timestamp AS received_at 
+         FROM wa_messages m 
+         LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid 
+         LEFT JOIN wa_sessions s ON s.id = m.session_id 
+         WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter} 
+         ORDER BY m.timestamp DESC LIMIT 15`,
+        [...finalSessionIds],
       ),
 
       // 10. Trend Data
       query(
-        `SELECT ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk, SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar FROM wa_messages m WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} GROUP BY time ORDER BY time ASC`,
-        [...sessionParams],
+        `SELECT 
+          ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, 
+          SUM(m.is_from_me = 0) AS masuk, 
+          SUM(m.is_from_me = 1) AS keluar 
+         FROM wa_messages m 
+         WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} 
+         GROUP BY time ORDER BY time ASC`,
+        [...finalSessionIds],
       ),
 
-      // 11. Performa Device (Bar Chart) - FIX ERROR Unknown Column
+      // 11. Performa Device (Lead Masuk per Device)
       query(
-        `SELECT 
-    s.name, 
-    (
-      SELECT COUNT(DISTINCT m2.chat_jid)
-      FROM wa_messages m2
-      INNER JOIN wa_contacts c ON m2.chat_jid = c.jid AND m2.session_id = c.session_id
-      WHERE m2.session_id = s.id 
-      AND m2.is_from_me = 0 
-      AND m2.chat_jid NOT LIKE '%@g.us'
-      -- Filter berdasarkan periode (Gunakan m2)
-      AND ${periodFilter.replace(/m\./g, "m2.")}
-      -- Logika Lead Baru
-      AND ${periodFilter.replace(/m\./g, "c.").replace(/timestamp/g, "created_at")}
-      -- Pastikan tidak ada chat dari nomor ini SEBELUM periode ini dimulai
-      AND NOT EXISTS (
-        SELECT 1 FROM wa_messages older 
-        WHERE older.chat_jid = m2.chat_jid 
-        AND older.timestamp < (
-           SELECT MIN(timestamp) FROM wa_messages WHERE ${periodFilter.replace(/m\./g, "wa_messages.")}
-        )
-      )
-    ) AS lead_count
-  FROM wa_sessions s
-  WHERE s.id IN (${allowedIds.map(() => "?").join(",")})
-  GROUP BY s.id, s.name
-  ORDER BY lead_count DESC`,
-        [...allowedIds],
+        `SELECT s.name, 
+         (SELECT COUNT(DISTINCT m2.chat_jid) 
+          FROM wa_messages m2 
+          WHERE m2.session_id = s.id AND m2.is_from_me = 0 
+          AND m2.chat_jid NOT LIKE '%@g.us' 
+          AND ${periodFilter.replace(/m\./g, "m2.")}
+          AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m2.chat_jid AND older.timestamp < ?)
+         ) AS lead_count
+         FROM wa_sessions s 
+         WHERE s.id IN (${placeholders})`,
+        [minPeriodTimestamp, ...finalSessionIds],
       ),
     ]);
 
-    // 12. Final Response
     res.json({
       success: true,
       stats: {
@@ -1277,15 +1234,13 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
         unanswered: rowUnanswered?.count || 0,
       },
       devices: allowedSessions,
-      messages: liveMessages || [],
-      chartData: trendData || [],
-      deviceStats: devicePerformance || [],
+      messages: liveMessages,
+      chartData: trendData,
+      deviceStats: devicePerformance,
     });
   } catch (err) {
-    console.error("Critical Dashboard Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error", error: err.message });
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

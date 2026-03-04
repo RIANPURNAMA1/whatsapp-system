@@ -13,17 +13,13 @@ import {
   Sun,
   Calendar,
   Loader2,
+  Search,
 } from "lucide-react";
 import useStore from "../store/useStore";
 import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
 import LiveFeed from "./LiveChatFeed";
 import StatCard from "./StatCard";
 import AIAnalyticSection from "./AIAnalyticSection";
-
-interface StatDashboardProps {
-  onOpenChat?: () => void;
-  stats?: any;
-}
 
 const FILTER_MAP: Record<string, string> = {
   "Hari ini": "Hari ini",
@@ -33,27 +29,34 @@ const FILTER_MAP: Record<string, string> = {
   Custom: "Custom",
 };
 
-const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
-  // Setup format tanggal dan jam awal (YYYY-MM-DDTHH:mm)
-  const now = new Date();
-  const todayStart = new Date(now.setHours(0, 0, 0, 0))
-    .toISOString()
-    .slice(0, 16);
-  const todayEnd = new Date(now.setHours(23, 59, 59, 999))
-    .toISOString()
-    .slice(0, 16);
-
+const StatDashboard: React.FC = () => {
   const { isDarkMode, toggleDarkMode } = useStore();
 
+  // Waktu default
+  const now = new Date();
+  const todayStart = new Date(new Date(now).setHours(0, 0, 0, 0))
+    .toISOString()
+    .slice(0, 16);
+  const todayEnd = new Date(new Date(now).setHours(23, 59, 59, 999))
+    .toISOString()
+    .slice(0, 16);
+
+  // Filter States
   const [activeFilter, setActiveFilter] = useState("Hari ini");
   const [selectedDevice, setSelectedDevice] = useState("all");
+
+  // Custom Date States (Temp untuk input, Applied untuk API)
+  const [tempDates, setTempDates] = useState({
+    start: todayStart,
+    end: todayEnd,
+  });
+  const [appliedDates, setAppliedDates] = useState({
+    start: todayStart,
+    end: todayEnd,
+  });
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // State untuk tanggal + jam
-  const [startDate, setStartDate] = useState(todayStart);
-  const [endDate, setEndDate] = useState(todayEnd);
-
   const [data, setData] = useState<any>({
     stats: {
       pesanMasukAllTime: 0,
@@ -72,44 +75,35 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
     deviceStats: [],
   });
 
-const fetchDashboard = useCallback(
+  const fetchDashboard = useCallback(
     async (showLoader = true) => {
       try {
         if (showLoader) setLoading(true);
         const token = localStorage.getItem("token");
-        
-        // Inisialisasi URL Parameters
         const params = new URLSearchParams();
+
         params.append("period", FILTER_MAP[activeFilter]);
-
-        // Filter berdasarkan Device ID jika bukan "all"
-        if (selectedDevice !== "all") {
+        if (selectedDevice !== "all")
           params.append("sessionId", selectedDevice);
-        }
 
-        // Penanganan Khusus Filter Custom
         if (activeFilter === "Custom") {
-          // MySQL di VPS sering gagal baca format ISO 'T' (2024-03-04T10:00)
-          // Kita ubah menjadi format standar SQL: '2024-03-04 10:00:00'
-          const cleanStart = startDate.replace("T", " ") + ":00";
-          const cleanEnd = endDate.replace("T", " ") + ":59";
-          
-          params.append("startDate", cleanStart);
-          params.append("endDate", cleanEnd);
+          // Format standar SQL agar tidak berat di backend
+          params.append(
+            "startDate",
+            appliedDates.start.replace("T", " ") + ":00",
+          );
+          params.append("endDate", appliedDates.end.replace("T", " ") + ":59");
         }
 
         const url = `${import.meta.env.VITE_API_URL}/stats/dashboard?${params.toString()}`;
-        
         const res = await fetch(url, {
-          method: "GET",
           headers: {
-            "Authorization": `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
 
         const json = await res.json();
-
         if (json.success) {
           setData({
             stats: json.stats,
@@ -118,31 +112,29 @@ const fetchDashboard = useCallback(
             chartData: json.chartData || [],
             deviceStats: json.deviceStats || [],
           });
-        } else {
-          console.error("Dashboard Fetch Failed:", json.message);
         }
       } catch (err) {
-        console.error("Critical Dashboard Error:", err);
+        console.error("Fetch Error:", err);
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [activeFilter, selectedDevice, startDate, endDate]
+    [activeFilter, selectedDevice, appliedDates], // Hanya trigger jika filter benar-benar "Apply"
   );
 
+  // Auto-refresh hanya jika bukan filter Custom (agar tidak mengganggu user input)
   useEffect(() => {
     fetchDashboard();
-    const interval = setInterval(() => fetchDashboard(false), 30000);
-    return () => clearInterval(interval);
-  }, [fetchDashboard]);
+    if (activeFilter !== "Custom") {
+      const interval = setInterval(() => fetchDashboard(false), 30000);
+      return () => clearInterval(interval);
+    }
+  }, [fetchDashboard, activeFilter]);
 
-  const handleReset = () => {
+  const handleApplyCustomFilter = () => {
     setRefreshing(true);
-    setActiveFilter("Hari ini");
-    setSelectedDevice("all");
-    setStartDate(todayStart);
-    setEndDate(todayEnd);
+    setAppliedDates({ start: tempDates.start, end: tempDates.end });
   };
 
   const slaData = useMemo(
@@ -181,74 +173,47 @@ const fetchDashboard = useCallback(
 
   return (
     <div
-      className={`flex-1 p-4 md:p-8 overflow-y-auto transition-colors duration-300 ${isDarkMode ? "bg-[#0B141A] custom-scrollbar" : "bg-[#F0F2F5] custom-scrollbar-light"}`}
+      className={`flex-1 p-4 md:p-8 overflow-y-auto ${isDarkMode ? "bg-[#0B141A]" : "bg-[#F0F2F5]"}`}
     >
-      {/* HEADER SECTION */}
       <div className="max-w-7xl mx-auto mb-6">
-        {/* Baris Utama: Judul & Controls */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
-          {/* Branding */}
-          <div className="flex-shrink-0">
+          <div>
             <h1
-              className={`text-2xl font-black tracking-widest uppercase flex items-center gap-3 ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
+              className={`text-2xl font-black uppercase flex items-center gap-3 ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
             >
-              SATU PINTU
+              SATU PINTU{" "}
               {refreshing && (
                 <Loader2 size={18} className="animate-spin text-[#00a884]" />
               )}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse"></div>
-              <p
-                className={`text-[9px] font-bold tracking-[0.2em] uppercase ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
-              >
-                Monitoring Dashboard
-              </p>
-            </div>
+            <p
+              className={`text-[9px] font-bold tracking-widest uppercase mt-1 ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
+            >
+              Monitoring Dashboard
+            </p>
           </div>
 
-          {/* Controls Group */}
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-fit">
-            {/* Mode & Reset Buttons */}
-            <div className="flex gap-2">
-              <button
-                onClick={toggleDarkMode}
-                className={`p-2.5 rounded-xl border transition-all shadow-sm ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-yellow-400" : "bg-white border-[#E9EDEF] text-gray-600"}`}
-              >
-                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
-              <button
-                onClick={handleReset}
-                className={`p-2.5 border rounded-xl transition-all ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-[#8696A0]" : "bg-white border-[#E9EDEF] text-[#667781]"}`}
-              >
-                <RotateCcw
-                  size={16}
-                  className={refreshing ? "animate-spin" : ""}
-                />
-              </button>
-            </div>
+            <button
+              onClick={toggleDarkMode}
+              className={`p-2.5 rounded-xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-yellow-400" : "bg-white border-[#E9EDEF] text-gray-600"}`}
+            >
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
 
-            {/* Device Selector */}
-            <div className="relative flex-1 md:flex-none">
-              <Smartphone
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00a884]"
-                size={14}
-              />
-              <select
-                value={selectedDevice}
-                onChange={(e) => setSelectedDevice(e.target.value)}
-                className={`pl-9 pr-10 py-2.5 border rounded-xl text-[11px] font-bold outline-none appearance-none w-full md:min-w-[180px] ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-white" : "bg-white border-[#E9EDEF] text-[#3B4A54]"}`}
-              >
-                <option value="all">SEMUA DEVICE SAYA</option>
-                {data.sessions.map((s: any) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={selectedDevice}
+              onChange={(e) => setSelectedDevice(e.target.value)}
+              className={`pl-4 pr-10 py-2.5 border rounded-xl text-[11px] font-bold outline-none ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-white" : "bg-white border-[#E9EDEF] text-[#3B4A54]"}`}
+            >
+              <option value="all">SEMUA DEVICE</option>
+              {data.sessions.map((s: any) => (
+                <option key={s.id} value={s.id}>
+                  {s.name.toUpperCase()}
+                </option>
+              ))}
+            </select>
 
-            {/* Filter Tabs */}
             <div
               className={`flex items-center p-1 rounded-xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-[#E9EDEF]"}`}
             >
@@ -259,7 +224,7 @@ const fetchDashboard = useCallback(
                     setActiveFilter(item);
                     setRefreshing(true);
                   }}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === item ? "bg-[#00a884] text-white shadow-md" : isDarkMode ? "text-[#8696A0] hover:text-white" : "text-[#667781] hover:bg-gray-100"}`}
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === item ? "bg-[#00a884] text-white shadow-md" : isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
                 >
                   {item}
                 </button>
@@ -268,55 +233,53 @@ const fetchDashboard = useCallback(
           </div>
         </div>
 
-        {/* Baris Kedua: Custom Date Range (Hanya muncul jika filter "Custom" dipilih) */}
+        {/* CUSTOM DATE RANGE WITH APPLY BUTTON */}
         {activeFilter === "Custom" && (
-          <div className="flex justify-end animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex justify-end mb-6 animate-in fade-in slide-in-from-top-2">
             <div
-              className={`flex flex-col md:flex-row items-center gap-4 p-3 px-6 rounded-2xl border w-full md:w-fit ${isDarkMode ? "bg-[#202C33]/40 border-[#313D45] backdrop-blur-sm" : "bg-white border-[#E9EDEF] shadow-sm"}`}
+              className={`flex flex-col md:flex-row items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-[#E9EDEF] shadow-sm"}`}
             >
-              <div className="flex items-center gap-3 md:border-r md:pr-4 border-gray-500/20">
-                <Calendar size={16} className="text-[#00a884]" />
-                <span
-                  className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
-                >
-                  Custom Range
-                </span>
-              </div>
-
-              <div className="flex items-center gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <span className="text-[8px] font-bold text-[#00a884] uppercase">
-                    Mulai Dari
+                    Mulai
                   </span>
                   <input
                     type="datetime-local"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className={`bg-transparent text-xs font-bold outline-none [color-scheme:dark] ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
+                    value={tempDates.start}
+                    onChange={(e) =>
+                      setTempDates({ ...tempDates, start: e.target.value })
+                    }
+                    className={`bg-transparent text-xs font-bold outline-none ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
                   />
                 </div>
-                <div className="h-8 w-px bg-gray-500/20 hidden md:block" />
                 <div className="flex flex-col gap-1">
                   <span className="text-[8px] font-bold text-[#00a884] uppercase">
                     Sampai
                   </span>
                   <input
                     type="datetime-local"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className={`bg-transparent text-xs font-bold outline-none [color-scheme:dark] ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
+                    value={tempDates.end}
+                    onChange={(e) =>
+                      setTempDates({ ...tempDates, end: e.target.value })
+                    }
+                    className={`bg-transparent text-xs font-bold outline-none ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
                   />
                 </div>
               </div>
+              <button
+                onClick={handleApplyCustomFilter}
+                className="bg-[#00a884] hover:bg-[#008f6f] text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-all shadow-lg"
+              >
+                <Search size={14} /> Terapkan
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* CONTENT AREA */}
       <div className="max-w-7xl mx-auto">
         <AIAnalyticSection stats={data.stats} dark={isDarkMode} />
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <ActivityChart data={data.chartData} dark={isDarkMode} />
           <SLAChart data={slaData} dark={isDarkMode} />
@@ -381,7 +344,7 @@ const fetchDashboard = useCallback(
           />
           <StatCard
             dark={isDarkMode}
-            title="Status Koneksi"
+            title="Status"
             value={data.stats.deviceConnected > 0 ? "STABIL" : "OFFLINE"}
             icon={CheckCircle}
             color={
