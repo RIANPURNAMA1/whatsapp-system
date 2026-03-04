@@ -1199,59 +1199,15 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
    )`,
         [...sessionParams],
       ),
-      // 6. Lead Aktif (Hanya pesan 30 menit terakhir dari NOMOR BARU)
+      // 6. Lead Aktif
       query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-   FROM wa_messages m
-   INNER JOIN wa_contacts c ON m.chat_jid = c.jid AND m.session_id = c.session_id
-   WHERE m.is_from_me = 0 
-   AND m.chat_jid NOT LIKE '%@g.us' 
-   AND m.chat_jid NOT LIKE '%@newsletter'
-   ${sessionFilter}
-   -- SYARAT 1: Chat terjadi dalam 30 menit terakhir (Gunakan m.timestamp agar sinkron dengan data)
-   AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)
-   -- SYARAT 2: Pastikan ini adalah Lead Baru berdasarkan filter periode utama
-   AND ${periodFilter.replace(/m\.timestamp/g, "c.created_at")}
-   -- SYARAT 3: Cek apakah ada pesan dari orang ini sebelum rentang waktu hari ini
-   AND NOT EXISTS (
-     SELECT 1 FROM wa_messages older 
-     WHERE older.chat_jid = m.chat_jid 
-     AND older.session_id = m.session_id
-     AND older.timestamp < DATE_FORMAT(NOW(), '%Y-%m-%d 00:00:00')
-   )`,
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`,
         [...sessionParams],
       ),
 
-      // 7. Slow Response (Hanya untuk LEAD BARU yang belum dibalas > 10 menit)
+      // 7. Slow Response
       query(
-        `SELECT COUNT(DISTINCT inc.chat_jid) AS count 
-   FROM wa_messages inc
-   INNER JOIN wa_contacts c ON inc.chat_jid = c.jid AND inc.session_id = c.session_id
-   WHERE inc.is_from_me = 0 
-   AND inc.chat_jid NOT LIKE '%@g.us' 
-   AND inc.chat_jid NOT LIKE '%@newsletter'
-   ${sessionFilterInc}
-   -- SYARAT 1: Pesan masuk di periode filter ini (Misal: Hari ini)
-   AND ${periodFilterInc}
-   -- SYARAT 2: Sudah lewat 10 menit tapi belum ada balasan
-   AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-   -- SYARAT 3: Harus nomor BARU (Kontak dibuat di periode filter ini)
-   AND ${periodFilterInc.replace(/inc\.timestamp/g, "c.created_at")}
-   -- SYARAT 4: Benar-benar belum ada balasan dari kita setelah pesan tersebut
-   AND NOT EXISTS (
-     SELECT 1 FROM wa_messages reply 
-     WHERE reply.chat_jid = inc.chat_jid 
-     AND reply.session_id = inc.session_id
-     AND reply.is_from_me = 1 
-     AND reply.timestamp > inc.timestamp
-   )
-   -- SYARAT 5: Pastikan dia benar-benar Lead Murni (Tidak ada riwayat sebelum hari ini)
-   AND NOT EXISTS (
-     SELECT 1 FROM wa_messages older 
-     WHERE older.chat_jid = inc.chat_jid 
-     AND older.session_id = inc.session_id
-     AND older.timestamp < DATE_FORMAT(NOW(), '%Y-%m-%d 00:00:00')
-   )`,
+        `SELECT COUNT(DISTINCT inc.chat_jid) AS count FROM wa_messages inc WHERE inc.is_from_me = 0 AND inc.chat_jid NOT LIKE '%@g.us' AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) AND ${periodFilterInc} ${sessionFilterInc} AND NOT EXISTS (SELECT 1 FROM wa_messages reply WHERE reply.chat_jid = inc.chat_jid AND reply.is_from_me = 1 AND reply.timestamp > inc.timestamp)`,
         [...sessionParams],
       ),
 
