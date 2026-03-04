@@ -19,7 +19,6 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-
 const router = express.Router();
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -1016,7 +1015,7 @@ router.post("/ai/analyze-dashboard", async (req, res) => {
     // Menggunakan model sesuai dokumentasi terbaru (Gemini 3 atau 2.5 Flash)
     // Pastikan menggunakan "gemini-3-flash-preview" atau "gemini-2.5-flash"
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", 
+      model: "gemini-3-flash-preview",
       contents: `
         Anda adalah pakar strategi WhatsApp Marketing.
         Analisis data performa hari ini:
@@ -1039,10 +1038,9 @@ router.post("/ai/analyze-dashboard", async (req, res) => {
       success: true,
       analysis: response.text,
     });
-
   } catch (error) {
     console.error("Gemini API Error:", error);
-    
+
     // Memberikan info error yang lebih jelas untuk debugging
     res.status(500).json({
       success: false,
@@ -1123,21 +1121,41 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
       trendData,
       devicePerformance,
     ] = await Promise.all([
-      // 1. Total All Time
+      // 1. Total Leads All Time (Unique Customers)
+      // Menghitung berapa banyak nomor unik yang pernah chat ke kita secara keseluruhan
       query(
-        `SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter}`,
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
+     FROM wa_messages m 
+     WHERE m.is_from_me = 0 
+     AND m.chat_jid NOT LIKE '%@g.us' 
+     AND m.chat_jid NOT LIKE '%@newsletter'
+     ${sessionFilter}`,
         [...finalSessionIds],
       ),
 
-      // 2. Masuk Periode
+      // 2. Leads Masuk Periode (Unique Customers in Period)
+      // Menghitung berapa banyak nomor unik yang mengirim pesan dalam periode filter
       query(
-        `SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
+     FROM wa_messages m 
+     WHERE m.is_from_me = 0 
+     AND m.chat_jid NOT LIKE '%@g.us' 
+     AND m.chat_jid NOT LIKE '%@newsletter'
+     AND ${periodFilter} 
+     ${sessionFilter}`,
         [...finalSessionIds],
       ),
 
-      // 3. Keluar Periode
+      // 3. Leads Dibalas Periode (Unique Interacted Customers)
+      // Menghitung berapa banyak nomor unik yang berhasil kita kirimi pesan (Outbound) dalam periode filter
       query(
-        `SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter}`,
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
+     FROM wa_messages m 
+     WHERE m.is_from_me = 1 
+     AND m.chat_jid NOT LIKE '%@g.us' 
+     AND m.chat_jid NOT LIKE '%@newsletter'
+     AND ${periodFilter} 
+     ${sessionFilter}`,
         [...finalSessionIds],
       ),
 
@@ -1159,40 +1177,79 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
         [...finalSessionIds, minPeriodTimestamp], // Menggunakan parameter statis
       ),
 
-      // 6. Lead Aktif (30 Menit Terakhir)
+      // 6. Lead Aktif (Orang unik yang chat dalam 30 menit terakhir)
       query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`,
-        [...finalSessionIds],
-      ),
-
-      // 7. Slow Response (> 10 Menit belum dibalas)
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m 
-         WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' 
-         AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) 
-         AND ${periodFilter} ${sessionFilter} 
-         AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`,
-        [...finalSessionIds],
-      ),
-
-      // 8. Tak Terjawab (> 24 Jam)
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m 
-         WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' 
-         AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) 
-         AND ${periodFilter} ${sessionFilter} 
-         AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`,
-        [...finalSessionIds],
-      ),
-
-      // 9. Live Feed
-      query(
-        `SELECT m.id, COALESCE(ct.push_name, m.chat_jid) AS sender, m.content AS message_text, s.name AS received_via, m.timestamp AS received_at 
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
          FROM wa_messages m 
+         WHERE m.is_from_me = 0 
+         AND m.chat_jid NOT LIKE '%@g.us' 
+         AND m.chat_jid NOT LIKE '%@newsletter'
+         AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) 
+         ${sessionFilter}`,
+        [...finalSessionIds],
+      ),
+
+      // 7. Slow Response (Orang unik yang chatnya belum dibalas > 10 menit)
+      query(
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
+         FROM wa_messages m 
+         WHERE m.is_from_me = 0 
+         AND m.chat_jid NOT LIKE '%@g.us' 
+         AND m.chat_jid NOT LIKE '%@newsletter'
+         AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) 
+         AND ${periodFilter} 
+         ${sessionFilter} 
+         AND NOT EXISTS (
+           SELECT 1 FROM wa_messages r 
+           WHERE r.chat_jid = m.chat_jid 
+           AND r.is_from_me = 1 
+           AND r.timestamp > m.timestamp
+         )`,
+        [...finalSessionIds],
+      ),
+
+      // 8. Tak Terjawab (Orang unik yang chatnya didiamkan > 24 jam)
+      query(
+        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
+         FROM wa_messages m 
+         WHERE m.is_from_me = 0 
+         AND m.chat_jid NOT LIKE '%@g.us' 
+         AND m.chat_jid NOT LIKE '%@newsletter'
+         AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) 
+         AND ${periodFilter} 
+         ${sessionFilter} 
+         AND NOT EXISTS (
+           SELECT 1 FROM wa_messages r 
+           WHERE r.chat_jid = m.chat_jid 
+           AND r.is_from_me = 1 
+           AND r.timestamp > m.timestamp
+         )`,
+        [...finalSessionIds],
+      ),
+
+      // 9. Live Feed (Menampilkan PESAN TERAKHIR dari 15 orang berbeda)
+      // Kita gunakan subquery atau GROUP BY agar feed tidak penuh oleh 1 orang yang sama
+      query(
+        `SELECT m.id, 
+                COALESCE(ct.push_name, m.chat_jid) AS sender, 
+                m.content AS message_text, 
+                s.name AS received_via, 
+                m.timestamp AS received_at 
+         FROM wa_messages m
+         INNER JOIN (
+            SELECT MAX(id) as max_id 
+            FROM wa_messages 
+            WHERE is_from_me = 0 
+            GROUP BY chat_jid
+         ) last_msg ON m.id = last_msg.max_id
          LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid 
          LEFT JOIN wa_sessions s ON s.id = m.session_id 
-         WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${sessionFilter} 
-         ORDER BY m.timestamp DESC LIMIT 15`,
+         WHERE m.is_from_me = 0 
+         AND m.chat_jid NOT LIKE '%@g.us' 
+         AND m.chat_jid NOT LIKE '%@newsletter'
+         ${sessionFilter} 
+         ORDER BY m.timestamp DESC 
+         LIMIT 15`,
         [...finalSessionIds],
       ),
 
