@@ -19,6 +19,7 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
+
 const router = express.Router();
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -1012,37 +1013,41 @@ router.post("/ai/analyze-dashboard", async (req, res) => {
       });
     }
 
-    const prompt = `
-Anda adalah pakar strategi bisnis WhatsApp Marketing.
-
-Analisis data performa hari ini:
-- Total Pesan Masuk: ${stats.pesanMasukToday}
-- Total Pesan Terkirim: ${stats.pesanKeluar}
-- Leads Baru: ${stats.leadMasuk}
-- Leads Aktif: ${stats.leadAktif}
-- Slow Response: ${stats.slowResponse}
-- Chat Belum Terjawab: ${stats.unanswered}
-
-Berikan 3 poin analisis profesional:
-1. Kesimpulan performa saat ini.
-2. Peringatan masalah (jika ada).
-3. Strategi konversi leads.
-`;
-
+    // Menggunakan model sesuai dokumentasi terbaru (Gemini 3 atau 2.5 Flash)
+    // Pastikan menggunakan "gemini-3-flash-preview" atau "gemini-2.5-flash"
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
+      model: "gemini-3-flash-preview", 
+      contents: `
+        Anda adalah pakar strategi WhatsApp Marketing.
+        Analisis data performa hari ini:
+        - Pesan Masuk: ${stats.pesanMasukToday || 0}
+        - Pesan Terkirim: ${stats.pesanKeluar || 0}
+        - Leads Baru: ${stats.leadMasuk || 0}
+        - Leads Aktif: ${stats.leadAktif || 0}
+        - Slow Response: ${stats.slowResponse || 0}
+        - Belum Terjawab: ${stats.unanswered || 0}
+
+        Berikan 3 poin analisis singkat:
+        1. Kesimpulan performa.
+        2. Masalah utama (fokus ke Slow Response).
+        3. Strategi closing.
+      `,
     });
 
+    // Sesuai dokumentasi baru: langsung gunakan .text (bukan fungsi)
     res.json({
       success: true,
       analysis: response.text,
     });
+
   } catch (error) {
-    console.error("Gemini AI Error:", error);
+    console.error("Gemini API Error:", error);
+    
+    // Memberikan info error yang lebih jelas untuk debugging
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Gagal memproses AI",
+      error: error.message,
     });
   }
 });
