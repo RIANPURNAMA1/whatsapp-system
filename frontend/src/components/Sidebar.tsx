@@ -36,7 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const canSeeGlobalInbox =
     user?.role_type === "system" || user?.role_type === "manager";
   const canSeeDashboard =
-    user?.role_type === "system" || user?.role_type === "custom";
+    user?.role_type === "system" || user?.role_type === "manager" || user?.role_type === "custom";
 
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);

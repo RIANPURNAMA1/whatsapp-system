@@ -406,35 +406,37 @@ router.delete("/users/:id", async (req, res) => {
 // ===============================================
 // SESSION ROUTES
 // ===============================================
-
 router.get("/sessions", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const roleType = req.user.role_type.toLowerCase().trim(); // Standarisasi role
+    // Gunakan optional chaining untuk mencegah crash jika role_type null
+    const roleType = (req.user.role_type || "").toLowerCase().trim(); 
 
     let sessionsData;
 
-    if (roleType === "system") {
+    // Manager dan System disatukan di sini agar bisa melihat SEMUA data
+    if (roleType === "system" || roleType === "manager") {
       sessionsData = await query(
-        "SELECT * FROM wa_sessions ORDER BY created_at DESC",
+        "SELECT * FROM wa_sessions ORDER BY created_at DESC"
       );
     } else {
-      // Query ini mencakup Manager & Custom sekaligus
-      // Mengambil semua session yang terhubung dengan user ini di tabel pivot
+      // Role Cabang / Custom: Hanya yang terhubung di tabel pivot wa_user_sessions
       sessionsData = await query(
         `SELECT s.* FROM wa_sessions s
          INNER JOIN wa_user_sessions us ON s.id = us.session_id
          WHERE us.user_id = ?
          ORDER BY s.created_at DESC`,
-        [userId],
+        [userId]
       );
     }
 
     console.log(
-      `[DEBUG] User ${userId} (${roleType}) menemukan ${sessionsData.length} sesi`,
+      `[DEBUG] User ${userId} (${roleType}) menemukan ${sessionsData.length} sesi`
     );
+    
     res.json({ success: true, data: sessionsData });
   } catch (err) {
+    console.error("Error Get Sessions:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -1350,18 +1352,52 @@ router.get("/sessions/:sessionId/stats", async (req, res) => {
 // ===============================================
 router.get("/chats/leads-only", authenticateToken, async (req, res) => {
   try {
-    // 1. Ambil sessionId, startDate, dan endDate dari query string
+    // 1. Identifikasi User & Role (Sesuai dengan logika dashboard Anda)
+    const userId = req.user.id;
+    const roleType = req.user.role_type.toLowerCase().trim();
     const { sessionId, startDate, endDate } = req.query;
-    let params = [];
-    let filterSql = "";
 
-    // 2. Filter berdasarkan Session ID
-    if (sessionId && sessionId !== "all") {
-      filterSql += ` AND m.session_id = ?`;
-      params.push(sessionId);
+    // 2. Ambil list session yang diizinkan untuk user ini
+    let allowedSessions = [];
+    if (roleType === "system" || roleType === "manager") {
+      allowedSessions = await query("SELECT id FROM wa_sessions");
+    } else {
+      // Role Cabang / Custom: Ambil dari tabel penghubung wa_user_sessions
+      allowedSessions = await query(
+        "SELECT session_id as id FROM wa_user_sessions WHERE user_id = ?",
+        [userId]
+      );
     }
 
-    // 3. Filter berdasarkan Range Tanggal (WAJIB ditambahkan)
+    const allowedIds = allowedSessions.map((s) => s.id);
+
+    // Jika user cabang tidak punya session sama sekali, hentikan
+    if (allowedIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // 3. Tentukan Session ID mana yang akan dipakai di query
+    let finalSessionIds = [];
+    if (sessionId && sessionId !== "all") {
+      // Jika user filter satu session, pastikan dia punya izin
+      if (allowedIds.includes(sessionId)) {
+        finalSessionIds = [sessionId];
+      } else {
+        // Jika coba akses session orang lain, paksa ke session miliknya saja
+        finalSessionIds = allowedIds;
+      }
+    } else {
+      // Jika pilih "all", gunakan semua ID yang diizinkan
+      finalSessionIds = allowedIds;
+    }
+
+    // 4. Bangun Filter SQL
+    let params = [];
+    const placeholders = finalSessionIds.map(() => "?").join(",");
+    let filterSql = ` AND m.session_id IN (${placeholders})`;
+    params.push(...finalSessionIds);
+
+    // Filter Tanggal
     if (startDate && endDate) {
       filterSql += ` AND m.timestamp BETWEEN ? AND ?`;
       params.push(startDate, endDate);
@@ -1391,16 +1427,12 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
       WHERE m.is_from_me = 0 
         AND m.chat_jid NOT LIKE '%@g.us' 
         AND m.chat_jid NOT LIKE '%@newsletter'
-        ${filterSql} /* Filter gabungan session dan tanggal */
-        
-        /* Logika "Pesan Pertama": Memastikan ini adalah chat pertama nomor tersebut */
+        ${filterSql} 
         AND NOT EXISTS (
           SELECT 1 FROM wa_messages older 
           WHERE older.chat_jid = m.chat_jid 
           AND older.id < m.id
         )
-        
-        /* Filter: Hanya yang belum disimpan namanya */
         AND (ct.name IS NULL OR ct.name = '')
       ORDER BY m.timestamp DESC
       LIMIT 100
@@ -1408,8 +1440,14 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
 
     const leads = await query(sql, params);
     res.json({ success: true, data: leads });
+
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("LEADS ERROR:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      error: "Internal Server Error",
+      debug: err.message 
+    });
   }
 });
 
