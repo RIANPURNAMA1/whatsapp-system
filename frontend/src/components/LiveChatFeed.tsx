@@ -24,7 +24,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan, dark }) => {
   };
 
   return (
-    <div className={`md:col-span-2 md:row-span-2 ${theme.container} rounded-3xl h-[600px] flex flex-col shadow-2xl overflow-hidden transition-all duration-300 border`}>
+    <div className={`md:col-span-2 md:row-span-2 ${theme.container} rounded-3xl h-[600px] flex flex-col shadow-md overflow-hidden transition-all duration-300 border`}>
       
       {/* --- HEADER --- */}
       <div className={`p-6 bg-gradient-to-b ${theme.header} border-b flex justify-between items-center shrink-0`}>

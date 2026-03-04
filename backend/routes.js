@@ -409,37 +409,36 @@ router.delete("/users/:id", async (req, res) => {
 router.get("/sessions", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    // Gunakan optional chaining untuk mencegah crash jika role_type null
-    const roleType = (req.user.role_type || "").toLowerCase().trim(); 
+    const roleType = req.user.role_type.toLowerCase().trim(); // Standarisasi role
 
     let sessionsData;
 
-    // Manager dan System disatukan di sini agar bisa melihat SEMUA data
-    if (roleType === "system" || roleType === "manager") {
+    if (roleType === "system" || roleType ===  "manager") {
       sessionsData = await query(
-        "SELECT * FROM wa_sessions ORDER BY created_at DESC"
+        "SELECT * FROM wa_sessions ORDER BY created_at DESC",
       );
     } else {
-      // Role Cabang / Custom: Hanya yang terhubung di tabel pivot wa_user_sessions
+      // Query ini mencakup Manager & Custom sekaligus
+      // Mengambil semua session yang terhubung dengan user ini di tabel pivot
       sessionsData = await query(
         `SELECT s.* FROM wa_sessions s
          INNER JOIN wa_user_sessions us ON s.id = us.session_id
          WHERE us.user_id = ?
          ORDER BY s.created_at DESC`,
-        [userId]
+        [userId],
       );
     }
 
     console.log(
-      `[DEBUG] User ${userId} (${roleType}) menemukan ${sessionsData.length} sesi`
+      `[DEBUG] User ${userId} (${roleType}) menemukan ${sessionsData.length} sesi`,
     );
-    
     res.json({ success: true, data: sessionsData });
   } catch (err) {
-    console.error("Error Get Sessions:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
 // GET: Info sesi spesifik
 router.get("/sessions/:sessionId", async (req, res) => {
   const { sessionId } = req.params;
@@ -1451,50 +1450,6 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
   }
 });
 
-// router.get("/all-global-messages", async (req, res) => {
-//   try {
-//     const sql = `
-//       SELECT 
-//         m.*, 
-//         s.name as session_name,
-//         COALESCE(ct.name, ct.push_name, ch.name, m.chat_jid) AS display_name,
-//         ch.unread_count,
-//         ct.profile_pic_url
-//       FROM wa_messages m
-//       INNER JOIN (
-//         -- Mengambil ID pesan terakhir, abaikan Grup dan Saluran
-//         SELECT MAX(id) as last_id
-//         FROM wa_messages
-//         WHERE chat_jid NOT LIKE '%@g.us' 
-//           AND chat_jid NOT LIKE '%@newsletter'
-//           AND chat_jid NOT LIKE 'status@broadcast'
-//         GROUP BY chat_jid, session_id
-//       ) latest ON m.id = latest.last_id
-//       LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
-//       LEFT JOIN wa_chats ch ON ch.session_id = m.session_id AND ch.jid = m.chat_jid
-//       LEFT JOIN wa_sessions s ON s.id = m.session_id
-//       WHERE (ch.is_group = 0 OR ch.is_group IS NULL)
-//         AND m.chat_jid NOT LIKE '%@newsletter'
-//       ORDER BY m.timestamp DESC
-//       LIMIT 100
-//     `;
-
-//     const messages = await query(sql);
-//     console.log("Total pesan global (tanpa saluran):", messages.length);
-
-//     res.json({ success: true, data: messages });
-//   } catch (err) {
-//     console.error("Query Error:", err.message);
-//     res.status(500).json({ success: false, message: err.message });
-//   }
-// });
-
-// ===============================================
-// GET: DAFTAR CHAT PER SESI (FIXED)
-// ===============================================
-
-
-
 router.get("/all-global-messages", async (req, res) => {
   try {
     const sql = `
@@ -1506,14 +1461,13 @@ router.get("/all-global-messages", async (req, res) => {
         ct.profile_pic_url
       FROM wa_messages m
       INNER JOIN (
-        -- PERBAIKAN: Hanya GROUP BY chat_jid saja. 
-        -- Hapus session_id dari GROUP BY agar satu nomor = satu baris global.
+        -- Mengambil ID pesan terakhir, abaikan Grup dan Saluran
         SELECT MAX(id) as last_id
         FROM wa_messages
         WHERE chat_jid NOT LIKE '%@g.us' 
           AND chat_jid NOT LIKE '%@newsletter'
           AND chat_jid NOT LIKE 'status@broadcast'
-        GROUP BY chat_jid 
+        GROUP BY chat_jid, session_id
       ) latest ON m.id = latest.last_id
       LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
       LEFT JOIN wa_chats ch ON ch.session_id = m.session_id AND ch.jid = m.chat_jid
@@ -1525,162 +1479,18 @@ router.get("/all-global-messages", async (req, res) => {
     `;
 
     const messages = await query(sql);
-    console.log(`[DEBUG] Berhasil sinkronisasi. Ditemukan ${messages.length} chat unik.`);
+    console.log("Total pesan global (tanpa saluran):", messages.length);
 
     res.json({ success: true, data: messages });
   } catch (err) {
-    console.error("Query Global Error:", err.message);
+    console.error("Query Error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-
-// router.get("/sessions/:sessionId/chats", async (req, res) => {
-//   const { sessionId } = req.params;
-//   const { search = "", page = "1", limit = "50" } = req.query;
-
-//   const pageNum = parseInt(page);
-//   const limitNum = parseInt(limit);
-//   const offset = (pageNum - 1) * limitNum;
-
-//   try {
-//     let sql = `
-//       SELECT 
-//         c.jid,
-//         c.session_id,
-//         c.name AS chat_name,
-//         c.last_message_time,
-//         c.last_message,
-//         c.unread_count,
-//         c.pinned,
-//         c.archived,
-//         c.muted,
-//         c.is_group,
-//         COALESCE(ct.name, ct.push_name, c.name, c.jid) AS display_name,
-//         ct.profile_pic_url,
-//         COALESCE(
-//           CONCAT(
-//             '[',
-//             GROUP_CONCAT(
-//               CASE 
-//                 WHEN l.id IS NOT NULL THEN 
-//                   JSON_OBJECT(
-//                     'id', l.id,
-//                     'name', l.name,
-//                     'color', l.color,
-//                     'icon', l.icon,
-//                     'description', l.description,
-//                     'sort_order', l.sort_order
-//                   )
-//                 ELSE NULL
-//               END
-//               SEPARATOR ','
-//             ),
-//             ']'
-//           ),
-//           '[]'
-//         ) AS labels
-//       FROM wa_chats c
-//       LEFT JOIN wa_contacts ct 
-//         ON ct.session_id = c.session_id 
-//         AND ct.jid = c.jid
-//       LEFT JOIN wa_chat_labels cl 
-//         ON cl.session_id = c.session_id 
-//         AND cl.chat_jid = c.jid
-//       LEFT JOIN wa_labels l 
-//         ON l.id = cl.label_id 
-//         AND l.session_id = c.session_id
-//       WHERE c.session_id = ? 
-//         AND c.is_group = 0 
-//         AND c.jid NOT LIKE '%@newsletter' -- FILTER SALURAN
-//         AND c.jid NOT LIKE 'status@broadcast' -- FILTER STATUS
-//       GROUP BY c.jid, c.session_id
-//       ORDER BY c.pinned DESC, c.last_message_time DESC
-//       LIMIT ? OFFSET ?
-//     `;
-
-//     let params = [sessionId, limitNum, offset];
-
-//     if (search.trim()) {
-//       const searchTerm = `%${search.trim()}%`;
-//       sql = sql.replace(
-//         "WHERE c.session_id = ?",
-//         `WHERE c.session_id = ?
-//          AND (
-//            COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
-//            OR c.jid LIKE ?
-//          )`,
-//       );
-//       params.splice(1, 0, searchTerm, searchTerm);
-//     }
-
-//     const chats = await query(sql, params);
-
-//     const parsedChats = chats.map((chat) => {
-//       let labels = [];
-//       try {
-//         if (chat.labels && chat.labels !== "[]") {
-//           labels = JSON.parse(chat.labels);
-//         }
-//       } catch (e) {
-//         console.warn("Gagal parse labels:", chat.jid, e);
-//       }
-//       return {
-//         ...chat,
-//         labels,
-//         unread_count: Number(chat.unread_count || 0),
-//         pinned: Number(chat.pinned || 0),
-//         archived: Number(chat.archived || 0),
-//         muted: Number(chat.muted || 0),
-//         is_group: Boolean(chat.is_group || 0),
-//       };
-//     });
-
-//     // Hitung total data untuk pagination (FIXED FILTER)
-//     let countSql = `
-//       SELECT COUNT(DISTINCT c.jid) as total 
-//       FROM wa_chats c
-//       LEFT JOIN wa_contacts ct ON ct.session_id = c.session_id AND ct.jid = c.jid
-//       WHERE c.session_id = ? 
-//         AND c.is_group = 0 
-//         AND c.jid NOT LIKE '%@newsletter'
-//         AND c.jid NOT LIKE 'status@broadcast'
-//     `;
-//     let countParams = [sessionId];
-
-//     if (search.trim()) {
-//       const searchTerm = `%${search.trim()}%`;
-//       countSql += `
-//         AND (
-//           COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
-//           OR c.jid LIKE ?
-//         )
-//       `;
-//       countParams.push(searchTerm, searchTerm);
-//     }
-
-//     const [totalRow] = await query(countSql, countParams);
-
-//     res.json({
-//       success: true,
-//       data: parsedChats,
-//       pagination: {
-//         page: pageNum,
-//         limit: limitNum,
-//         total: totalRow?.total || 0,
-//         totalPages: Math.ceil((totalRow?.total || 0) / limitNum),
-//       },
-//     });
-//   } catch (err) {
-//     console.error("Error fetching chats:", err);
-//     res
-//       .status(500)
-//       .json({ success: false, message: "Gagal memuat daftar chat" });
-//   }
-// });
-
-
-
+// ===============================================
+// GET: DAFTAR CHAT PER SESI (FIXED)
+// ===============================================
 router.get("/sessions/:sessionId/chats", async (req, res) => {
   const { sessionId } = req.params;
   const { search = "", page = "1", limit = "50" } = req.query;
@@ -1690,8 +1500,6 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
   const offset = (pageNum - 1) * limitNum;
 
   try {
-    // Solusi untuk MySQL versi lama (5.6 kebawah)
-    // Kita gunakan GROUP_CONCAT untuk menggabungkan label menjadi string
     let sql = `
       SELECT 
         c.jid,
@@ -1701,90 +1509,129 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
         c.last_message,
         c.unread_count,
         c.pinned,
+        c.archived,
+        c.muted,
         c.is_group,
         COALESCE(ct.name, ct.push_name, c.name, c.jid) AS display_name,
         ct.profile_pic_url,
-        GROUP_CONCAT(
-          DISTINCT CONCAT(
-            '{"id":', l.id, 
-            ',"name":"', IFNULL(l.name, ''), 
-            '","color":"', IFNULL(l.color, ''), '"}'
-          )
-        ) AS labels_string
+        COALESCE(
+          CONCAT(
+            '[',
+            GROUP_CONCAT(
+              CASE 
+                WHEN l.id IS NOT NULL THEN 
+                  JSON_OBJECT(
+                    'id', l.id,
+                    'name', l.name,
+                    'color', l.color,
+                    'icon', l.icon,
+                    'description', l.description,
+                    'sort_order', l.sort_order
+                  )
+                ELSE NULL
+              END
+              SEPARATOR ','
+            ),
+            ']'
+          ),
+          '[]'
+        ) AS labels
       FROM wa_chats c
       LEFT JOIN wa_contacts ct 
         ON ct.session_id = c.session_id 
         AND ct.jid = c.jid
       LEFT JOIN wa_chat_labels cl 
-        ON cl.chat_jid = c.jid 
-        AND cl.session_id = c.session_id
+        ON cl.session_id = c.session_id 
+        AND cl.chat_jid = c.jid
       LEFT JOIN wa_labels l 
-        ON l.id = cl.label_id
+        ON l.id = cl.label_id 
+        AND l.session_id = c.session_id
+      WHERE c.session_id = ? 
+        AND c.is_group = 0 
+        AND c.jid NOT LIKE '%@newsletter' -- FILTER SALURAN
+        AND c.jid NOT LIKE 'status@broadcast' -- FILTER STATUS
+      GROUP BY c.jid, c.session_id
+      ORDER BY c.pinned DESC, c.last_message_time DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    let params = [sessionId, limitNum, offset];
+
+    if (search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      sql = sql.replace(
+        "WHERE c.session_id = ?",
+        `WHERE c.session_id = ?
+         AND (
+           COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
+           OR c.jid LIKE ?
+         )`,
+      );
+      params.splice(1, 0, searchTerm, searchTerm);
+    }
+
+    const chats = await query(sql, params);
+
+    const parsedChats = chats.map((chat) => {
+      let labels = [];
+      try {
+        if (chat.labels && chat.labels !== "[]") {
+          labels = JSON.parse(chat.labels);
+        }
+      } catch (e) {
+        console.warn("Gagal parse labels:", chat.jid, e);
+      }
+      return {
+        ...chat,
+        labels,
+        unread_count: Number(chat.unread_count || 0),
+        pinned: Number(chat.pinned || 0),
+        archived: Number(chat.archived || 0),
+        muted: Number(chat.muted || 0),
+        is_group: Boolean(chat.is_group || 0),
+      };
+    });
+
+    // Hitung total data untuk pagination (FIXED FILTER)
+    let countSql = `
+      SELECT COUNT(DISTINCT c.jid) as total 
+      FROM wa_chats c
+      LEFT JOIN wa_contacts ct ON ct.session_id = c.session_id AND ct.jid = c.jid
       WHERE c.session_id = ? 
         AND c.is_group = 0 
         AND c.jid NOT LIKE '%@newsletter'
         AND c.jid NOT LIKE 'status@broadcast'
     `;
-
-    let params = [sessionId];
+    let countParams = [sessionId];
 
     if (search.trim()) {
       const searchTerm = `%${search.trim()}%`;
-      sql += ` AND (c.name LIKE ? OR c.jid LIKE ? OR ct.name LIKE ?) `;
-      params.push(searchTerm, searchTerm, searchTerm);
+      countSql += `
+        AND (
+          COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
+          OR c.jid LIKE ?
+        )
+      `;
+      countParams.push(searchTerm, searchTerm);
     }
 
-    // WAJIB ada GROUP BY jika menggunakan GROUP_CONCAT
-    sql += ` GROUP BY c.jid, c.session_id 
-             ORDER BY c.pinned DESC, c.last_message_time DESC 
-             LIMIT ? OFFSET ?`;
-    
-    params.push(limitNum, offset);
-
-    const chats = await query(sql, params);
-
-    // Proses data: Ubah string labels_string kembali menjadi Array JSON
-    const parsedChats = chats.map((chat) => {
-      let labels = [];
-      if (chat.labels_string) {
-        try {
-          // Kita bungkus string hasil GROUP_CONCAT tadi menjadi array JSON valid
-          labels = JSON.parse(`[${chat.labels_string}]`);
-        } catch (e) {
-          console.error("Error parsing labels_string for JID:", chat.jid);
-          labels = [];
-        }
-      }
-      
-      // Hapus kolom labels_string agar tidak berat dikirim ke frontend
-      const { labels_string, ...cleanChat } = chat;
-      
-      return {
-        ...cleanChat,
-        labels,
-        unread_count: Number(chat.unread_count || 0),
-        pinned: Number(chat.pinned || 0),
-      };
-    });
-
-    // Ambil total untuk pagination
-    const [totalRow] = await query(
-      "SELECT COUNT(*) as total FROM wa_chats WHERE session_id = ? AND is_group = 0", 
-      [sessionId]
-    );
+    const [totalRow] = await query(countSql, countParams);
 
     res.json({
       success: true,
       data: parsedChats,
       pagination: {
-        total: totalRow?.total || 0,
         page: pageNum,
-        limit: limitNum
-      }
+        limit: limitNum,
+        total: totalRow?.total || 0,
+        totalPages: Math.ceil((totalRow?.total || 0) / limitNum),
+      },
     });
   } catch (err) {
-    console.error("DATABASE ERROR:", err);
-    res.status(500).json({ success: false, message: "Internal Server Error: " + err.message });
+    console.error("Error fetching chats:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Gagal memuat daftar chat" });
   }
 });
 
@@ -1796,42 +1643,28 @@ router.get("/sessions/:sessionId/chats/:chatJid/messages", async (req, res) => {
   const { before, limit = 30 } = req.query;
   const decodedJid = decodeURIComponent(chatJid);
 
-  // KUNCI PERBAIKAN: Hapus filter m.session_id = ? 
-  // Agar pesan dari Silvia di nomor WA manapun tetap muncul di sini
   let sql = `
     SELECT m.*, 
-           COALESCE(c.name, c.push_name, s.name) AS sender_name,
-           s.name as via_session -- Tambahan: biar tahu pesan ini masuk lewat nomor mana
+           COALESCE(c.name, c.push_name) AS sender_name
     FROM wa_messages m
-    LEFT JOIN wa_contacts c ON c.jid = m.from_jid -- Join JID saja (Global)
-    LEFT JOIN wa_sessions s ON s.id = m.session_id -- Mengetahui nama sesi/nomor WA penerima
-    WHERE m.chat_jid = ? 
+    LEFT JOIN wa_contacts c ON c.session_id = m.session_id AND c.jid = m.from_jid
+    WHERE m.session_id = ? AND m.chat_jid = ?
   `;
-  
-  const params = [decodedJid];
+  const params = [sessionId, decodedJid];
 
   if (before) {
-    // Pastikan format date/timestamp sesuai dengan database Anda (biasanya string ISO atau epoch)
     sql += " AND m.timestamp < ?";
-    params.push(before); 
+    params.push(new Date(before));
   }
 
-  // Tambahkan limit dan sorting
   sql += " ORDER BY m.timestamp DESC LIMIT ?";
   params.push(parseInt(limit));
 
-  try {
-    const messages = await query(sql, params);
-    
-    // Balik urutan agar pesan terbaru ada di bawah
-    messages.reverse();
-    
-    res.json({ success: true, data: messages });
-  } catch (err) {
-    console.error("Error Get Messages:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
+  const messages = await query(sql, params);
+  messages.reverse();
+  res.json({ success: true, data: messages });
 });
+
 // ===============================================
 // PUT: MARK CHAT AS READ
 // ===============================================
