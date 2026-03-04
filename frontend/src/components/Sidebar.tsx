@@ -120,13 +120,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                 title="Chat WhatsApp"
               />
 
-              {/* MENU BARU: LEADS ONLY */}
+              {/* MENU BARU: LEADS ONLY
               <NavButton
                 icon={<UserSearch className="w-5 h-5 text-orange-400" />}
                 active={activeTab === "leads-only"}
                 onClick={() => handleNavClick("leads-only")}
                 title="Pesan Leads Baru (Non-Kontak)"
-              />
+              /> */}
 
               {canSeeGlobalInbox && (
                 <NavButton
