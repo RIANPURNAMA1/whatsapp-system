@@ -14,6 +14,8 @@ import {
   Calendar,
   Loader2,
   Search,
+  Subscript,
+  MailCheck,
 } from "lucide-react";
 import useStore from "../store/useStore";
 import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
@@ -315,10 +317,10 @@ const StatDashboard: React.FC = () => {
           />
           <StatCard
             dark={isDarkMode}
-            title="Lead Aktif"
-            value={data.stats.leadAktif}
-            icon={Activity}
-            color="text-cyan-500"
+            title="Closing "
+            value={data.stats.leadMasuk}
+            icon={MailCheck}
+            color="text-blue-500"
           />
           <StatCard
             dark={isDarkMode}
