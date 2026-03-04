@@ -6,9 +6,10 @@ import {
   Loader2,
   RefreshCcw,
   Target,
-  Lock,
   Smartphone,
-  ChevronRight,
+  Calendar,
+  CheckCircle2,
+  RotateCcw,
 } from "lucide-react";
 
 interface LeadsChatListProps {
@@ -27,12 +28,34 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDevice, setSelectedDevice] = useState("all");
 
+  // Fungsi untuk mendapatkan default waktu (Hari ini 00:00 s/d 23:59)
+  const getDefaultDateRange = () => ({
+    start: new Date(new Date().setHours(0, 0, 0, 0)).toISOString().slice(0, 16),
+    end: new Date(new Date().setHours(23, 59, 59, 999))
+      .toISOString()
+      .slice(0, 16),
+  });
+
+  const [tempDateRange, setTempDateRange] = useState(getDefaultDateRange());
+  const [appliedDateRange, setAppliedDateRange] = useState(
+    getDefaultDateRange(),
+  );
+
   const fetchLeads = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
       const url = new URL(`${import.meta.env.VITE_API_URL}/chats/leads-only`);
+
       url.searchParams.append("sessionId", selectedDevice);
+      url.searchParams.append(
+        "startDate",
+        appliedDateRange.start.replace("T", " ") + ":00",
+      );
+      url.searchParams.append(
+        "endDate",
+        appliedDateRange.end.replace("T", " ") + ":59",
+      );
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
@@ -44,11 +67,25 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedDevice]);
+  }, [selectedDevice, appliedDateRange]);
 
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
+
+  // Handler Terapkan
+  const handleApplyFilter = () => {
+    setAppliedDateRange(tempDateRange);
+  };
+
+  // Handler Reset
+  const handleResetFilter = () => {
+    const defaultDates = getDefaultDateRange();
+    setTempDateRange(defaultDates);
+    setAppliedDateRange(defaultDates);
+    setSelectedDevice("all");
+    setSearchTerm("");
+  };
 
   const filteredLeads = leads.filter(
     (lead) =>
@@ -63,7 +100,7 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
     >
       {/* HEADER SECTION */}
       <div
-        className={`p-4 border-b space-y-4 ${isDarkMode ? "border-[#222D34] bg-[#202C33]" : "border-gray-100 bg-[#F0F2F5]"}`}
+        className={`p-4 border-b space-y-3 ${isDarkMode ? "border-[#222D34] bg-[#202C33]" : "border-gray-100 bg-[#F0F2F5]"}`}
       >
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -81,16 +118,11 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
                   {filteredLeads.length}
                 </span>
               </div>
-              <p
-                className={`text-[10px] font-medium ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
-              >
-                Auto-tracking sumber pesan baru
-              </p>
             </div>
           </div>
           <button
             onClick={fetchLeads}
-            className={`p-2 rounded-xl hover:bg-black/5 transition-all active:scale-95 ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
+            className={`p-2 rounded-xl hover:bg-black/5 transition-all ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
           >
             <RefreshCcw
               size={16}
@@ -99,49 +131,90 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
           </button>
         </div>
 
-        {/* CONTROLS */}
-        <div className="grid grid-cols-1 gap-2">
-          {/* DEVICE SELECTOR */}
-          <div className="relative group">
-            <Smartphone
-              className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? "text-[#8696A0]" : "text-gray-400"}`}
-              size={14}
-            />
-            <select
-              value={selectedDevice}
-              onChange={(e) => setSelectedDevice(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-[11px] font-bold outline-none appearance-none cursor-pointer transition-all border ${
-                isDarkMode
-                  ? "bg-[#2A3942] text-[#E9EDEF] border-[#3B4A54] focus:border-[#00a884]"
-                  : "bg-white border-gray-200 text-[#3B4A54] focus:border-[#00a884] shadow-sm"
-              }`}
-            >
-              <option value="all">Semua Device (Global)</option>
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name || s.id}
-                </option>
-              ))}
-            </select>
+        {/* CONTROLS AREA */}
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="relative">
+              <Smartphone
+                className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-[#8696A0]" : "text-gray-400"}`}
+                size={12}
+              />
+              <select
+                value={selectedDevice}
+                onChange={(e) => setSelectedDevice(e.target.value)}
+                className={`w-full pl-8 pr-2 py-2 rounded-xl text-[10px] font-bold outline-none border appearance-none ${isDarkMode ? "bg-[#2A3942] text-[#E9EDEF] border-[#3B4A54]" : "bg-white border-gray-200"}`}
+              >
+                <option value="all">Semua Device</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name || s.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="relative">
+              <Search
+                className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-[#8696A0]" : "text-gray-400"}`}
+                size={12}
+              />
+              <input
+                type="text"
+                placeholder="Cari..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-full pl-8 pr-4 py-2 rounded-xl text-[10px] font-bold outline-none border ${isDarkMode ? "bg-[#2A3942] text-white border-transparent" : "bg-white border-gray-200"}`}
+              />
+            </div>
           </div>
 
-          {/* SEARCH BAR */}
-          <div className="relative">
-            <Search
-              className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-[#8696A0]" : "text-gray-400"}`}
-              size={14}
-            />
-            <input
-              type="text"
-              placeholder="Cari nama, nomor, atau sumber..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-bold outline-none transition-all border ${
+          {/* DATE PICKER */}
+          <div
+            className={`flex items-center gap-2 p-2 rounded-xl border ${isDarkMode ? "bg-[#111B21] border-[#3B4A54]" : "bg-white border-gray-200"}`}
+          >
+            <Calendar size={14} className="text-[#00a884]" />
+            <div className="flex items-center gap-1 flex-1">
+              <input
+                type="datetime-local"
+                value={tempDateRange.start}
+                onChange={(e) =>
+                  setTempDateRange({ ...tempDateRange, start: e.target.value })
+                }
+                className={`text-[9px] font-bold bg-transparent outline-none w-full ${isDarkMode ? "text-white [color-scheme:dark]" : "text-gray-600"}`}
+              />
+              <span className="text-[10px] opacity-30">→</span>
+              <input
+                type="datetime-local"
+                value={tempDateRange.end}
+                onChange={(e) =>
+                  setTempDateRange({ ...tempDateRange, end: e.target.value })
+                }
+                className={`text-[9px] font-bold bg-transparent outline-none w-full ${isDarkMode ? "text-white [color-scheme:dark]" : "text-gray-600"}`}
+              />
+            </div>
+          </div>
+
+          {/* ACTION BUTTONS (Terapkan & Reset) */}
+          <div className="grid grid-cols-5 gap-2">
+            <button
+              onClick={handleApplyFilter}
+              disabled={loading}
+              className="col-span-4 py-2 bg-[#00a884] hover:bg-[#008f6f] disabled:opacity-50 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-[#00a884]/20"
+            >
+              <CheckCircle2 size={14} />
+              Terapkan Filter
+            </button>
+            <button
+              onClick={handleResetFilter}
+              disabled={loading}
+              title="Reset Filter"
+              className={`col-span-1 py-2 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
                 isDarkMode
-                  ? "bg-[#2A3942] text-white border-transparent focus:bg-[#323739] focus:border-[#00a884]"
-                  : "bg-white border-gray-200 text-[#3B4A54] focus:ring-2 focus:ring-[#00a884]/10 focus:border-[#00a884]"
+                  ? "bg-[#2A3942] border-[#3B4A54] text-[#8696A0] hover:text-white"
+                  : "bg-white border-gray-200 text-gray-400 hover:text-gray-600 shadow-sm"
               }`}
-            />
+            >
+              <RotateCcw size={14} />
+            </button>
           </div>
         </div>
       </div>
@@ -150,25 +223,18 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
-            <div className="relative">
-              <Loader2 className="animate-spin text-[#00a884]" size={32} />
-              <div className="absolute inset-0 m-auto w-1.5 h-1.5 bg-[#00a884] rounded-full animate-ping"></div>
-            </div>
+            <Loader2 className="animate-spin text-[#00a884]" size={32} />
             <p className="text-[10px] font-black uppercase tracking-widest text-[#8696A0]">
-              Sinkronisasi Data...
+              Memuat Data...
             </p>
           </div>
         ) : filteredLeads.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 opacity-60">
-            <div
-              className={`p-4 rounded-full mb-3 ${isDarkMode ? "bg-[#202C33]" : "bg-gray-100"}`}
-            >
-              <Target size={32} className="text-[#8696A0]" />
-            </div>
+            <Target size={32} className="text-[#8696A0] mb-2" />
             <p
-              className={`text-[11px] font-bold uppercase tracking-widest ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
+              className={`text-[11px] font-bold uppercase ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
             >
-              Belum ada lead baru
+              Kosong
             </p>
           </div>
         ) : (
@@ -176,26 +242,12 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
             <div
               key={lead.id}
               onClick={() => onSelectChat?.(lead.remoteJid)}
-              className={`flex items-center p-4 border-b cursor-pointer relative group transition-all duration-200 ${
-                isDarkMode
-                  ? "border-[#222D34] hover:bg-[#2A3942]"
-                  : "border-gray-50 hover:bg-[#F0F2F5]"
-              }`}
+              className={`flex items-center p-4 border-b cursor-pointer transition-all ${isDarkMode ? "border-[#222D34] hover:bg-[#2A3942]" : "border-gray-50 hover:bg-[#F0F2F5]"}`}
             >
-              {/* STATUS INDICATOR (Read Only Mode) */}
-              <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-all transform translate-x-1 group-hover:translate-x-0">
-                <div className="flex items-center gap-1.5 bg-[#00a884]/10 px-2 py-1 rounded-lg border border-[#00a884]/20">
-                  <ChevronRight size={12} className="text-[#00a884]" />
-                  <span className="text-[9px] text-[#00a884] font-black uppercase">
-                    Detail
-                  </span>
-                </div>
-              </div>
-
-              {/* AVATAR WITH SOURCE COLOR */}
+              {/* Avatar & Content tetap sama seperti sebelumnya */}
               <div className="relative flex-shrink-0">
                 <div
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg transform group-hover:rotate-3 transition-transform"
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-md"
                   style={{
                     background: lead.source_color
                       ? `linear-gradient(135deg, ${lead.source_color}, ${lead.source_color}dd)`
@@ -204,84 +256,58 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
                 >
                   {lead.pushName ? lead.pushName[0].toUpperCase() : "?"}
                 </div>
-                <div
-                  className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 ${isDarkMode ? "border-[#111B21] bg-[#00a884]" : "border-white bg-[#00a884]"}`}
-                ></div>
               </div>
 
               <div className="ml-4 flex-1 overflow-hidden">
                 <div className="flex justify-between items-start mb-1">
-                  <div className="flex flex-col overflow-hidden">
+                  <div className="flex flex-col overflow-hidden text-left">
                     <h3
-                      className={`font-bold text-[14px] truncate leading-tight ${isDarkMode ? "text-[#E9EDEF]" : "text-[#111B21]"}`}
+                      className={`font-bold text-[13px] truncate ${isDarkMode ? "text-[#E9EDEF]" : "text-[#111B21]"}`}
                     >
-                      {lead.pushName || "Unknown Client"}
+                      {lead.pushName || "Potential Lead"}
                     </h3>
                     <span
-                      className={`text-[10px] font-semibold font-mono ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
+                      className={`text-[10px] font-mono ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
                     >
                       {lead.remoteJid.split("@")[0]}
                     </span>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
+                  <span
+                    className={`text-[9px] font-black flex items-center gap-1 ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
+                  >
+                    <Clock size={10} className="text-[#00a884]" />
+                    {new Date(lead.updatedAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 mt-1.5 text-left">
+                  <div
+                    className="px-2 py-0.5 rounded-md flex items-center gap-1 border"
+                    style={{
+                      backgroundColor: `${lead.source_color || "#8696A0"}15`,
+                      borderColor: `${lead.source_color || "#8696A0"}40`,
+                    }}
+                  >
+                    <Target
+                      size={8}
+                      style={{ color: lead.source_color || "#8696A0" }}
+                    />
                     <span
-                      className={`text-[9px] font-black flex items-center gap-1 ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
+                      className="text-[8px] font-black uppercase"
+                      style={{ color: lead.source_color || "#8696A0" }}
                     >
-                      <Clock size={10} className="text-[#00a884]" />
-                      {new Date(lead.updatedAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {lead.lead_source || "Organik"}
                     </span>
                   </div>
                 </div>
 
-                {/* DYNAMIC BADGES */}
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  {lead.lead_source ? (
-                    <div
-                      className="px-2 py-0.5 rounded flex items-center gap-1 border shadow-sm"
-                      style={{
-                        backgroundColor: `${lead.source_color}10`,
-                        borderColor: `${lead.source_color}30`,
-                      }}
-                    >
-                      <Target size={8} style={{ color: lead.source_color }} />
-                      <span
-                        className="text-[9px] font-black uppercase tracking-wider"
-                        style={{ color: lead.source_color }}
-                      >
-                        {lead.lead_source}
-                      </span>
-                    </div>
-                  ) : (
-                    <div
-                      className={`px-2 py-0.5 rounded border ${isDarkMode ? "bg-gray-500/10 border-gray-500/20" : "bg-gray-100 border-gray-200"}`}
-                    >
-                      <span className="text-gray-500 text-[9px] font-black uppercase tracking-wider">
-                        Organik
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-1 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
-                    <span className="text-orange-600 text-[9px] font-black uppercase tracking-wider">
-                      New
-                    </span>
-                  </div>
-                </div>
-
-                {/* MESSAGE PREVIEW */}
                 <div
-                  className={`mt-2 p-2 rounded-lg text-[11px] line-clamp-2 transition-colors ${
-                    isDarkMode
-                      ? "bg-[#2A3942]/50 text-[#8696A0] group-hover:text-[#E9EDEF]"
-                      : "bg-gray-50 text-[#667781] group-hover:text-[#3B4A54]"
-                  }`}
+                  className={`mt-2 p-2 rounded-lg text-[11px] line-clamp-1 italic text-left ${isDarkMode ? "bg-[#111B21] text-[#8696A0]" : "bg-gray-50 text-[#667781]"}`}
                 >
-                  <span className="opacity-50 font-serif mr-1">"</span>
-                  {lead.content}
-                  <span className="opacity-50 font-serif ml-1">"</span>
+                  "{lead.content}"
                 </div>
               </div>
             </div>

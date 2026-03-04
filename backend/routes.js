@@ -1350,13 +1350,21 @@ router.get("/sessions/:sessionId/stats", async (req, res) => {
 // ===============================================
 router.get("/chats/leads-only", authenticateToken, async (req, res) => {
   try {
-    const { sessionId } = req.query;
+    // 1. Ambil sessionId, startDate, dan endDate dari query string
+    const { sessionId, startDate, endDate } = req.query;
     let params = [];
-    let sessionFilter = "";
+    let filterSql = "";
 
+    // 2. Filter berdasarkan Session ID
     if (sessionId && sessionId !== "all") {
-      sessionFilter = `AND m.session_id = ?`;
+      filterSql += ` AND m.session_id = ?`;
       params.push(sessionId);
+    }
+
+    // 3. Filter berdasarkan Range Tanggal (WAJIB ditambahkan)
+    if (startDate && endDate) {
+      filterSql += ` AND m.timestamp BETWEEN ? AND ?`;
+      params.push(startDate, endDate);
     }
 
     const sql = `
@@ -1366,7 +1374,6 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
         m.content,
         m.timestamp AS updatedAt,
         COALESCE(ct.push_name, 'Unknown') AS pushName,
-        /* Deteksi sumber lead berdasarkan keyword di pesan pertama */
         (
           SELECT ls.source_name 
           FROM wa_lead_sources ls 
@@ -1384,17 +1391,19 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
       WHERE m.is_from_me = 0 
         AND m.chat_jid NOT LIKE '%@g.us' 
         AND m.chat_jid NOT LIKE '%@newsletter'
-        ${sessionFilter}
-        /* LOGIKA LEADS BARU: Tidak boleh ada pesan sebelum ID ini untuk JID yang sama */
+        ${filterSql} /* Filter gabungan session dan tanggal */
+        
+        /* Logika "Pesan Pertama": Memastikan ini adalah chat pertama nomor tersebut */
         AND NOT EXISTS (
           SELECT 1 FROM wa_messages older 
           WHERE older.chat_jid = m.chat_jid 
           AND older.id < m.id
         )
-        /* Tambahan: Jika sudah disimpan namanya di kontak, jangan dianggap lead lagi */
+        
+        /* Filter: Hanya yang belum disimpan namanya */
         AND (ct.name IS NULL OR ct.name = '')
       ORDER BY m.timestamp DESC
-      LIMIT 50
+      LIMIT 100
     `;
 
     const leads = await query(sql, params);
