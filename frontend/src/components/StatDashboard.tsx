@@ -72,49 +72,63 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onOpenChat }) => {
     deviceStats: [],
   });
 
-  const fetchDashboard = useCallback(
+const fetchDashboard = useCallback(
     async (showLoader = true) => {
       try {
         if (showLoader) setLoading(true);
         const token = localStorage.getItem("token");
+        
+        // Inisialisasi URL Parameters
         const params = new URLSearchParams();
         params.append("period", FILTER_MAP[activeFilter]);
 
-        if (selectedDevice !== "all")
+        // Filter berdasarkan Device ID jika bukan "all"
+        if (selectedDevice !== "all") {
           params.append("sessionId", selectedDevice);
+        }
 
+        // Penanganan Khusus Filter Custom
         if (activeFilter === "Custom") {
-          // Mengirim format lengkap ke backend (Backend harus siap menerima format datetime)
-          params.append("startDate", startDate);
-          params.append("endDate", endDate);
+          // MySQL di VPS sering gagal baca format ISO 'T' (2024-03-04T10:00)
+          // Kita ubah menjadi format standar SQL: '2024-03-04 10:00:00'
+          const cleanStart = startDate.replace("T", " ") + ":00";
+          const cleanEnd = endDate.replace("T", " ") + ":59";
+          
+          params.append("startDate", cleanStart);
+          params.append("endDate", cleanEnd);
         }
 
         const url = `${import.meta.env.VITE_API_URL}/stats/dashboard?${params.toString()}`;
+        
         const res = await fetch(url, {
+          method: "GET",
           headers: {
-            Authorization: `Bearer ${token}`,
+            "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
 
         const json = await res.json();
+
         if (json.success) {
           setData({
             stats: json.stats,
-            messages: json.messages,
+            messages: json.messages || [],
             sessions: json.devices || [],
             chartData: json.chartData || [],
             deviceStats: json.deviceStats || [],
           });
+        } else {
+          console.error("Dashboard Fetch Failed:", json.message);
         }
       } catch (err) {
-        console.error("Dashboard Error:", err);
+        console.error("Critical Dashboard Error:", err);
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [activeFilter, selectedDevice, startDate, endDate],
+    [activeFilter, selectedDevice, startDate, endDate]
   );
 
   useEffect(() => {

@@ -1,18 +1,19 @@
 import mysql from "mysql2";
 import "dotenv/config";
 
-// 1. CREATE POOL
+// 1. CREATE POOL (OPTIMIZED)
 const db = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "whatsapp_system",
-  charset: "utf8mb4", // ⭐ TAMBAHKAN INI
+  charset: "utf8mb4",
+  timezone: "+07:00",      // ⭐ WAJIB: Agar filter tanggal Custom pas dengan WIB
+  dateStrings: true,       // ⭐ PENTING: Mengambil tanggal dari MySQL sebagai STRING, bukan objek Date JS
   waitForConnections: true,
   connectionLimit: Number(process.env.DB_CONNECTION_LIMIT) || 10,
   queueLimit: 0,
 });
-
 // Status kontrol agar tidak balapan (Race Condition)
 let isInitialized = false;
 let initPromise = null;
