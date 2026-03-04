@@ -1199,11 +1199,28 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
    )`,
         [...sessionParams],
       ),
-      // 6. Lead Aktif
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`,
-        [...sessionParams],
-      ),
+    // 6. Lead Aktif (Hanya pesan 30 menit terakhir dari NOMOR BARU)
+query(
+  `SELECT COUNT(DISTINCT m.chat_jid) AS count 
+   FROM wa_messages m
+   INNER JOIN wa_contacts c ON m.chat_jid = c.jid AND m.session_id = c.session_id
+   WHERE m.is_from_me = 0 
+   AND m.chat_jid NOT LIKE '%@g.us' 
+   AND m.chat_jid NOT LIKE '%@newsletter'
+   ${sessionFilter}
+   -- SYARAT 1: Chat terjadi dalam 30 menit terakhir (Gunakan m.timestamp agar sinkron dengan data)
+   AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+   -- SYARAT 2: Pastikan ini adalah Lead Baru berdasarkan filter periode utama
+   AND ${periodFilter.replace(/m\.timestamp/g, "c.created_at")}
+   -- SYARAT 3: Cek apakah ada pesan dari orang ini sebelum rentang waktu hari ini
+   AND NOT EXISTS (
+     SELECT 1 FROM wa_messages older 
+     WHERE older.chat_jid = m.chat_jid 
+     AND older.session_id = m.session_id
+     AND older.timestamp < DATE_FORMAT(NOW(), '%Y-%m-%d 00:00:00')
+   )`,
+  [...sessionParams]
+),
 
       // 7. Slow Response
       query(
