@@ -46,7 +46,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan, dark }) => {
           <span className="text-[9px] text-[#8696A0] uppercase font-black tracking-widest mb-1">Total Traffic</span>
           <div className={`${theme.trafficBg} px-4 py-1.5 rounded-full border transition-colors`}>
               <span className={`text-2xl font-black ${theme.trafficText} leading-none tracking-tighter`}>
-                  {totalPesan.toLocaleString("id-ID")}
+                  {(totalPesan || 0).toLocaleString("id-ID")}
               </span>
           </div>
         </div>

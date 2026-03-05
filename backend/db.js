@@ -8,8 +8,8 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "whatsapp_system",
   charset: "utf8mb4",
-  timezone: "+07:00",      // ⭐ WAJIB: Agar filter tanggal Custom pas dengan WIB
-  dateStrings: true,       // ⭐ PENTING: Mengambil tanggal dari MySQL sebagai STRING, bukan objek Date JS
+  timezone: "+07:00", // ⭐ WAJIB: Agar filter tanggal Custom pas dengan WIB
+  dateStrings: true, // ⭐ PENTING: Mengambil tanggal dari MySQL sebagai STRING, bukan objek Date JS
   waitForConnections: true,
   connectionLimit: Number(process.env.DB_CONNECTION_LIMIT) || 10,
   queueLimit: 0,
@@ -93,29 +93,6 @@ async function initDatabase() {
       color_code VARCHAR(20) DEFAULT '#8696A0',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-
-    // Tabel Role
-    `CREATE TABLE IF NOT EXISTS sys_roles (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(50) NOT NULL UNIQUE,
-      description TEXT,
-      type ENUM('system','manager', 'custom') DEFAULT 'custom',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    // Tabel User
-    `CREATE TABLE IF NOT EXISTS wa_users (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      username VARCHAR(50) NOT NULL UNIQUE,
-      password VARCHAR(255) NOT NULL,
-      full_name VARCHAR(100),
-      role_id INT,
-      branch VARCHAR(100),
-      last_login DATETIME,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (role_id) REFERENCES sys_roles(id) ON DELETE SET NULL
-    )`,
-
     // wa_sessions
     `CREATE TABLE IF NOT EXISTS wa_sessions (
       id VARCHAR(50) PRIMARY KEY NOT NULL,
@@ -178,7 +155,6 @@ async function initDatabase() {
   UNIQUE KEY unique_chat (session_id, jid),
   INDEX idx_session (session_id)
 )`,
-
     // wa_messages
     `CREATE TABLE IF NOT EXISTS wa_messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -235,29 +211,27 @@ async function initDatabase() {
     )`,
 
     // wa_labels
-    `CREATE TABLE IF NOT EXISTS wa_labels (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      session_id VARCHAR(50) NOT NULL,
-      name VARCHAR(100) NOT NULL,
-      color VARCHAR(20) DEFAULT '#00a884',
-      icon VARCHAR(50) DEFAULT 'tag',
-      description TEXT DEFAULT NULL,
-      sort_order INT DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_label (session_id, name)
-    )`,
+`CREATE TABLE IF NOT EXISTS wa_labels (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  session_id VARCHAR(50) NOT NULL,
+  wa_label_id VARCHAR(50) NULL, -- Simpan ID asli dari WhatsApp di sini
+  name VARCHAR(100) NOT NULL,
+  color VARCHAR(20) DEFAULT '#00a884',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_label (session_id, name),
+  UNIQUE KEY unique_wa_id (session_id, wa_label_id) -- Agar tidak duplikat per sesi
+)`,
 
     // wa_chat_labels
-    `CREATE TABLE IF NOT EXISTS wa_chat_labels (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      session_id VARCHAR(50) NOT NULL,
-      chat_jid VARCHAR(100) NOT NULL,
-      label_id INT NOT NULL,
-      assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_chat_label (session_id, chat_jid, label_id),
-      FOREIGN KEY (label_id) REFERENCES wa_labels(id) ON DELETE CASCADE
-    )`,
+`CREATE TABLE IF NOT EXISTS wa_chat_labels (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  session_id VARCHAR(50) NOT NULL,
+  chat_jid VARCHAR(100) NOT NULL,
+  wa_label_id VARCHAR(50) NOT NULL, -- Gunakan WA Label ID agar sinkronisasi lebih mudah
+  assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_chat_label (session_id, chat_jid, wa_label_id)
+)`,
   ];
 
   try {
@@ -274,34 +248,19 @@ async function initDatabase() {
   (3, 'Cabang', 'custom', 'Akses terbatas pada session yang didaftarkan')
 `);
 
-
-// 2. ⭐ SEEDING LEAD SOURCES (TRACKING IKLAN)
+    // 2. ⭐ SEEDING LEAD SOURCES (TRACKING IKLAN)
     const leadSources = [
-      ['iklan-fb', 'Facebook Ads', '#1877F2'],
-      ['iklan-ig', 'Instagram Ads', '#E4405F'],
-      ['iklan-tk', 'TikTok Ads', '#000000'],
-      ['google-ads', 'Google Ads', '#4285F4']
+      ["iklan-fb", "Facebook Ads", "#1877F2"],
+      ["iklan-ig", "Instagram Ads", "#E4405F"],
+      ["iklan-tk", "TikTok Ads", "#000000"],
+      ["google-ads", "Google Ads", "#4285F4"],
     ];
     for (const source of leadSources) {
-      await db.promise().query(
-        `INSERT IGNORE INTO wa_lead_sources (keyword, source_name, color_code) VALUES (?, ?, ?)`,
-        source
-      );
-    }
-
-    // 3. Insert Default Labels
-    const defaultLabels = [
-      ["default", "Hot Lead", "#ef4444", "flame"],
-      ["default", "Follow Up", "#f59e0b", "clock"],
-      ["default", "Customer", "#10b981", "user-check"],
-    ];
-
-    for (const label of defaultLabels) {
       await db
         .promise()
         .query(
-          `INSERT IGNORE INTO wa_labels (session_id, name, color, icon) VALUES (?, ?, ?, ?)`,
-          label,
+          `INSERT IGNORE INTO wa_lead_sources (keyword, source_name, color_code) VALUES (?, ?, ?)`,
+          source,
         );
     }
 

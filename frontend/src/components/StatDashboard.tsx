@@ -7,14 +7,10 @@ import {
   Smartphone,
   Send,
   Clock,
-  Activity,
-  RotateCcw,
   Moon,
   Sun,
-  Calendar,
   Loader2,
   Search,
-  Subscript,
   MailCheck,
 } from "lucide-react";
 import useStore from "../store/useStore";
@@ -22,6 +18,8 @@ import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
 import LiveFeed from "./LiveChatFeed";
 import StatCard from "./StatCard";
 import AIAnalyticSection from "./AIAnalyticSection";
+import LabelSection from "./LabelSection";
+import SocialLeadsSection from "./SocialLeadsSection";
 
 const FILTER_MAP: Record<string, string> = {
   "Hari ini": "Hari ini",
@@ -34,7 +32,7 @@ const FILTER_MAP: Record<string, string> = {
 const StatDashboard: React.FC = () => {
   const { isDarkMode, toggleDarkMode } = useStore();
 
-  // Waktu default
+  // Waktu Default
   const now = new Date();
   const todayStart = new Date(new Date(now).setHours(0, 0, 0, 0))
     .toISOString()
@@ -43,11 +41,9 @@ const StatDashboard: React.FC = () => {
     .toISOString()
     .slice(0, 16);
 
-  // Filter States
+  // States
   const [activeFilter, setActiveFilter] = useState("Hari ini");
   const [selectedDevice, setSelectedDevice] = useState("all");
-
-  // Custom Date States (Temp untuk input, Applied untuk API)
   const [tempDates, setTempDates] = useState({
     start: todayStart,
     end: todayEnd,
@@ -56,9 +52,14 @@ const StatDashboard: React.FC = () => {
     start: todayStart,
     end: todayEnd,
   });
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Label States
+  const [allLabels, setAllLabels] = useState<any[]>([]);
+  const [loadingLabels, setLoadingLabels] = useState(false);
+  const [labelDeviceFilter, setLabelDeviceFilter] = useState("all");
+
   const [data, setData] = useState<any>({
     stats: {
       pesanMasukAllTime: 0,
@@ -77,19 +78,19 @@ const StatDashboard: React.FC = () => {
     deviceStats: [],
   });
 
+  // --- LOGIC FETCHING DASHBOARD ---
   const fetchDashboard = useCallback(
     async (showLoader = true) => {
       try {
         if (showLoader) setLoading(true);
         const token = localStorage.getItem("token");
         const params = new URLSearchParams();
-
         params.append("period", FILTER_MAP[activeFilter]);
+
         if (selectedDevice !== "all")
           params.append("sessionId", selectedDevice);
 
         if (activeFilter === "Custom") {
-          // Format standar SQL agar tidak berat di backend
           params.append(
             "startDate",
             appliedDates.start.replace("T", " ") + ":00",
@@ -104,7 +105,6 @@ const StatDashboard: React.FC = () => {
             "Content-Type": "application/json",
           },
         });
-
         const json = await res.json();
         if (json.success) {
           setData({
@@ -122,10 +122,61 @@ const StatDashboard: React.FC = () => {
         setRefreshing(false);
       }
     },
-    [activeFilter, selectedDevice, appliedDates], // Hanya trigger jika filter benar-benar "Apply"
+    [activeFilter, selectedDevice, appliedDates],
   );
 
-  // Auto-refresh hanya jika bukan filter Custom (agar tidak mengganggu user input)
+  // --- LOGIC FETCHING LABELS ---
+  const fetchAllLabels = useCallback(async () => {
+    setLoadingLabels(true);
+    try {
+      const token = localStorage.getItem("token");
+      const baseApi = import.meta.env.VITE_API_URL.replace(/\/$/, "");
+
+      // Mencoba endpoint global terlebih dahulu
+      const res = await fetch(`${baseApi}/labels/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setAllLabels(json.data || []);
+          return;
+        }
+      }
+
+      // Fallback: Jika endpoint global tidak ada, fetch per session yang aktif
+      if (data.sessions.length > 0) {
+        const allFetched: any[] = [];
+        for (const session of data.sessions) {
+          try {
+            const r = await fetch(`${baseApi}/sessions/${session.id}/labels`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const d = await r.json();
+            if (d.success) {
+              allFetched.push(
+                ...(d.data || []).map((l: any) => ({
+                  ...l,
+                  sessionName: session.name,
+                  session_id: session.id,
+                })),
+              );
+            }
+          } catch (e) {
+            console.error("Session label error", e);
+          }
+        }
+        setAllLabels(allFetched);
+      }
+    } catch (err) {
+      console.error("Fetch labels error:", err);
+    } finally {
+      setLoadingLabels(false);
+    }
+  }, [data.sessions]);
+
+  // Effects
   useEffect(() => {
     fetchDashboard();
     if (activeFilter !== "Custom") {
@@ -133,6 +184,10 @@ const StatDashboard: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [fetchDashboard, activeFilter]);
+
+  useEffect(() => {
+    if (data.sessions.length > 0) fetchAllLabels();
+  }, [data.sessions, fetchAllLabels]);
 
   const handleApplyCustomFilter = () => {
     setRefreshing(true);
@@ -178,6 +233,7 @@ const StatDashboard: React.FC = () => {
       className={`flex-1 p-4 md:p-8 overflow-y-auto ${isDarkMode ? "bg-[#0B141A]" : "bg-[#F0F2F5]"}`}
     >
       <div className="max-w-7xl mx-auto mb-6">
+        {/* Header Section */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
           <div>
             <h1
@@ -235,39 +291,29 @@ const StatDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* CUSTOM DATE RANGE WITH APPLY BUTTON */}
+        {/* Custom Date Filter */}
         {activeFilter === "Custom" && (
           <div className="flex justify-end mb-6 animate-in fade-in slide-in-from-top-2">
             <div
               className={`flex flex-col md:flex-row items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-[#E9EDEF] shadow-sm"}`}
             >
               <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[8px] font-bold text-[#00a884] uppercase">
-                    Mulai
-                  </span>
-                  <input
-                    type="datetime-local"
-                    value={tempDates.start}
-                    onChange={(e) =>
-                      setTempDates({ ...tempDates, start: e.target.value })
-                    }
-                    className={`bg-transparent text-xs font-bold outline-none ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[8px] font-bold text-[#00a884] uppercase">
-                    Sampai
-                  </span>
-                  <input
-                    type="datetime-local"
-                    value={tempDates.end}
-                    onChange={(e) =>
-                      setTempDates({ ...tempDates, end: e.target.value })
-                    }
-                    className={`bg-transparent text-xs font-bold outline-none ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
-                  />
-                </div>
+                <input
+                  type="datetime-local"
+                  value={tempDates.start}
+                  onChange={(e) =>
+                    setTempDates({ ...tempDates, start: e.target.value })
+                  }
+                  className={`bg-transparent text-xs font-bold outline-none ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
+                />
+                <input
+                  type="datetime-local"
+                  value={tempDates.end}
+                  onChange={(e) =>
+                    setTempDates({ ...tempDates, end: e.target.value })
+                  }
+                  className={`bg-transparent text-xs font-bold outline-none ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
+                />
               </div>
               <button
                 onClick={handleApplyCustomFilter}
@@ -282,13 +328,33 @@ const StatDashboard: React.FC = () => {
 
       <div className="max-w-7xl mx-auto">
         <AIAnalyticSection stats={data.stats} dark={isDarkMode} />
+
+        {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <ActivityChart data={data.chartData} dark={isDarkMode} />
           <SLAChart data={slaData} dark={isDarkMode} />
           <DeviceBarChart data={data.deviceStats} dark={isDarkMode} />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5 pb-10">
+        {/* --- KOMPONEN LABEL YANG DIPISAH --- */}
+        <LabelSection
+          isDarkMode={isDarkMode}
+          loadingLabels={loadingLabels}
+          allLabels={allLabels}
+          sessions={data.sessions}
+          labelDeviceFilter={labelDeviceFilter}
+          setLabelDeviceFilter={setLabelDeviceFilter}
+        />
+        <SocialLeadsSection
+          isDarkMode={isDarkMode}
+          sessions={data.sessions}
+          messages={data.messages} // <--- TAMBAHKAN BARIS INI
+          filterId={selectedDevice}
+          setFilterId={setSelectedDevice}
+        />
+
+        {/* Stats Grid Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-5 pb-6">
           <LiveFeed
             messages={data.messages}
             totalPesan={data.stats.pesanMasukAllTime}
@@ -317,8 +383,8 @@ const StatDashboard: React.FC = () => {
           />
           <StatCard
             dark={isDarkMode}
-            title="Closing "
-            value={data.stats.leadMasuk}
+            title="Leads Aktif"
+            value={data.stats.leadAktif}
             icon={MailCheck}
             color="text-blue-500"
           />

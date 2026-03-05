@@ -110,33 +110,93 @@ export async function createSession(sessionId, io) {
       }
     }
 
+    // --- Di dalam sock.ev.on("connection.update", ...) ---
     if (connection === "open") {
       const phoneNumber = jidNormalizedUser(sock.user.id).split("@")[0];
       console.log(`✅ Sesi Terhubung: ${sessionId} (${phoneNumber})`);
 
+      // Update status sesi
       await query(
         "UPDATE wa_sessions SET status = ?, qr_code = NULL, phone_number = ?, connected_at = NOW() WHERE id = ?",
         ["connected", phoneNumber, sessionId],
       );
 
+      // Beri tahu frontend
       io.emit(`session:connected:${sessionId}`, {
-        sessionId: sessionId,
-        phoneNumber: phoneNumber,
+        sessionId,
+        phoneNumber,
         status: "connected",
       });
 
-      console.log("✅ Berhasil mengirim sinyal sukses ke frontend!");
-
+      // Proses sinkronisasi label (Gunakan delay agar data metadata dari WA siap)
       setTimeout(async () => {
-        await syncAllGroups(sessionId, sock);
-        await repairMissingPhotos(sessionId, sock); // <--- TAMBAHKAN INI
-      }, 3000);
+        try {
+          console.log(
+            `[${sessionId}] 📥 Memulai sinkronisasi menyeluruh dari HP...`,
+          );
+
+          const labelSource = sock.labels || sock;
+
+          // --- LANGKAH 1: Ambil Master Label (Kamus Nama Label) ---
+          if (typeof labelSource.getLabels === "function") {
+            const masterLabels = await labelSource.getLabels();
+            console.log(
+              `[${sessionId}] 🏷️ Ditemukan ${masterLabels.length} jenis label di HP.`,
+            );
+
+            for (const label of masterLabels) {
+              await query(
+                `INSERT INTO wa_labels (session_id, wa_label_id, name) VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE name = VALUES(name)`,
+                [sessionId, label.id, label.name],
+              );
+            }
+          }
+
+          // --- LANGKAH 2: Ambil Hubungan Chat ke Label ---
+          // Kita ambil semua chat yang ada di database lokal kita
+          const localChats = await query(
+            "SELECT jid FROM wa_chats WHERE session_id = ?",
+            [sessionId],
+          );
+
+          console.log(
+            `[${sessionId}] 🔄 Mencocokkan label untuk ${localChats.length} chat...`,
+          );
+
+          if (typeof labelSource.getChatLabels === "function") {
+            for (const chat of localChats) {
+              // Tarik label dari memori library Baileys untuk JID ini
+              const chatLabelIds = await labelSource
+                .getChatLabels(chat.jid)
+                .catch(() => []);
+
+              if (chatLabelIds && chatLabelIds.length > 0) {
+                for (const lId of chatLabelIds) {
+                  await query(
+                    "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
+                    [sessionId, chat.jid, lId],
+                  );
+                }
+              }
+            }
+          }
+
+          console.log(`[${sessionId}] ✅ Sinkronisasi label dari HP selesai.`);
+          // Trigger frontend untuk memuat ulang data terbaru
+          io.emit(`chats:refresh:${sessionId}`);
+        } catch (err) {
+          console.error(
+            `[${sessionId}] ❌ Gagal sinkron label dari device:`,
+            err.message,
+          );
+        }
+      }, 10000); // Gunakan 10 detik agar sinkronisasi pesan awal selesai dulu
     }
   });
 
   // ---- Event: creds.update ----
   sock.ev.on("creds.update", saveCreds);
-
   // ⭐ PERBAIKAN: Event untuk sinkronisasi history
   sock.ev.on(
     "messaging-history.set",
@@ -199,6 +259,92 @@ export async function createSession(sessionId, io) {
       console.log(`[${sessionId}] ✅ Sinkronisasi selesai.`);
     },
   );
+
+  // ---- Event: Labels Sinkronisasi (WA ke Sistem) ----
+
+  // Listener ini menangkap label baru ATAU perubahan nama label
+  sock.ev.on("labels.edit", async (labelData) => {
+    // Log untuk debugging - bantu cek struktur data di terminal
+    console.log(`[${sessionId}] 🏷️ Label Raw Data:`, JSON.stringify(labelData));
+
+    try {
+      // Baileys terkadang mengirim label tunggal, terkadang array
+      const labels = Array.isArray(labelData) ? labelData : [labelData];
+
+      for (const label of labels) {
+        // Pastikan data id dan name ada sebelum insert ke DB
+        const labelId = label.id || label.wa_label_id;
+        const labelName = label.name;
+
+        if (!labelId || !labelName) {
+          console.warn(
+            `[${sessionId}] ⚠️ Data label tidak lengkap, melewati...`,
+          );
+          continue;
+        }
+
+        await query(
+          `INSERT INTO wa_labels (session_id, wa_label_id, name) 
+         VALUES (?, ?, ?) 
+         ON DUPLICATE KEY UPDATE name = VALUES(name)`,
+          [sessionId, labelId, labelName],
+        );
+
+        console.log(
+          `[${sessionId}] ✅ Label Sinkron: ${labelName} (ID: ${labelId})`,
+        );
+
+        // Kirim sinyal ke frontend agar UI terupdate otomatis
+        io.emit(`label:created:${sessionId}`, {
+          wa_label_id: labelId,
+          name: labelName,
+        });
+      }
+    } catch (err) {
+      console.error("❌ Gagal sinkronisasi label baru ke DB:", err.message);
+    }
+  });
+  sock.ev.on("labels.association", async (data) => {
+    try {
+      const associations = Array.isArray(data) ? data : [data];
+
+      for (const assoc of associations) {
+        const type = assoc.type;
+        const chatJid = assoc.association?.chatId || assoc.chatId || assoc.id;
+        const rawLabelId = assoc.association?.labelId || assoc.labelId;
+
+        if (!chatJid || !rawLabelId) continue;
+
+        // 🛠️ FIX: Pecah string jika labelId datang sebagai "3,4"
+        const labelIds = String(rawLabelId).split(",");
+
+        for (let labelId of labelIds) {
+          labelId = labelId.trim();
+
+          console.log(
+            `[${sessionId}] 🏷️ Sinkronisasi DB: ${type} | JID: ${chatJid} | ID: ${labelId}`,
+          );
+
+          if (type === "add") {
+            await query(
+              "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
+              [sessionId, chatJid, labelId],
+            );
+          } else if (type === "remove") {
+            await query(
+              "DELETE FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND wa_label_id = ?",
+              [sessionId, chatJid, labelId],
+            );
+          }
+        }
+
+        // Emit ke frontend (cukup satu kali per JID untuk efisiensi)
+        io.emit(`chat:label:update:${sessionId}`, { chatJid, labelIds, type });
+      }
+    } catch (err) {
+      console.error("❌ Gagal proses labels.association:", err.message);
+    }
+  });
 
   // ⭐ Event kontak
   sock.ev.on("contacts.upsert", async (contacts) => {

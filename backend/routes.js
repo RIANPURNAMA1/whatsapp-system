@@ -22,6 +22,7 @@ const ai = new GoogleGenAI({
 const router = express.Router();
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { log } from "console";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -413,7 +414,7 @@ router.get("/sessions", authenticateToken, async (req, res) => {
 
     let sessionsData;
 
-    if (roleType === "system" || roleType ===  "manager") {
+    if (roleType === "system" || roleType === "manager") {
       sessionsData = await query(
         "SELECT * FROM wa_sessions ORDER BY created_at DESC",
       );
@@ -437,7 +438,6 @@ router.get("/sessions", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 
 // GET: Info sesi spesifik
 router.get("/sessions/:sessionId", async (req, res) => {
@@ -798,255 +798,83 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
 // STATS ROUTES - DASHBOARD UTAMA
 // ===============================================
 
-// ===============================================
-// STATS ROUTES - DASHBOARD UTAMA
-// ===============================================
 
-// router.get("/stats/dashboard", async (req, res) => {
-//   try {
-//     const { period = "Hari ini", sessionId } = req.query;
-
-//     // 1. Parameter filter untuk query Device
-//     const sessionFilter = sessionId && sessionId !== "Semua Device" && sessionId !== "all"
-//       ? `AND m.session_id = ?`
-//       : "";
-//     const sessionParams = sessionId && sessionId !== "Semua Device" && sessionId !== "all"
-//       ? [sessionId]
-//       : [];
-
-//     // 2. Build Period Filter (Gunakan fungsi helper Anda)
-//     const periodFilter = buildPeriodFilter(period, "m.timestamp");
-
-//     // ── 1. Total pesan masuk (KESELURUHAN / ALL TIME) ────────────────────
-//     // Ini digunakan untuk angka besar di "Inbound Total" pada Live Stream
-//     const [rowPesanMasukAllTime] = await query(
-//       `SELECT COUNT(*) AS count
-//        FROM wa_messages m
-//        WHERE m.is_from_me = 0
-//        AND m.chat_jid NOT LIKE '%@g.us'
-//        ${sessionFilter}`,
-//       [...sessionParams]
-//     );
-
-//     // ── 2. Pesan masuk (SESUAI PERIODE) ───────────────────────────────
-//     // Digunakan untuk Stat Card "Masuk Periode Ini"
-//     const [rowPesanMasukPeriod] = await query(
-//       `SELECT COUNT(*) AS count
-//        FROM wa_messages m
-//        WHERE m.is_from_me = 0
-//        AND m.chat_jid NOT LIKE '%@g.us'
-//        AND ${periodFilter}
-//        ${sessionFilter}`,
-//       [...sessionParams]
-//     );
-
-//     // ── 3. Pesan terkirim (SESUAI PERIODE) ─────────────────────────────
-//     const [rowPesanKeluar] = await query(
-//       `SELECT COUNT(*) AS count
-//        FROM wa_messages m
-//        WHERE m.is_from_me = 1
-//        AND m.chat_jid NOT LIKE '%@g.us'
-//        AND ${periodFilter}
-//        ${sessionFilter}`,
-//       [...sessionParams]
-//     );
-
-//     // ── 4. Info device ──────────────────────────────────────────────────
-//     const allSessions = await query(
-//       `SELECT id, name, status FROM wa_sessions ORDER BY created_at DESC`
-//     );
-//     const totalDevice = allSessions.length;
-//     const deviceConnected = allSessions.filter((s) => s.status === "connected").length;
-
-//     // ── 5. Lead Masuk (Kontak baru di periode ini) ─────────────────────
-//     const [rowLeadMasuk] = await query(
-//       `SELECT COUNT(DISTINCT m.chat_jid) AS count
-//        FROM wa_messages m
-//        WHERE m.is_from_me = 0
-//        AND m.chat_jid NOT LIKE '%@g.us'
-//        AND ${periodFilter}
-//        ${sessionFilter}
-//        AND NOT EXISTS (
-//          SELECT 1 FROM wa_messages older
-//          WHERE older.chat_jid = m.chat_jid
-//          AND older.timestamp < DATE(NOW())
-//        )`,
-//       [...sessionParams]
-//     );
-
-//     // ── 6. Lead Aktif (Pesan masuk dalam 30 menit terakhir) ─────────────
-//     const [rowLeadAktif] = await query(
-//       `SELECT COUNT(DISTINCT chat_jid) AS count
-//        FROM wa_messages m
-//        WHERE is_from_me = 0
-//        AND chat_jid NOT LIKE '%@g.us'
-//        AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)
-//        ${sessionFilter}`,
-//       [...sessionParams]
-//     );
-
-//     // ── 7. Slow Response (> 10 menit belum dibalas) ───────────────────
-//     const [rowSlowResponse] = await query(
-//       `SELECT COUNT(DISTINCT inc.chat_jid) AS count
-//        FROM wa_messages inc
-//        WHERE inc.is_from_me = 0
-//        AND inc.chat_jid NOT LIKE '%@g.us'
-//        AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-//        ${sessionFilter.replace('m.', 'inc.')}
-//        AND NOT EXISTS (
-//          SELECT 1 FROM wa_messages reply
-//          WHERE reply.chat_jid = inc.chat_jid
-//          AND reply.is_from_me = 1
-//          AND reply.timestamp > inc.timestamp
-//        )`,
-//       [...sessionParams]
-//     );
-
-//     // ── 8. Tak Terjawab (> 24 jam belum dibalas) ──────────────────────
-//     const [rowUnanswered] = await query(
-//       `SELECT COUNT(DISTINCT inc.chat_jid) AS count
-//        FROM wa_messages inc
-//        WHERE inc.is_from_me = 0
-//        AND inc.chat_jid NOT LIKE '%@g.us'
-//        AND inc.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-//        ${sessionFilter.replace('m.', 'inc.')}
-//        AND NOT EXISTS (
-//          SELECT 1 FROM wa_messages reply
-//          WHERE reply.chat_jid = inc.chat_jid
-//          AND reply.is_from_me = 1
-//          AND reply.timestamp > inc.timestamp
-//        )`,
-//       [...sessionParams]
-//     );
-
-//     // ── 9. Live Messages Feed (Data Terbaru) ───────────────────────────
-//     const liveMessages = await query(
-//       `SELECT
-//           m.id,
-//           COALESCE(ct.name, ct.push_name, m.from_jid, m.chat_jid) AS sender,
-//           COALESCE(m.content, m.caption, '[Media]') AS message_text,
-//           s.name AS received_via,
-//           DATE_FORMAT(m.timestamp, '%Y-%m-%d %H:%i:%s') AS received_at
-//        FROM wa_messages m
-//        LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid
-//        LEFT JOIN wa_sessions s ON s.id = m.session_id
-//        WHERE m.is_from_me = 0
-//        AND m.chat_jid NOT LIKE '%@g.us'
-//        ${sessionFilter}
-//        ORDER BY m.timestamp DESC
-//        LIMIT 20`,
-//       [...sessionParams]
-//     );
-
-//     // ── 10. Data Tren Pesan (Line Chart) ──────────────────────────────
-//     let groupBy = "DATE_FORMAT(m.timestamp, '%H:00')";
-//     if (period === "Minggu" || period === "Bulan") {
-//       groupBy = "DATE_FORMAT(m.timestamp, '%d %b')";
-//     }
-
-//     const trendData = await query(
-//       `SELECT
-//           ${groupBy} AS time,
-//           SUM(CASE WHEN m.is_from_me = 0 THEN 1 ELSE 0 END) AS masuk,
-//           SUM(CASE WHEN m.is_from_me = 1 THEN 1 ELSE 0 END) AS keluar
-//        FROM wa_messages m
-//        WHERE m.chat_jid NOT LIKE '%@g.us'
-//        AND ${periodFilter}
-//        ${sessionFilter}
-//        GROUP BY time
-//        ORDER BY m.timestamp ASC`,
-//       [...sessionParams]
-//     );
-
-//     // ── 11. Data Lead per Device (Bar Chart) ──────────────────────────
-//     const devicePerformance = await query(
-//       `SELECT
-//           s.name,
-//           COUNT(DISTINCT m.chat_jid) AS lead_count
-//        FROM wa_sessions s
-//        LEFT JOIN wa_messages m ON s.id = m.session_id
-//           AND m.is_from_me = 0
-//           AND m.chat_jid NOT LIKE '%@g.us'
-//           AND ${periodFilter.replace(/m\./g, 'm.')}
-//        GROUP BY s.id, s.name`,
-//       []
-//     );
-
-//     // ── 12. Kirim Respon ke Frontend ───────────────────────────────────
-//     res.json({
-//       success: true,
-//       stats: {
-//         pesanMasukAllTime: rowPesanMasukAllTime?.count ?? 0, // Untuk angka besar di Live Stream
-//         pesanMasukToday: rowPesanMasukPeriod?.count ?? 0,   // Untuk Stat Card periode
-//         pesanKeluar: rowPesanKeluar?.count ?? 0,
-//         totalDevice,
-//         deviceConnected,
-//         leadMasuk: rowLeadMasuk?.count ?? 0,
-//         leadAktif: rowLeadAktif?.count ?? 0,
-//         slowResponse: rowSlowResponse?.count ?? 0,
-//         unanswered: rowUnanswered?.count ?? 0,
-//       },
-//       devices: allSessions,
-//       messages: liveMessages,
-//       chartData: trendData,
-//       deviceStats: devicePerformance,
-//     });
-//   } catch (err) {
-//     console.error("Error /stats/dashboard:", err);
-//     res.status(500).json({
-//       success: false,
-//       message: err.message,
-//     });
-//   }
-// });
-
-// analisis AI
-
-router.post("/ai/analyze-dashboard", async (req, res) => {
+// GET: Semua label lintas session untuk dashboard
+router.get("/labels/all", async (req, res) => {
   try {
-    const { stats } = req.body;
+    const token = req.headers.authorization?.split(" ")[1];
+    // Sesuaikan dengan cara kamu verifikasi user
+    const userId = req.user?.id; // atau dari middleware auth kamu
 
-    if (!stats) {
-      return res.status(400).json({
-        success: false,
-        message: "Data statistik tidak ditemukan",
-      });
+    const labels = await query(
+      `SELECT l.*, 
+              COUNT(DISTINCT cl.chat_jid) as chat_count,
+              l.session_id
+       FROM wa_labels l
+       LEFT JOIN wa_chat_labels cl ON cl.wa_label_id = l.wa_label_id AND cl.session_id = l.session_id
+       LEFT JOIN wa_sessions ws ON ws.session_id = l.session_id
+       WHERE ws.user_id = ?
+       GROUP BY l.session_id, l.wa_label_id
+       ORDER BY chat_count DESC, l.name ASC`,
+      [userId]
+    );
+    res.json({ success: true, data: labels });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+// routes/stats.js atau router.js
+
+router.get("/social/media", async (req, res) => {
+  try {
+    const { sessionId, startDate, endDate } = req.query;
+
+    // 1. Tentukan Keyword (Gunakan % untuk fleksibilitas LIKE di SQL)
+    const keywordTikTok = "%Hallo Teh Rindu, saya mau tanya Kelas Mendunia..%";
+    const keywordIG = "%Hallo Teh, saya mau tanya Kelas Mendunia...%";
+
+    // 2. Query ke Database (Contoh menggunakan SQL Raw / Sequelize / Knex)
+    // Kita hitung berdasarkan CASE WHEN untuk performa tinggi
+    const query = `
+      SELECT 
+        session_id,
+        -- Hitung TikTok: Harus ada kata 'Rindu'
+        SUM(CASE WHEN body LIKE ? THEN 1 ELSE 0 END) as leadsTikTok,
+        -- Hitung IG: Harus sesuai keyword IG
+        SUM(CASE WHEN body LIKE ? THEN 1 ELSE 0 END) as leadsIG,
+        COUNT(*) as totalPesanMasuk
+      FROM messages 
+      WHERE direction = 'in' 
+      ${sessionId && sessionId !== 'all' ? 'AND session_id = ?' : ''}
+      ${startDate && endDate ? 'AND created_at BETWEEN ? AND ?' : ''}
+      GROUP BY session_id
+    `;
+
+    // 3. Eksekusi Query
+    // Sesuaikan variabel params dengan filter yang aktif
+    const params = [keywordTikTok, keywordIG];
+    if (sessionId && sessionId !== 'all') params.push(sessionId);
+    if (startDate && endDate) {
+        params.push(startDate);
+        params.push(endDate);
     }
 
-    // Menggunakan model sesuai dokumentasi terbaru (Gemini 3 atau 2.5 Flash)
-    // Pastikan menggunakan "gemini-3-flash-preview" atau "gemini-2.5-flash"
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `
-        Anda adalah pakar strategi WhatsApp Marketing.
-        Analisis data performa hari ini:
-        - Pesan Masuk: ${stats.pesanMasukToday || 0}
-        - Pesan Terkirim: ${stats.pesanKeluar || 0}
-        - Leads Baru: ${stats.leadMasuk || 0}
-        - Leads Aktif: ${stats.leadAktif || 0}
-        - Slow Response: ${stats.slowResponse || 0}
-        - Belum Terjawab: ${stats.unanswered || 0}
+    const [results] = await db.execute(query, params); 
 
-        Berikan 3 poin analisis singkat:
-        1. Kesimpulan performa.
-        2. Masalah utama (fokus ke Slow Response).
-        3. Strategi closing.
-      `,
-    });
-
-    // Sesuai dokumentasi baru: langsung gunakan .text (bukan fungsi)
-    res.json({
+    // 4. Kirim Response
+    return res.json({
       success: true,
-      analysis: response.text,
+      data: results, // Berisi array [{session_id, leadsTikTok, leadsIG, ...}]
+      timestamp: new Date()
     });
-  } catch (error) {
-    console.error("Gemini API Error:", error);
 
-    // Memberikan info error yang lebih jelas untuk debugging
-    res.status(500).json({
+  } catch (error) {
+    console.error('Error fetching social media stats:', error);
+    return res.status(500).json({
       success: false,
-      message: "Gagal memproses AI",
-      error: error.message,
+      message: "Internal Server Error"
     });
   }
 });
@@ -1307,6 +1135,56 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
   }
 });
 
+// analisis AI
+router.post("/ai/analyze-dashboard", async (req, res) => {
+  try {
+    const { stats } = req.body;
+
+    if (!stats) {
+      return res.status(400).json({
+        success: false,
+        message: "Data statistik tidak ditemukan",
+      });
+    }
+
+    // Menggunakan model sesuai dokumentasi terbaru (Gemini 3 atau 2.5 Flash)
+    // Pastikan menggunakan "gemini-3-flash-preview" atau "gemini-2.5-flash"
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `
+        Anda adalah pakar strategi WhatsApp Marketing.
+        Analisis data performa hari ini:
+        - Pesan Masuk: ${stats.pesanMasukToday || 0}
+        - Pesan Terkirim: ${stats.pesanKeluar || 0}
+        - Leads Baru: ${stats.leadMasuk || 0}
+        - Leads Aktif: ${stats.leadAktif || 0}
+        - Slow Response: ${stats.slowResponse || 0}
+        - Belum Terjawab: ${stats.unanswered || 0}
+
+        Berikan 3 poin analisis singkat:
+        1. Kesimpulan performa.
+        2. Masalah utama (fokus ke Slow Response).
+        3. Strategi closing.
+      `,
+    });
+
+    // Sesuai dokumentasi baru: langsung gunakan .text (bukan fungsi)
+    res.json({
+      success: true,
+      analysis: response.text,
+    });
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+
+    // Memberikan info error yang lebih jelas untuk debugging
+    res.status(500).json({
+      success: false,
+      message: "Gagal memproses AI",
+      error: error.message,
+    });
+  }
+});
+
 // GET: Statistik per sesi (endpoint lama, tetap dipertahankan)
 router.get("/sessions/:sessionId/stats", async (req, res) => {
   const { sessionId } = req.params;
@@ -1364,7 +1242,7 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
       // Role Cabang / Custom: Ambil dari tabel penghubung wa_user_sessions
       allowedSessions = await query(
         "SELECT session_id as id FROM wa_user_sessions WHERE user_id = ?",
-        [userId]
+        [userId],
       );
     }
 
@@ -1439,13 +1317,12 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
 
     const leads = await query(sql, params);
     res.json({ success: true, data: leads });
-
   } catch (err) {
     console.error("LEADS ERROR:", err.message);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: "Internal Server Error",
-      debug: err.message 
+      debug: err.message,
     });
   }
 });
@@ -1491,15 +1368,20 @@ router.get("/all-global-messages", async (req, res) => {
 // ===============================================
 // GET: DAFTAR CHAT PER SESI (FIXED)
 // ===============================================
+// Cari bagian ini di routes.js
 router.get("/sessions/:sessionId/chats", async (req, res) => {
   const { sessionId } = req.params;
   const { search = "", page = "1", limit = "50" } = req.query;
 
-  const pageNum = parseInt(page);
-  const limitNum = parseInt(limit);
+  const pageNum = parseInt(page) || 1;
+  const limitNum = parseInt(limit) || 50;
   const offset = (pageNum - 1) * limitNum;
 
   try {
+    // 1. Naikkan limit GROUP_CONCAT agar JSON tidak terpotong (PENTING)
+    await query("SET SESSION group_concat_max_len = 10000");
+
+    // 2. Query utama untuk mengambil daftar chat beserta labelnya
     let sql = `
       SELECT 
         c.jid,
@@ -1507,134 +1389,121 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
         c.name AS chat_name,
         c.last_message_time,
         c.last_message,
+        c.last_message_type,
         c.unread_count,
         c.pinned,
         c.archived,
         c.muted,
         c.is_group,
         COALESCE(ct.name, ct.push_name, c.name, c.jid) AS display_name,
-        ct.profile_pic_url,
-        COALESCE(
-          CONCAT(
-            '[',
-            GROUP_CONCAT(
-              CASE 
-                WHEN l.id IS NOT NULL THEN 
-                  JSON_OBJECT(
-                    'id', l.id,
-                    'name', l.name,
-                    'color', l.color,
-                    'icon', l.icon,
-                    'description', l.description,
-                    'sort_order', l.sort_order
-                  )
-                ELSE NULL
-              END
-              SEPARATOR ','
-            ),
-            ']'
-          ),
-          '[]'
-        ) AS labels
+        COALESCE(c.profile_pic_url, ct.profile_pic_url) AS profile_pic_url,
+        CONCAT('[', 
+          COALESCE(GROUP_CONCAT(
+            DISTINCT JSON_OBJECT(
+              'id', l.id,
+              'name', l.name,
+              'color', l.color
+            )
+          ), ''), 
+        ']') AS labels_string
       FROM wa_chats c
       LEFT JOIN wa_contacts ct 
-        ON ct.session_id = c.session_id 
-        AND ct.jid = c.jid
+        ON ct.session_id = c.session_id AND ct.jid = c.jid
       LEFT JOIN wa_chat_labels cl 
-        ON cl.session_id = c.session_id 
-        AND cl.chat_jid = c.jid
+        ON cl.session_id = c.session_id AND cl.chat_jid = c.jid
       LEFT JOIN wa_labels l 
-        ON l.id = cl.label_id 
-        AND l.session_id = c.session_id
-      WHERE c.session_id = ? 
-        AND c.is_group = 0 
-        AND c.jid NOT LIKE '%@newsletter' -- FILTER SALURAN
-        AND c.jid NOT LIKE 'status@broadcast' -- FILTER STATUS
-      GROUP BY c.jid, c.session_id
-      ORDER BY c.pinned DESC, c.last_message_time DESC
-      LIMIT ? OFFSET ?
-    `;
-
-    let params = [sessionId, limitNum, offset];
-
-    if (search.trim()) {
-      const searchTerm = `%${search.trim()}%`;
-      sql = sql.replace(
-        "WHERE c.session_id = ?",
-        `WHERE c.session_id = ?
-         AND (
-           COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
-           OR c.jid LIKE ?
-         )`,
-      );
-      params.splice(1, 0, searchTerm, searchTerm);
-    }
-
-    const chats = await query(sql, params);
-
-    const parsedChats = chats.map((chat) => {
-      let labels = [];
-      try {
-        if (chat.labels && chat.labels !== "[]") {
-          labels = JSON.parse(chat.labels);
-        }
-      } catch (e) {
-        console.warn("Gagal parse labels:", chat.jid, e);
-      }
-      return {
-        ...chat,
-        labels,
-        unread_count: Number(chat.unread_count || 0),
-        pinned: Number(chat.pinned || 0),
-        archived: Number(chat.archived || 0),
-        muted: Number(chat.muted || 0),
-        is_group: Boolean(chat.is_group || 0),
-      };
-    });
-
-    // Hitung total data untuk pagination (FIXED FILTER)
-    let countSql = `
-      SELECT COUNT(DISTINCT c.jid) as total 
-      FROM wa_chats c
-      LEFT JOIN wa_contacts ct ON ct.session_id = c.session_id AND ct.jid = c.jid
+        ON l.wa_label_id = cl.wa_label_id AND l.session_id = cl.session_id
       WHERE c.session_id = ? 
         AND c.is_group = 0 
         AND c.jid NOT LIKE '%@newsletter'
         AND c.jid NOT LIKE 'status@broadcast'
     `;
+
+    let params = [sessionId];
+
+    // Filter Pencarian
+    if (search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      sql += ` AND (
+        COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ? 
+        OR c.jid LIKE ?
+      )`;
+      params.push(searchTerm, searchTerm);
+    }
+
+    // Grouping, Sorting, dan Pagination
+    sql += ` GROUP BY c.jid, c.session_id 
+             ORDER BY c.pinned DESC, c.last_message_time DESC 
+             LIMIT ? OFFSET ?`;
+
+    params.push(limitNum, offset);
+
+    const chats = await query(sql, params);
+
+    // 3. Parsing hasil query agar aman dikirim ke Frontend
+    const parsedChats = chats.map((chat) => {
+      let labels = [];
+      try {
+        if (chat.labels_string && chat.labels_string !== "[]") {
+          // Bersihkan string JSON dari kemungkinan koma ganda hasil GROUP_CONCAT
+          const cleanJson = chat.labels_string.replace(/,\]$/, "]");
+          labels = JSON.parse(cleanJson);
+        }
+      } catch (e) {
+        console.warn(`Gagal parsing label untuk JID ${chat.jid}:`, e.message);
+        labels = [];
+      }
+
+      return {
+        ...chat,
+        labels: Array.isArray(labels)
+          ? labels.filter((l) => l && l.id !== null)
+          : [],
+        unread_count: Number(chat.unread_count || 0),
+        pinned: Number(chat.pinned || 0),
+        archived: Number(chat.archived || 0),
+        is_group: chat.is_group === 1 || chat.is_group === true,
+      };
+    });
+
+    // 4. Hitung total data untuk pagination (agar angka 'Total' di UI benar)
+    let countSql = `
+      SELECT COUNT(DISTINCT c.jid) as total 
+      FROM wa_chats c
+      LEFT JOIN wa_contacts ct ON ct.session_id = c.session_id AND ct.jid = c.jid
+      WHERE c.session_id = ? AND c.is_group = 0
+      AND c.jid NOT LIKE '%@newsletter' AND c.jid NOT LIKE 'status@broadcast'
+    `;
     let countParams = [sessionId];
 
     if (search.trim()) {
       const searchTerm = `%${search.trim()}%`;
-      countSql += `
-        AND (
-          COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ?
-          OR c.jid LIKE ?
-        )
-      `;
+      countSql += ` AND (COALESCE(ct.name, ct.push_name, c.name, c.jid) LIKE ? OR c.jid LIKE ?)`;
       countParams.push(searchTerm, searchTerm);
     }
 
     const [totalRow] = await query(countSql, countParams);
+    const totalData = totalRow?.total || 0;
 
+    // 5. Kirim Response ke Frontend
     res.json({
       success: true,
       data: parsedChats,
       pagination: {
         page: pageNum,
         limit: limitNum,
-        total: totalRow?.total || 0,
-        totalPages: Math.ceil((totalRow?.total || 0) / limitNum),
+        total: totalData,
+        totalPages: Math.ceil(totalData / limitNum),
       },
     });
   } catch (err) {
-    console.error("Error fetching chats:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Gagal memuat daftar chat" });
+    console.error("Backend Error Detail:", err);
+    res.status(500).json({
+      success: false,
+      message: "Gagal memuat daftar chat: " + err.message,
+    });
   }
 });
-
 // ===============================================
 // GET: PESAN DALAM SATU CHAT
 // ===============================================
@@ -2030,12 +1899,12 @@ router.get("/sessions/:sessionId/labels", async (req, res) => {
     const { sessionId } = req.params;
     const labels = await query(
       `SELECT l.*, 
-              COUNT(DISTINCT cl.chat_jid) as chat_count
+              COUNT(cl.chat_jid) as chat_count
        FROM wa_labels l
-       LEFT JOIN wa_chat_labels cl ON cl.label_id = l.id AND cl.session_id = l.session_id
+       LEFT JOIN wa_chat_labels cl ON cl.wa_label_id = l.wa_label_id AND cl.session_id = l.session_id
        WHERE l.session_id = ?
-       GROUP BY l.id
-       ORDER BY l.sort_order ASC, l.created_at DESC`,
+       GROUP BY l.wa_label_id
+       ORDER BY l.name ASC`,
       [sessionId],
     );
     res.json({ success: true, data: labels });
@@ -2044,208 +1913,180 @@ router.get("/sessions/:sessionId/labels", async (req, res) => {
   }
 });
 
-// POST: Buat label baru
+// ✅ POST: Buat label baru di WhatsApp
 router.post("/sessions/:sessionId/labels", async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const {
-      name,
-      color = "#00a884",
-      icon = "tag",
-      description = "",
-    } = req.body;
+    const { name, color } = req.body;
+    const session = sessions.get(sessionId);
 
-    if (!name || !name.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Nama label wajib diisi",
-      });
+    if (!session?.sock) {
+      return res.status(404).json({ success: false, message: "Sesi tidak ditemukan" });
     }
 
-    // Check if label already exists
-    const existing = await queryOne(
+    // Cek apakah nama label sudah ada
+    const existing = await query(
       "SELECT id FROM wa_labels WHERE session_id = ? AND name = ?",
-      [sessionId, name.trim()],
+      [sessionId, name.trim()]
     );
-
-    if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: "Label dengan nama ini sudah ada",
-      });
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: "Label dengan nama ini sudah ada" });
     }
 
-    const result = await query(
-      `INSERT INTO wa_labels (session_id, name, color, icon, description) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [sessionId, name.trim(), color, icon, description],
+    // ⚠️ addLabel Baileys tidak sync ke WA Business dengan benar
+    // Solusi: sync dari WA HP — minta user buat label di HP, 
+    // sistem akan auto-detect via labels.edit event
+    // Tapi tetap simpan ke DB lokal dulu dengan temp ID
+    const tempId = `temp_${Date.now()}`;
+    await query(
+      `INSERT INTO wa_labels (session_id, wa_label_id, name, color) VALUES (?, ?, ?, ?)`,
+      [sessionId, tempId, name.trim(), color || "#25D366"]
     );
 
-    const newLabel = await queryOne("SELECT * FROM wa_labels WHERE id = ?", [
-      result.insertId,
-    ]);
-
-    res.json({
-      success: true,
-      data: newLabel,
-      message: "Label berhasil dibuat",
+    res.json({ 
+      success: true, 
+      warning: true, // ✅ flag untuk frontend tampilkan pesan
+      message: "Label disimpan lokal. Buat juga label dengan nama yang SAMA di WhatsApp Business HP agar tersinkron.",
     });
+
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// PUT: Update label
-router.put("/sessions/:sessionId/labels/:labelId", async (req, res) => {
+// ✅ PUT: Update label (hanya DB lokal, WA tidak support edit nama via API)
+router.put("/sessions/:sessionId/labels/:waLabelId", async (req, res) => {
   try {
-    const { sessionId, labelId } = req.params;
-    const { name, color, icon, description } = req.body;
+    const { sessionId, waLabelId } = req.params;
+    const { name, color } = req.body;
 
     const updates = [];
     const params = [];
 
-    if (name !== undefined) {
+    if (name) {
       updates.push("name = ?");
       params.push(name.trim());
     }
-    if (color !== undefined) {
+    if (color) {
       updates.push("color = ?");
       params.push(color);
     }
-    if (icon !== undefined) {
-      updates.push("icon = ?");
-      params.push(icon);
-    }
-    if (description !== undefined) {
-      updates.push("description = ?");
-      params.push(description);
-    }
 
     if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Tidak ada data yang diupdate",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Tidak ada data update" });
     }
 
-    params.push(sessionId, labelId);
-
+    params.push(sessionId, waLabelId);
     await query(
-      `UPDATE wa_labels SET ${updates.join(", ")}, updated_at = NOW() 
-       WHERE session_id = ? AND id = ?`,
+      `UPDATE wa_labels SET ${updates.join(", ")} WHERE session_id = ? AND wa_label_id = ?`,
       params,
     );
 
-    const updated = await queryOne(
-      "SELECT * FROM wa_labels WHERE session_id = ? AND id = ?",
-      [sessionId, labelId],
-    );
-
-    res.json({
-      success: true,
-      data: updated,
-      message: "Label berhasil diupdate",
-    });
+    res.json({ success: true, message: "Label diperbarui di database" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// DELETE: Hapus label
-router.delete("/sessions/:sessionId/labels/:labelId", async (req, res) => {
+// ✅ DELETE: Hapus label
+router.delete("/sessions/:sessionId/labels/:waLabelId", async (req, res) => {
   try {
-    const { sessionId, labelId } = req.params;
+    const { sessionId, waLabelId } = req.params;
+    const session = sessions.get(sessionId);
 
-    // Delete akan cascade ke wa_chat_labels karena foreign key
-    await query("DELETE FROM wa_labels WHERE session_id = ? AND id = ?", [
-      sessionId,
-      labelId,
-    ]);
-
-    res.json({
-      success: true,
-      message: "Label berhasil dihapus",
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// GET: Ambil label untuk chat tertentu
-router.get("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
-  try {
-    const { sessionId, chatJid } = req.params;
-    const decodedJid = decodeURIComponent(chatJid);
-
-    const labels = await query(
-      `SELECT l.* 
-       FROM wa_labels l
-       INNER JOIN wa_chat_labels cl ON cl.label_id = l.id
-       WHERE cl.session_id = ? AND cl.chat_jid = ?
-       ORDER BY l.sort_order ASC, l.name ASC`,
-      [sessionId, decodedJid],
-    );
-
-    res.json({ success: true, data: labels });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// POST: Assign label ke chat
-router.post("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
-  try {
-    const { sessionId, chatJid } = req.params;
-    const { labelId } = req.body;
-    const decodedJid = decodeURIComponent(chatJid);
-
-    if (!labelId) {
-      return res.status(400).json({
-        success: false,
-        message: "Label ID wajib diisi",
-      });
-    }
-
-    // Check if label exists
-    const label = await queryOne(
-      "SELECT id FROM wa_labels WHERE session_id = ? AND id = ?",
-      [sessionId, labelId],
-    );
-
-    if (!label) {
-      return res.status(404).json({
-        success: false,
-        message: "Label tidak ditemukan",
-      });
-    }
-
-    // Check if already assigned
-    const existing = await queryOne(
-      "SELECT id FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND label_id = ?",
-      [sessionId, decodedJid, labelId],
-    );
-
-    if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: "Label sudah ditambahkan ke chat ini",
-      });
+    // Coba hapus di WA juga jika ada method-nya
+    if (session?.sock && typeof session.sock.deleteLabel === "function") {
+      await session.sock.deleteLabel(waLabelId);
     }
 
     await query(
-      "INSERT INTO wa_chat_labels (session_id, chat_jid, label_id) VALUES (?, ?, ?)",
-      [sessionId, decodedJid, labelId],
+      "DELETE FROM wa_labels WHERE session_id = ? AND wa_label_id = ?",
+      [sessionId, waLabelId],
     );
 
-    res.json({
-      success: true,
-      message: "Label berhasil ditambahkan ke chat",
-    });
+    res.json({ success: true, message: "Label berhasil dihapus" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
+// ✅ PUT: Assign/unassign label ke chat
+router.put("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
+  try {
+    const { sessionId, chatJid } = req.params;
+    const { labelIds } = req.body;
+    const decodedJid = decodeURIComponent(chatJid);
+    const session = sessions.get(sessionId);
+
+    if (!session?.sock) {
+      return res.status(404).json({ error: "Session tidak ditemukan" });
+    }
+
+    const sock = session.sock;
+
+    const labelMethods = Object.keys(sock).filter((k) =>
+      k.toLowerCase().includes("label"),
+    );
+
+    const current = await query(
+      "SELECT wa_label_id FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ?",
+      [sessionId, decodedJid],
+    );
+    const currentIds = current.map((c) => String(c.wa_label_id));
+    const newIds = (labelIds || []).map((id) => String(id));
+    const toAdd = newIds.filter((id) => !currentIds.includes(id));
+    const toRemove = currentIds.filter((id) => !newIds.includes(id));
+
+    console.log(`JID: ${decodedJid} | +${toAdd} | -${toRemove}`);
+
+    const addLabel = async (jid, labelId) => {
+      if (typeof sock.addChatLabel === "function") {
+        return await sock.addChatLabel(jid, labelId);
+      } else if (typeof sock.labelChat === "function") {
+        return await sock.labelChat(jid, labelId, "add");
+      } else {
+        throw new Error(`Tidak ada method assign label. Tersedia: ${labelMethods.join(", ")}`);
+      }
+    };
+
+    const removeLabel = async (jid, labelId) => {
+      if (typeof sock.removeChatLabel === "function") {
+        return await sock.removeChatLabel(jid, labelId);
+      } else if (typeof sock.labelChat === "function") {
+        return await sock.labelChat(jid, labelId, "remove");
+      } else {
+        throw new Error(`Tidak ada method remove label. Tersedia: ${labelMethods.join(", ")}`);
+      }
+    };
+
+    for (const labelId of toAdd) {
+      await addLabel(decodedJid, labelId);
+      await query(
+        "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
+        [sessionId, decodedJid, labelId],
+      );
+      console.log(`✅ Label ${labelId} ditambahkan ke ${decodedJid}`);
+    }
+
+    for (const labelId of toRemove) {
+      await removeLabel(decodedJid, labelId);
+      await query(
+        "DELETE FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND wa_label_id = ?",
+        [sessionId, decodedJid, labelId],
+      );
+      console.log(`✅ Label ${labelId} dihapus dari ${decodedJid}`);
+    }
+
+    // ✅ io.emit dihapus — sudah di-handle otomatis oleh labels.association event dari Baileys
+    res.json({ success: true, message: "Label berhasil disinkronkan" });
+
+  } catch (err) {
+    console.error("❌ FULL ERROR:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 // DELETE: Remove label dari chat
 router.delete(
   "/sessions/:sessionId/chats/:chatJid/labels/:labelId",
