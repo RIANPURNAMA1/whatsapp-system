@@ -777,7 +777,7 @@ router.delete("/sessions/:sessionId", async (req, res) => {
   }
 });
 
-// GET: QR Code untuk sesi
+// GET: QR Code untuk sesi 
 router.get("/sessions/:sessionId/qr", async (req, res) => {
   const { sessionId } = req.params;
   const session = await queryOne(
@@ -827,54 +827,60 @@ router.get("/labels/all", async (req, res) => {
 
 // routes/stats.js atau router.js
 
-router.get("/social/media", async (req, res) => {
+router.get("/social/media", authenticateToken, async (req, res) => {
   try {
     const { sessionId, startDate, endDate } = req.query;
+    const userId = req.user.id;
+    const roleType = req.user.role_type?.toLowerCase().trim();
 
-    // 1. Tentukan Keyword (Gunakan % untuk fleksibilitas LIKE di SQL)
-    const keywordTikTok = "%Hallo Teh Rindu, saya mau tanya Kelas Mendunia..%";
-    const keywordIG = "%Hallo Teh, saya mau tanya Kelas Mendunia...%";
+    // 1. Tentukan Keyword
+    const keywordTikTok = "%Hallo Teh Rindu, saya mau tanya Kelas Mendunia%";
+    const keywordIG = "%Hallo Teh, saya mau tanya Kelas Mendunia%";
 
-    // 2. Query ke Database (Contoh menggunakan SQL Raw / Sequelize / Knex)
-    // Kita hitung berdasarkan CASE WHEN untuk performa tinggi
-    const query = `
-      SELECT 
-        session_id,
-        -- Hitung TikTok: Harus ada kata 'Rindu'
-        SUM(CASE WHEN body LIKE ? THEN 1 ELSE 0 END) as leadsTikTok,
-        -- Hitung IG: Harus sesuai keyword IG
-        SUM(CASE WHEN body LIKE ? THEN 1 ELSE 0 END) as leadsIG,
-        COUNT(*) as totalPesanMasuk
-      FROM messages 
-      WHERE direction = 'in' 
-      ${sessionId && sessionId !== 'all' ? 'AND session_id = ?' : ''}
-      ${startDate && endDate ? 'AND created_at BETWEEN ? AND ?' : ''}
-      GROUP BY session_id
-    `;
+    // 2. Filter Session (Sederhana untuk tes)
+    let sessionFilter = "";
+    let params = [keywordTikTok, keywordIG, keywordTikTok]; // Untuk 3 tanda tanya pertama
 
-    // 3. Eksekusi Query
-    // Sesuaikan variabel params dengan filter yang aktif
-    const params = [keywordTikTok, keywordIG];
-    if (sessionId && sessionId !== 'all') params.push(sessionId);
-    if (startDate && endDate) {
-        params.push(startDate);
-        params.push(endDate);
+    if (sessionId && sessionId !== 'all') {
+      sessionFilter = "AND m.session_id = ?";
+      params.push(sessionId);
     }
 
-    const [results] = await db.execute(query, params); 
+    let dateFilter = "";
+    if (startDate && endDate) {
+      dateFilter = "AND m.timestamp BETWEEN ? AND ? ";
+      params.push(startDate, endDate);
+    }
 
-    // 4. Kirim Response
-    return res.json({
+    // 3. Query (Gunakan nama tabel wa_messages dan kolom content)
+    const sql = `
+      SELECT 
+        m.session_id,
+        SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsTikTok,
+        SUM(CASE WHEN m.content LIKE ? AND m.content NOT LIKE ? THEN 1 ELSE 0 END) as leadsIG,
+        COUNT(*) as totalPesanMasuk
+      FROM wa_messages m
+      WHERE m.is_from_me = 0 
+        AND m.chat_jid NOT LIKE '%@g.us'
+        ${sessionFilter}
+        ${dateFilter}
+      GROUP BY m.session_id
+    `;
+
+    // Pastikan memanggil fungsi 'query' yang diimport dari db.js
+    const results = await query(sql, params); 
+
+    res.json({
       success: true,
-      data: results, // Berisi array [{session_id, leadsTikTok, leadsIG, ...}]
-      timestamp: new Date()
+      data: results
     });
 
   } catch (error) {
-    console.error('Error fetching social media stats:', error);
-    return res.status(500).json({
+    // LIHAT LOG INI DI TERMINAL KAMU
+    console.error('DEBUG ERROR:', error.message);
+    res.status(500).json({
       success: false,
-      message: "Internal Server Error"
+      message: error.message // Sementara tampilkan error asli untuk debug
     });
   }
 });

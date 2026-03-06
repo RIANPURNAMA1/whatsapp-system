@@ -93,6 +93,29 @@ async function initDatabase() {
       color_code VARCHAR(20) DEFAULT '#8696A0',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+
+
+    // 1. BUAT TABEL ROLE DULU
+  // Di file db.js
+`CREATE TABLE IF NOT EXISTS sys_roles (
+  id INT AUTO_INCREMENT PRIMARY KEY, -- WAJIB ADA AUTO_INCREMENT
+  name VARCHAR(50) NOT NULL UNIQUE,
+  type ENUM('system', 'manager', 'custom') DEFAULT 'custom',
+  description TEXT
+) ENGINE=InnoDB`,
+
+    // 2. BUAT TABEL USER
+  // Di dalam file db.js pada bagian array tables:
+`CREATE TABLE IF NOT EXISTS wa_users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  role_id INT,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  full_name VARCHAR(100), -- Tambahkan ini
+  branch VARCHAR(100),    -- Tambahkan ini
+  FOREIGN KEY (role_id) REFERENCES sys_roles(id) ON DELETE SET NULL
+) ENGINE=InnoDB`,
+
     // wa_sessions
     `CREATE TABLE IF NOT EXISTS wa_sessions (
       id VARCHAR(50) PRIMARY KEY NOT NULL,

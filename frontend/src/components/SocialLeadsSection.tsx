@@ -1,60 +1,68 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Instagram, Music, Smartphone, Loader2, GripVertical, LayoutGrid } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Instagram, Music, Loader2, GripVertical, LayoutGrid, AlertCircle, ArrowUpRight } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
+import axios from "axios";
 
 interface SocialLeadsSectionProps {
   isDarkMode: boolean;
   sessions: any[];
-  messages: any[]; // Tambahkan props messages untuk filter keyword
   filterId: string;
   setFilterId: (id: string) => void;
+  dateRange?: { startDate: string; endDate: string };
 }
 
 const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
   isDarkMode,
   sessions,
-  messages,
   filterId,
   setFilterId,
+  dateRange
 }) => {
   const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // --- LOGIKA FILTER KEYWORD ---
-  const processedLeads = useMemo(() => {
-    return sessions.map((s) => {
-      // Filter pesan yang masuk hanya untuk session/device ini
-      const deviceMessages = messages.filter((m) => m.session_id === s.id);
+  const fetchSocialStats = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:3001/api/social/media", {
+        params: {
+          sessionId: filterId,
+          startDate: dateRange?.startDate,
+          endDate: dateRange?.endDate
+        },
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-      // Hitung Leads TikTok: "Hallo Teh Rindu, saya mau tanya Kelas Mendunia.."
-      const ttCount = deviceMessages.filter((m) =>
-        m.body?.includes("Hallo Teh Rindu, saya mau tanya Kelas Mendunia..")
-      ).length;
-
-      // Hitung Leads IG: "Hallo Teh, saya mau tanya Kelas Mendunia..."
-      // (Pastikan tidak mengandung kata 'Rindu' agar tidak double count)
-      const igCount = deviceMessages.filter((m) =>
-        m.body?.includes("Hallo Teh, saya mau tanya Kelas Mendunia...") &&
-        !m.body?.includes("Rindu")
-      ).length;
-
-      return {
-        id: s.id,
-        name: s.name,
-        igCount,
-        ttCount,
-        status: s.status,
-      };
-    });
-  }, [sessions, messages]);
-
-  // Sinkronisasi ke state lokal untuk Drag & Drop
-  useEffect(() => {
-    let filtered = processedLeads;
-    if (filterId !== "all") {
-      filtered = processedLeads.filter((item) => item.id === filterId);
+      if (response.data.success) {
+        const apiData = response.data.data;
+        const mergedData = sessions
+          .filter(s => filterId === "all" || s.id === filterId)
+          .map(s => {
+            const stats = apiData.find((d: any) => d.session_id === s.id);
+            return {
+              id: s.id,
+              name: s.name,
+              status: s.status,
+              igCount: parseInt(stats?.leadsIG || "0"),
+              ttCount: parseInt(stats?.leadsTikTok || "0"),
+              total: stats?.totalPesanMasuk || 0
+            };
+          });
+        setItems(mergedData);
+        setError(null);
+      }
+    } catch (err: any) {
+      setError("Gagal memuat statistik");
+    } finally {
+      setLoading(false);
     }
-    setItems(filtered);
-  }, [processedLeads, filterId]);
+  };
+
+  useEffect(() => {
+    fetchSocialStats();
+  }, [filterId, sessions, dateRange]);
 
   const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -65,43 +73,45 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
   };
 
   return (
-    <div className={`rounded-2xl border mb-8 overflow-hidden transition-all duration-300 ${
-      isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-[#E9EDEF] shadow-sm"
-    }`}>
-      {/* Header */}
-      <div className={`flex flex-wrap items-center justify-between px-6 py-4 border-b gap-4 ${
-        isDarkMode ? "border-[#313D45]" : "border-[#E9EDEF]"
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-pink-500/10 rounded-lg">
-            <LayoutGrid size={15} className="text-pink-500" />
+    <div className={`rounded-3xl transition-all duration-300 ${
+      isDarkMode ? "bg-[#111B21] text-white" : "bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-[#3B4A54]"
+    } overflow-hidden border ${isDarkMode ? "border-[#2a3942]" : "border-[#f0f2f5]"} mb-8`}>
+      
+      {/* Header - More Minimalist */}
+      <div className="px-8 py-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className={`p-2.5 rounded-2xl ${isDarkMode ? "bg-[#202C33]" : "bg-gray-50 text-pink-500"}`}>
+            <LayoutGrid size={18} strokeWidth={2.5} />
           </div>
           <div>
-            <h2 className={`text-sm font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}>
-              Social Media Leads
-            </h2>
-            <p className={`text-[10px] mt-0.5 ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}>
-              Berdasarkan Keyword Pesan Masuk
-            </p>
+            <h2 className="text-base font-bold tracking-tight">Social Media Leads</h2>
+            <div className="flex items-center gap-2 mt-1">
+               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+               <span className={`text-[11px] font-medium opacity-60`}>Live Tracking</span>
+            </div>
           </div>
         </div>
 
-        {/* Device Switcher */}
-        <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDarkMode ? "bg-[#111B21] border-[#2a3942]" : "bg-[#F0F2F5] border-[#E9EDEF]"}`}>
+        {/* Tab-style Switcher */}
+        <div className={`flex p-1 rounded-xl ${isDarkMode ? "bg-[#202C33]" : "bg-gray-100"}`}>
           <button
             onClick={() => setFilterId("all")}
-            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${
-              filterId === "all" ? "bg-[#00a884] text-white shadow-sm" : isDarkMode ? "text-[#8696A0]" : "text-[#667781]"
+            className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+              filterId === "all" 
+              ? (isDarkMode ? "bg-[#00a884] text-white" : "bg-white shadow-sm text-[#00a884]") 
+              : "opacity-50 hover:opacity-100"
             }`}
           >
-            Semua Device
+            All Devices
           </button>
-          {sessions.map(s => (
+          {sessions.slice(0, 3).map(s => (
             <button
               key={s.id}
               onClick={() => setFilterId(s.id)}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${
-                filterId === s.id ? "bg-[#00a884] text-white shadow-sm" : isDarkMode ? "text-[#8696A0]" : "text-[#667781]"
+              className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                filterId === s.id 
+                ? (isDarkMode ? "bg-[#00a884] text-white" : "bg-white shadow-sm text-[#00a884]") 
+                : "opacity-50 hover:opacity-100"
               }`}
             >
               {s.name.split(' ')[0]}
@@ -110,75 +120,88 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
         </div>
       </div>
 
-      {/* Grid Drag n Drop */}
-      <div className="p-6">
-        <DragDropContext onDragEnd={onDragEnd}>
-          <Droppable droppableId="social-grid" direction="horizontal">
-            {(provided) => (
-              <div 
-                {...provided.droppableProps} 
-                ref={provided.innerRef}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-              >
-                {items.map((item, index) => (
-                  <Draggable key={item.id} draggableId={item.id} index={index}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        style={{
-                          ...provided.draggableProps.style,
-                          transition: snapshot.isDragging ? "none" : "transform 500ms cubic-bezier(0.2, 1, 0.1, 1)"
-                        }}
-                        className={`relative p-5 rounded-2xl border transition-colors duration-300 ${
-                          snapshot.isDragging 
-                            ? "z-50 shadow-2xl scale-105 border-pink-500 bg-opacity-100 ring-2 ring-pink-500/20" 
-                            : isDarkMode ? "bg-[#111B21] border-[#2a3942]" : "bg-white border-[#E9EDEF]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full ${item.status === 'connected' ? 'bg-green-500' : 'bg-red-500'}`} />
-                            <span className={`text-[10px] font-bold uppercase tracking-tight ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}>
-                              {item.name}
-                            </span>
-                          </div>
-                          <GripVertical size={14} className="opacity-20" />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          {/* Instagram Card */}
-                          <div className={`p-3 rounded-xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-gray-50 border-gray-100"}`}>
-                            <div className="flex items-center gap-2 mb-1">
-                              <Instagram size={12} className="text-pink-500" />
-                              <span className="text-[9px] font-black uppercase opacity-50">Instagram</span>
+      <div className="px-8 pb-8 relative min-h-[160px]">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="animate-spin text-[#00a884]" size={28} />
+          </div>
+        ) : error ? (
+          <div className="flex items-center gap-2 justify-center py-12 text-red-400">
+            <AlertCircle size={18} />
+            <span className="text-xs font-semibold uppercase tracking-wider">{error}</span>
+          </div>
+        ) : (
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="social-grid" direction="horizontal">
+              {(provided) => (
+                <div 
+                  {...provided.droppableProps} 
+                  ref={provided.innerRef}
+                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5"
+                >
+                  {items.map((item, index) => (
+                    <Draggable key={item.id} draggableId={item.id} index={index}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className={`group p-6 rounded-[24px] border transition-all duration-300 ${
+                            snapshot.isDragging 
+                              ? "shadow-2xl scale-[1.02] border-[#00a884] bg-white dark:bg-[#202C33]" 
+                              : isDarkMode ? "bg-[#202C33] border-transparent hover:border-[#2a3942]" : "bg-[#f8f9fa] border-transparent hover:border-gray-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-2">
+                               <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${item.status === 'connected' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                 {item.name}
+                               </div>
                             </div>
-                            <span className={`text-2xl font-black ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}>
-                              {item.igCount}
-                            </span>
+                            <GripVertical size={14} className="opacity-0 group-hover:opacity-20 transition-opacity" />
                           </div>
 
-                          {/* TikTok Card */}
-                          <div className={`p-3 rounded-xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-gray-50 border-gray-100"}`}>
-                            <div className="flex items-center gap-2 mb-1">
-                              <Music size={12} className="text-sky-400" />
-                              <span className="text-[9px] font-black uppercase opacity-50">TikTok</span>
+                          <div className="space-y-4">
+                            {/* Instagram Row */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-pink-500/10 rounded-xl">
+                                  <Instagram size={14} className="text-pink-500" />
+                                </div>
+                                <span className="text-[11px] font-bold opacity-70">Instagram</span>
+                              </div>
+                              <span className="text-xl font-black">{item.igCount}</span>
                             </div>
-                            <span className={`text-2xl font-black ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}>
-                              {item.ttCount}
-                            </span>
+
+                            {/* TikTok Row */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-sky-500/10 rounded-xl">
+                                  <Music size={14} className="text-sky-500" />
+                                </div>
+                                <span className="text-[11px] font-bold opacity-70">TikTok</span>
+                              </div>
+                              <span className="text-xl font-black">{item.ttCount}</span>
+                            </div>
+                          </div>
+
+                          <div className="mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50 flex items-center justify-between">
+                             <div className="flex items-center gap-1 opacity-40">
+                               <ArrowUpRight size={10} />
+                               <span className="text-[9px] font-bold uppercase tracking-widest">Growth</span>
+                             </div>
+                             <span className="text-[10px] font-bold opacity-60">{item.total} total</span>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        )}
       </div>
     </div>
   );
