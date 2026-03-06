@@ -1889,22 +1889,29 @@ router.put("/sessions/:sessionId/groups/:groupJid/read", async (req, res) => {
 // LABEL ROUTES - NEW FEATURE
 // ===============================================
 
-// GET: Ambil semua label untuk session
+// Lokasi: Backend Route /sessions/:sessionId/labels
 router.get("/sessions/:sessionId/labels", async (req, res) => {
   try {
     const { sessionId } = req.params;
     const labels = await query(
-      `SELECT l.*, 
-              COUNT(cl.chat_jid) as chat_count
+      `SELECT 
+        l.id, 
+        l.session_id, 
+        l.wa_label_id, 
+        l.name, 
+        l.color,
+        l.created_at,
+        COUNT(cl.chat_jid) as chat_count
        FROM wa_labels l
        LEFT JOIN wa_chat_labels cl ON cl.wa_label_id = l.wa_label_id AND cl.session_id = l.session_id
        WHERE l.session_id = ?
-       GROUP BY l.wa_label_id
+       GROUP BY l.id, l.wa_label_id, l.session_id, l.name, l.color, l.created_at -- Tambahkan semua kolom di sini
        ORDER BY l.name ASC`,
       [sessionId],
     );
     res.json({ success: true, data: labels });
   } catch (err) {
+    console.error("DEBUG ERROR LABELS:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
