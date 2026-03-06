@@ -348,9 +348,6 @@ const StatDashboard: React.FC = () => {
         <SocialLeadsSection
           isDarkMode={isDarkMode}
           sessions={data.sessions}
-          messages={data.messages} // <--- TAMBAHKAN BARIS INI
-          filterId={selectedDevice}
-          setFilterId={setSelectedDevice}
         />
 
         {/* Stats Grid Cards */}

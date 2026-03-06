@@ -107,14 +107,17 @@ async function initDatabase() {
     // 2. BUAT TABEL USER
   // Di dalam file db.js pada bagian array tables:
 `CREATE TABLE IF NOT EXISTS wa_users (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  role_id INT,
-  username VARCHAR(50) NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL,
-  full_name VARCHAR(100), -- Tambahkan ini
-  branch VARCHAR(100),    -- Tambahkan ini
-  FOREIGN KEY (role_id) REFERENCES sys_roles(id) ON DELETE SET NULL
-) ENGINE=InnoDB`,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    role_id INT,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    branch VARCHAR(100) DEFAULT 'Pusat',
+    last_login DATETIME DEFAULT NULL, -- Digunakan untuk status ON/OFF di UI
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (role_id) REFERENCES sys_roles(id) ON DELETE SET NULL
+) ENGINE=InnoDB;`,
 
     // wa_sessions
     `CREATE TABLE IF NOT EXISTS wa_sessions (

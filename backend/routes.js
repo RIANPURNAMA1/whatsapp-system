@@ -282,7 +282,7 @@ router.get("/users", async (req, res) => {
       SELECT u.id, u.username, u.full_name, u.branch, u.last_login, r.name as role_name 
       FROM wa_users u
       LEFT JOIN sys_roles r ON u.role_id = r.id
-      ORDER BY u.created_at DESC
+      ORDER BY u.id DESC  -- GANTI created_at MENJADI id
     `);
     res.json({ success: true, data: users });
   } catch (err) {
@@ -829,45 +829,39 @@ router.get("/labels/all", async (req, res) => {
 
 router.get("/social/media", authenticateToken, async (req, res) => {
   try {
-    const { sessionId, startDate, endDate } = req.query;
-    const userId = req.user.id;
-    const roleType = req.user.role_type?.toLowerCase().trim();
+    const { startDate, endDate } = req.query;
 
-    // 1. Tentukan Keyword
-    const keywordTikTok = "%Hallo Teh Rindu, saya mau tanya Kelas Mendunia%";
-    const keywordIG = "%Hallo Teh, saya mau tanya Kelas Mendunia%";
+    // 1. Tentukan Keyword (Pastikan ini sesuai dengan template pesan iklanmu)
+    const kwTikTok = "%Hallo Teh Rindu, saya mau tanya Kelas Mendunia%";
+    const kwIG = "%Hallo Teh, saya mau tanya Kelas Mendunia%";
+    const kwFB = "%Hallo Kak, saya mau tanya Kelas Mendunia%"; 
 
-    // 2. Filter Session (Sederhana untuk tes)
-    let sessionFilter = "";
-    let params = [keywordTikTok, keywordIG, keywordTikTok]; // Untuk 3 tanda tanya pertama
+    // 2. Siapkan Params sesuai urutan tanda tanya (?) di SQL
+    // Urutan: TikTok, IG, TikTok(Exclude), FB
+    let params = [kwTikTok, kwIG, kwTikTok, kwFB];
 
-    if (sessionId && sessionId !== 'all') {
-      sessionFilter = "AND m.session_id = ?";
-      params.push(sessionId);
-    }
-
+    // Filter Tanggal
     let dateFilter = "";
     if (startDate && endDate) {
       dateFilter = "AND m.timestamp BETWEEN ? AND ? ";
       params.push(startDate, endDate);
     }
 
-    // 3. Query (Gunakan nama tabel wa_messages dan kolom content)
+    // 3. Query (Menghitung leads per session_id)
     const sql = `
       SELECT 
         m.session_id,
         SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsTikTok,
         SUM(CASE WHEN m.content LIKE ? AND m.content NOT LIKE ? THEN 1 ELSE 0 END) as leadsIG,
+        SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsFB,
         COUNT(*) as totalPesanMasuk
       FROM wa_messages m
       WHERE m.is_from_me = 0 
         AND m.chat_jid NOT LIKE '%@g.us'
-        ${sessionFilter}
         ${dateFilter}
       GROUP BY m.session_id
     `;
 
-    // Pastikan memanggil fungsi 'query' yang diimport dari db.js
     const results = await query(sql, params); 
 
     res.json({
@@ -876,12 +870,8 @@ router.get("/social/media", authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    // LIHAT LOG INI DI TERMINAL KAMU
-    console.error('DEBUG ERROR:', error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message // Sementara tampilkan error asli untuk debug
-    });
+    console.error('BACKEND ERROR:', error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

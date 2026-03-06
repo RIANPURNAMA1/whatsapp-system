@@ -42,10 +42,10 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Folder untuk menyimpan media
-const mediaDir = path.join(__dirname, 'media');
-if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
-app.use('/media', express.static(mediaDir));
+// // Folder untuk menyimpan media
+// const mediaDir = path.join(__dirname, 'media');
+// if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
+// app.use('/media', express.static(mediaDir));
 
 // ===============================================
 // Routes
