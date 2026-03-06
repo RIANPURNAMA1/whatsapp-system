@@ -27,7 +27,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({ isDarkMode, ses
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:3001/api/social/media", {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/social/media`, {
         params: {
           startDate: dateRange?.startDate,
           endDate: dateRange?.endDate,
