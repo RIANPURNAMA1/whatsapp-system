@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import {
-  Instagram,
-  Music,
-  Facebook,
   Loader2,
   GripVertical,
   LayoutGrid,
   AlertCircle,
-  ArrowUpRight,
+  Calendar,
+  Filter,
+  MessageSquare
 } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import axios from "axios";
@@ -15,39 +14,59 @@ import axios from "axios";
 interface SocialLeadsSectionProps {
   isDarkMode: boolean;
   sessions: any[];
-  dateRange?: any; // <--- Ubah jadi any agar fleksibel menerima object/array
+  dateRange?: any; 
 }
 
 const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({ isDarkMode, sessions, dateRange }) => {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([]);
+
+  // State internal untuk filter tanggal dan waktu
+  const [filters, setFilters] = useState({
+    startDate: dateRange?.startDate || new Date().toISOString().split('T')[0],
+    endDate: dateRange?.endDate || new Date().toISOString().split('T')[0],
+    startTime: "00:00",
+    endTime: "23:59"
+  });
 
   const fetchSocialStats = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/social/media`, {
-        params: {
-          startDate: dateRange?.startDate,
-          endDate: dateRange?.endDate,
-        },
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      
+      const fullStart = `${filters.startDate} ${filters.startTime}:00`;
+      const fullEnd = `${filters.endDate} ${filters.endTime}:59`;
 
-      if (response.data.success) {
-        const apiData = response.data.data;
+      // Mengambil data Statistik dan daftar Platform secara paralel
+      const [statsRes, keywordsRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_API_URL}/social/media`, {
+          params: { startDate: fullStart, endDate: fullEnd },
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${import.meta.env.VITE_API_URL}/keywords`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ]);
 
-        // Gabungkan data session dengan hasil statistik dari API
+      if (statsRes.data.success && keywordsRes.data.success) {
+        // 1. Ekstrak daftar platform unik dari database keywords
+        const keywordsData = keywordsRes.data.data || [];
+        const platforms: string[] = Array.from(
+          new Set(keywordsData.map((k: any) => String(k.platform).toLowerCase()))
+        );
+        setAvailablePlatforms(platforms);
+
+        // 2. Gabungkan data statistik dengan session (device)
+        const apiData = statsRes.data.data || [];
         const mergedData = sessions.map((s) => {
           const stats = apiData.find((d: any) => d.session_id === s.id);
           return {
             id: s.id,
             name: s.name,
             status: s.status,
-            igCount: parseInt(stats?.leadsIG || "0"),
-            ttCount: parseInt(stats?.leadsTikTok || "0"),
-            fbCount: parseInt(stats?.leadsFB || "0"),
+            stats: stats || {}, 
             total: stats?.totalPesanMasuk || 0,
           };
         });
@@ -56,15 +75,17 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({ isDarkMode, ses
         setError(null);
       }
     } catch (err: any) {
+      console.error("Fetch Error:", err);
       setError("Gagal memuat statistik");
     } finally {
       setLoading(false);
     }
   };
 
+  // Jalankan saat komponen dimuat atau sessions berubah
   useEffect(() => {
     fetchSocialStats();
-  }, [sessions, dateRange]);
+  }, [sessions]);
 
   const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -74,30 +95,47 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({ isDarkMode, ses
     setItems(newItems);
   };
 
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
   return (
     <div className={`rounded-3xl transition-all duration-300 ${isDarkMode ? "bg-[#111B21] text-white" : "bg-white shadow-sm text-[#3B4A54]"} overflow-hidden border ${isDarkMode ? "border-[#2a3942]" : "border-[#f0f2f5]"} mb-8`}>
       
-      {/* Header - Bersih Tanpa Filter */}
-      <div className="px-8 py-6 flex items-center justify-between">
+      {/* Header & Filter */}
+      <div className="px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className={`p-2.5 rounded-2xl ${isDarkMode ? "bg-[#202C33]" : "bg-gray-50 text-emerald-500"}`}>
+          <div className={`p-2.5 rounded-2xl ${isDarkMode ? "bg-[#202C33]" : "bg-emerald-50 text-emerald-600"}`}>
             <LayoutGrid size={18} strokeWidth={2.5} />
           </div>
           <div>
             <h2 className="text-base font-bold tracking-tight">Social Media Leads</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[11px] font-medium opacity-60">Live Tracking (All Devices)</span>
-            </div>
+            <span className="text-[11px] font-medium opacity-60 italic">Berdasarkan Keyword Database</span>
           </div>
+        </div>
+
+        <div className={`flex flex-wrap items-center gap-3 p-2 rounded-2xl ${isDarkMode ? "bg-[#202C33]" : "bg-gray-50"}`}>
+          <div className="flex items-center gap-2 px-3 border-r border-gray-500/20">
+            <Calendar size={14} className="opacity-40" />
+            <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="text-[11px] font-bold bg-transparent border-none focus:ring-0 cursor-pointer" />
+            <span className="opacity-30 text-[10px]">-</span>
+            <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="text-[11px] font-bold bg-transparent border-none focus:ring-0 cursor-pointer" />
+          </div>
+          <button onClick={fetchSocialStats} className="p-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/20">
+            <Filter size={16} />
+          </button>
         </div>
       </div>
 
-      <div className="px-8 pb-8 relative min-h-[160px]">
+      <div className="px-8 pb-8">
         {loading ? (
-          <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-[#00a884]" size={28} /></div>
+          <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-emerald-500" size={32} /></div>
         ) : error ? (
-          <div className="flex items-center gap-2 justify-center py-12 text-red-400"><AlertCircle size={18} /> <span className="text-xs font-semibold uppercase">{error}</span></div>
+          <div className="flex flex-col items-center justify-center py-12 text-red-400 gap-2">
+            <AlertCircle size={24} />
+            <span className="text-[10px] font-bold uppercase">{error}</span>
+          </div>
         ) : (
           <DragDropContext onDragEnd={onDragEnd}>
             <Droppable droppableId="social-grid" direction="horizontal">
@@ -110,50 +148,41 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({ isDarkMode, ses
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
-                          className={`group p-6 rounded-[24px] border transition-all duration-300 ${snapshot.isDragging ? "shadow-2xl scale-[1.02] border-[#00a884] bg-white dark:bg-[#202C33]" : isDarkMode ? "bg-[#202C33] border-transparent" : "bg-[#f8f9fa] border-transparent hover:border-gray-200"}`}
+                          className={`p-6 rounded-[24px] border transition-all duration-300 ${snapshot.isDragging ? "shadow-2xl border-emerald-500 z-50 scale-[1.02] bg-white dark:bg-[#202C33]" : isDarkMode ? "bg-[#202C33] border-transparent" : "bg-gray-50 border-transparent hover:border-gray-200"}`}
                         >
-                          <div className="flex items-center justify-between mb-6">
+                          <div className="flex justify-between items-center mb-6">
                             <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${item.status === "connected" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
                               {item.name}
                             </span>
-                            <GripVertical size={14} className="opacity-0 group-hover:opacity-20 transition-opacity" />
+                            <GripVertical size={14} className="opacity-20" />
                           </div>
 
+                          {/* LIST PLATFORM OTOMATIS */}
                           <div className="space-y-4">
-                            {/* Instagram */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-pink-500/10 rounded-xl"><Instagram size={14} className="text-pink-500" /></div>
-                                <span className="text-[11px] font-bold opacity-70">Instagram</span>
+                            {availablePlatforms.length > 0 ? (
+                              availablePlatforms.map((platform) => (
+                                <div key={platform} className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-500/10 rounded-xl">
+                                      <MessageSquare size={14} className="text-emerald-500" />
+                                    </div>
+                                    <span className="text-[11px] font-bold opacity-70 capitalize">{platform}</span>
+                                  </div>
+                                  <span className="text-xl font-black">
+                                    {item.stats[`leads_${platform}`] || 0}
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="py-4 text-center border-2 border-dashed border-gray-500/10 rounded-xl">
+                                <p className="text-[10px] opacity-40 italic">Keyword belum diatur</p>
                               </div>
-                              <span className="text-xl font-black">{item.igCount}</span>
-                            </div>
-
-                            {/* TikTok */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-sky-500/10 rounded-xl"><Music size={14} className="text-sky-500" /></div>
-                                <span className="text-[11px] font-bold opacity-70">TikTok</span>
-                              </div>
-                              <span className="text-xl font-black">{item.ttCount}</span>
-                            </div>
-
-                            {/* Facebook Ads */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-600/10 rounded-xl"><Facebook size={14} className="text-blue-600" /></div>
-                                <span className="text-[11px] font-bold opacity-70">Facebook Ads</span>
-                              </div>
-                              <span className="text-xl font-black">{item.fbCount}</span>
-                            </div>
+                            )}
                           </div>
 
-                          <div className="mt-6 pt-4 border-t border-gray-200/50 flex items-center justify-between">
-                            <div className="flex items-center gap-1 opacity-40">
-                              <ArrowUpRight size={10} />
-                              <span className="text-[9px] font-bold uppercase tracking-widest">Growth</span>
-                            </div>
-                            <span className="text-[10px] font-bold opacity-60">{item.total} total</span>
+                          <div className="mt-6 pt-4 border-t border-gray-500/10 flex justify-between items-center">
+                            <span className="text-[9px] font-bold opacity-40 uppercase tracking-tight">Total Chat Masuk</span>
+                            <span className="text-[11px] font-bold">{item.total}</span>
                           </div>
                         </div>
                       )}

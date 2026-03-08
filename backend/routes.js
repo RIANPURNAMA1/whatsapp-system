@@ -794,6 +794,76 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
   });
 });
 
+// PUT: Update keyword berdasarkan platform
+router.put("/keywords/:platform", authenticateToken, async (req, res) => {
+  const { platform } = req.params;
+  const { keyword_text } = req.body;
+  try {
+    await query("UPDATE lead_keywords SET keyword_text = ? WHERE platform = ?", [keyword_text, platform]);
+    res.json({ success: true, message: `Keyword ${platform} berhasil diperbarui` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
+// Simpan atau Update Keyword
+router.post("/keywords/save", authenticateToken, async (req, res) => {
+  const { platform, keyword_text } = req.body;
+
+  if (!platform || !keyword_text) {
+    return res.status(400).json({ success: false, message: "Platform dan Keyword harus diisi" });
+  }
+
+  try {
+    // Menggunakan ON DUPLICATE KEY UPDATE agar jika platform sudah ada, dia otomatis update
+    const sql = `
+      INSERT INTO lead_keywords (platform, keyword_text) 
+      VALUES (?, ?) 
+      ON DUPLICATE KEY UPDATE keyword_text = VALUES(keyword_text)
+    `;
+    
+    await query(sql, [platform.toLowerCase(), keyword_text]);
+    
+    res.json({ success: true, message: `Keyword ${platform} berhasil disimpan!` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Ambil semua keyword untuk ditampilkan di tabel
+router.get("/keywords", authenticateToken, async (req, res) => {
+  try {
+    const data = await query("SELECT * FROM lead_keywords ORDER BY platform ASC");
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Pastikan ID diterima sebagai parameter :id
+router.delete("/keywords/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Lakukan penghapusan di database
+    const result = await query("DELETE FROM lead_keywords WHERE id = ?", [id]);
+
+    // Cek apakah ada baris yang terhapus
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Keyword tidak ditemukan atau sudah dihapus." 
+      });
+    }
+
+    res.json({ success: true, message: "Keyword berhasil dihapus" });
+  } catch (err) {
+    console.error("Delete Error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ===============================================
 // STATS ROUTES - DASHBOARD UTAMA
 // ===============================================
@@ -825,55 +895,210 @@ router.get("/labels/all", async (req, res) => {
 });
 
 
+router.get("/chats/leads-only", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const roleType = req.user.role_type.toLowerCase().trim();
+    const { sessionId, startDate, endDate } = req.query;
+
+    // 1. Ambil Keyword dari Database
+    const dbKeywords = await query("SELECT platform, keyword_text FROM lead_keywords");
+    
+    // 2. Cek Izin Session
+    let allowedSessions = (roleType === "system" || roleType === "manager")
+      ? await query("SELECT id FROM wa_sessions")
+      : await query("SELECT session_id as id FROM wa_user_sessions WHERE user_id = ?", [userId]);
+
+    const allowedIds = allowedSessions.map((s) => s.id);
+    if (allowedIds.length === 0) return res.json({ success: true, data: [] });
+
+    let finalSessionIds = (sessionId && sessionId !== "all" && allowedIds.includes(sessionId)) 
+                          ? [sessionId] 
+                          : allowedIds;
+
+    // 3. Bangun Dinamis CASE WHEN
+    const colors = { tiktok: '#EE1D52', instagram: '#E1306C', facebook: '#1877F2', whatsapp: '#25D366' };
+
+    let sourceCase = "CASE ";
+    let colorCase = "CASE ";
+    let sourceParams = [];
+    let colorParams = [];
+
+    dbKeywords.forEach(kw => {
+      const pattern = `%${kw.keyword_text.toLowerCase().trim()}%`;
+      // sourceCase menggunakan parameter sendiri
+      sourceCase += `WHEN LOWER(m.content) LIKE ? THEN ? `;
+      sourceParams.push(pattern, kw.platform);
+      
+      // colorCase menggunakan parameter sendiri
+      colorCase += `WHEN LOWER(m.content) LIKE ? THEN ? `;
+      const platformColor = colors[kw.platform.toLowerCase()] || '#8696A0';
+      colorParams.push(pattern, platformColor);
+    });
+
+    sourceCase += "ELSE 'Organik' END";
+    colorCase += "ELSE '#8696A0' END";
+
+    // 4. Bangun Query Utama
+    const placeholders = finalSessionIds.map(() => "?").join(",");
+    let dateFilter = (startDate && endDate) ? `AND m.timestamp BETWEEN ? AND ?` : "";
+    
+    const sql = `
+      SELECT 
+        m.id, m.chat_jid AS remoteJid, m.content, m.timestamp AS updatedAt,
+        COALESCE(ct.push_name, 'Unknown') AS pushName,
+        ${sourceCase} AS lead_source,
+        ${colorCase} AS source_color
+      FROM wa_messages m
+      LEFT JOIN wa_contacts ct ON ct.jid = m.chat_jid
+      WHERE m.is_from_me = 0 
+        AND m.chat_jid NOT LIKE '%@g.us' 
+        AND m.session_id IN (${placeholders})
+        ${dateFilter}
+        /* Filter agar hanya mengambil pesan pertama dari orang yang belum dikenal (Leads Baru) */
+        AND NOT EXISTS (
+          SELECT 1 FROM wa_messages older 
+          WHERE older.chat_jid = m.chat_jid AND older.id < m.id
+        )
+        AND (ct.name IS NULL OR ct.name = '')
+      ORDER BY m.timestamp DESC
+      LIMIT 100
+    `;
+
+    // Urutan Parameter Sangat Penting! 
+    // [Source Params] -> [Color Params] -> [Session IDs] -> [Dates]
+    const finalParams = [
+      ...sourceParams, 
+      ...colorParams, 
+      ...finalSessionIds, 
+      ...(startDate && endDate ? [startDate, endDate] : [])
+    ];
+
+    const leads = await query(sql, finalParams);
+    res.json({ 
+      success: true, 
+      data: leads, 
+      platforms: [...new Set(dbKeywords.map(k => k.platform))] 
+    });
+
+  } catch (err) {
+    console.error("Leads Error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // routes/stats.js atau router.js
 
 router.get("/social/media", authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
-    // 1. Tentukan Keyword (Pastikan ini sesuai dengan template pesan iklanmu)
-    const kwTikTok = "%Hallo Teh Rindu, saya mau tanya Kelas Mendunia%";
-    const kwIG = "%Hallo Teh, saya mau tanya Kelas Mendunia%";
-    const kwFB = "%Hallo Kak, saya mau tanya Kelas Mendunia%"; 
+    const keywords = await query("SELECT platform, keyword_text FROM lead_keywords");
+    
+    if (keywords.length === 0) {
+      return res.json({ success: true, data: [], platforms: [] });
+    }
 
-    // 2. Siapkan Params sesuai urutan tanda tanya (?) di SQL
-    // Urutan: TikTok, IG, TikTok(Exclude), FB
-    let params = [kwTikTok, kwIG, kwTikTok, kwFB];
-
-    // Filter Tanggal
+    let params = [];
     let dateFilter = "";
     if (startDate && endDate) {
       dateFilter = "AND m.timestamp BETWEEN ? AND ? ";
       params.push(startDate, endDate);
     }
 
-    // 3. Query (Menghitung leads per session_id)
     const sql = `
-      SELECT 
-        m.session_id,
-        SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsTikTok,
-        SUM(CASE WHEN m.content LIKE ? AND m.content NOT LIKE ? THEN 1 ELSE 0 END) as leadsIG,
-        SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsFB,
-        COUNT(*) as totalPesanMasuk
+      SELECT m.session_id, LOWER(m.content) as content
       FROM wa_messages m
       WHERE m.is_from_me = 0 
         AND m.chat_jid NOT LIKE '%@g.us'
         ${dateFilter}
-      GROUP BY m.session_id
     `;
 
-    const results = await query(sql, params); 
+    const messages = await query(sql, params);
+    const stats = {};
 
-    res.json({
-      success: true,
-      data: results
+    messages.forEach(msg => {
+      const sId = msg.session_id;
+      if (!stats[sId]) {
+        stats[sId] = { session_id: sId, totalPesanMasuk: 0 };
+        // Inisialisasi field leads_ untuk setiap platform dari DB
+        keywords.forEach(k => { 
+          stats[sId][`leads_${k.platform.toLowerCase()}`] = 0; 
+        });
+      }
+
+      stats[sId].totalPesanMasuk++;
+
+      keywords.forEach(k => {
+        const platformKey = `leads_${k.platform.toLowerCase()}`;
+        const searchKeyword = k.keyword_text.toLowerCase().trim();
+        
+        // Cek jika konten pesan mengandung keyword dari database
+        if (searchKeyword && msg.content && msg.content.includes(searchKeyword)) {
+          stats[sId][platformKey]++;
+        }
+      });
+    });
+
+    // Kirim hasil dan daftar platform aktif agar Frontend tahu apa yang harus dirender
+    res.json({ 
+      success: true, 
+      data: Object.values(stats),
+      platforms: keywords.map(k => k.platform.toLowerCase()) 
     });
 
   } catch (error) {
-    console.error('BACKEND ERROR:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
+// router.get("/social/media", authenticateToken, async (req, res) => {
+//   try {
+//     const { startDate, endDate } = req.query;
+//  // 1. Tentukan Keyword (Pastikan ini sesuai dengan template pesan iklanmu)
+//     const kwTikTok = "%Hallo Teh Rindu, saya mau tanya Kelas Mendunia%";
+//     const kwIG = "%Hallo Teh, saya mau tanya Kelas Mendunia%";
+//     const kwFB = "%Hallo Kak, saya mau tanya Kelas Mendunia%"; 
+   
+
+//     // 2. Siapkan Params sesuai urutan tanda tanya (?) di SQL
+//     // Urutan: TikTok, IG, TikTok(Exclude), FB
+//     let params = [kwTikTok, kwIG, kwTikTok, kwFB];
+
+//     // Filter Tanggal
+//     let dateFilter = "";
+//     if (startDate && endDate) {
+//       dateFilter = "AND m.timestamp BETWEEN ? AND ? ";
+//       params.push(startDate, endDate);
+//     }
+
+//     // 3. Query (Menghitung leads per session_id)
+//     const sql = `
+//       SELECT 
+//         m.session_id,
+//         SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsTikTok,
+//         SUM(CASE WHEN m.content LIKE ? AND m.content NOT LIKE ? THEN 1 ELSE 0 END) as leadsIG,
+//         SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsFB,
+//         COUNT(*) as totalPesanMasuk
+//       FROM wa_messages m
+//       WHERE m.is_from_me = 0 
+//         AND m.chat_jid NOT LIKE '%@g.us'
+//         ${dateFilter}
+//       GROUP BY m.session_id
+//     `;
+
+//     const results = await query(sql, params); 
+
+//     res.json({
+//       success: true,
+//       data: results
+//     });
+
+//   } catch (error) {
+//     console.error('BACKEND ERROR:', error.message);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// });
 
 router.get("/stats/dashboard", authenticateToken, async (req, res) => {
   try {
@@ -1220,108 +1445,7 @@ router.get("/sessions/:sessionId/stats", async (req, res) => {
 // GLOBAL INBOX - MENGAMBIL PESAN TERAKHIR (FIXED)
 // ===============================================
 
-// ===============================================
-// GET: LEADS ONLY - PESAN DARI NOMOR NON-KONTAK (LOGIKA DIPERBAIKI)
-// ===============================================
-router.get("/chats/leads-only", authenticateToken, async (req, res) => {
-  try {
-    // 1. Identifikasi User & Role (Sesuai dengan logika dashboard Anda)
-    const userId = req.user.id;
-    const roleType = req.user.role_type.toLowerCase().trim();
-    const { sessionId, startDate, endDate } = req.query;
 
-    // 2. Ambil list session yang diizinkan untuk user ini
-    let allowedSessions = [];
-    if (roleType === "system" || roleType === "manager") {
-      allowedSessions = await query("SELECT id FROM wa_sessions");
-    } else {
-      // Role Cabang / Custom: Ambil dari tabel penghubung wa_user_sessions
-      allowedSessions = await query(
-        "SELECT session_id as id FROM wa_user_sessions WHERE user_id = ?",
-        [userId],
-      );
-    }
-
-    const allowedIds = allowedSessions.map((s) => s.id);
-
-    // Jika user cabang tidak punya session sama sekali, hentikan
-    if (allowedIds.length === 0) {
-      return res.json({ success: true, data: [] });
-    }
-
-    // 3. Tentukan Session ID mana yang akan dipakai di query
-    let finalSessionIds = [];
-    if (sessionId && sessionId !== "all") {
-      // Jika user filter satu session, pastikan dia punya izin
-      if (allowedIds.includes(sessionId)) {
-        finalSessionIds = [sessionId];
-      } else {
-        // Jika coba akses session orang lain, paksa ke session miliknya saja
-        finalSessionIds = allowedIds;
-      }
-    } else {
-      // Jika pilih "all", gunakan semua ID yang diizinkan
-      finalSessionIds = allowedIds;
-    }
-
-    // 4. Bangun Filter SQL
-    let params = [];
-    const placeholders = finalSessionIds.map(() => "?").join(",");
-    let filterSql = ` AND m.session_id IN (${placeholders})`;
-    params.push(...finalSessionIds);
-
-    // Filter Tanggal
-    if (startDate && endDate) {
-      filterSql += ` AND m.timestamp BETWEEN ? AND ?`;
-      params.push(startDate, endDate);
-    }
-
-    const sql = `
-      SELECT 
-        m.id,
-        m.chat_jid AS remoteJid,
-        m.content,
-        m.timestamp AS updatedAt,
-        COALESCE(ct.push_name, 'Unknown') AS pushName,
-        (
-          SELECT ls.source_name 
-          FROM wa_lead_sources ls 
-          WHERE m.content LIKE CONCAT('%', ls.keyword, '%') 
-          LIMIT 1
-        ) AS lead_source,
-        (
-          SELECT ls.color_code 
-          FROM wa_lead_sources ls 
-          WHERE m.content LIKE CONCAT('%', ls.keyword, '%') 
-          LIMIT 1
-        ) AS source_color
-      FROM wa_messages m
-      LEFT JOIN wa_contacts ct ON ct.jid = m.chat_jid
-      WHERE m.is_from_me = 0 
-        AND m.chat_jid NOT LIKE '%@g.us' 
-        AND m.chat_jid NOT LIKE '%@newsletter'
-        ${filterSql} 
-        AND NOT EXISTS (
-          SELECT 1 FROM wa_messages older 
-          WHERE older.chat_jid = m.chat_jid 
-          AND older.id < m.id
-        )
-        AND (ct.name IS NULL OR ct.name = '')
-      ORDER BY m.timestamp DESC
-      LIMIT 100
-    `;
-
-    const leads = await query(sql, params);
-    res.json({ success: true, data: leads });
-  } catch (err) {
-    console.error("LEADS ERROR:", err.message);
-    res.status(500).json({
-      success: false,
-      error: "Internal Server Error",
-      debug: err.message,
-    });
-  }
-});
 
 router.get("/all-global-messages", async (req, res) => {
   try {

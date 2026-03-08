@@ -85,6 +85,15 @@ export const assignSessionToUser = async (userId, sessionId) => {
 // 4. LOGIKA AUTO-MIGRATE / INIT TABEL
 async function initDatabase() {
   const tables = [
+
+
+
+  `CREATE TABLE IF NOT EXISTS lead_keywords (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  platform VARCHAR(50) UNIQUE,
+  keyword_text TEXT,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)`,
     // ⭐ TABEL BARU: wa_lead_sources (UNTUK TRACKING IKLAN)
     `CREATE TABLE IF NOT EXISTS wa_lead_sources (
       id INT AUTO_INCREMENT PRIMARY KEY,

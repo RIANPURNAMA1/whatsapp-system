@@ -22,6 +22,7 @@ import Sidebar from "../components/Sidebar";
 import { Settings } from "../components/Settings";
 import LeadsChatList from "../components/LeadsChatList"; // <--- Komponen Baru
 import { Menu } from "lucide-react";
+import { KeywordManager } from "../components/KeywordManager";
 
 interface UserData {
   id: number;
@@ -268,15 +269,23 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
                     />
                   ))}
 
+                  {/* TAMBAHKAN INI */}
+{activeTab === "keyword-management" && (
+  <KeywordManager isDarkMode={true} />
+)}
+
                 {/* View LEADS ONLY (Nomor Non-Kontak) */}
-                {activeTab === "leads-only" && (
-                  <LeadsChatList
-                    isDarkMode={true}
-                    // Tambahkan prop ini agar dropdown device di dalam LeadsChatList muncul
-                    sessions={sessions || []}
-                   
-                  />
-                )}
+              {activeTab === "leads-only" && (
+  <LeadsChatList
+    isDarkMode={true}
+    sessions={sessions || []}
+    // TAMBAHKAN INI: Hubungkan klik lead ke fungsi selectChat store
+    onSelectChat={(chatData) => {
+       console.log("Membuka chat untuk lead:", chatData.jid);
+       selectChat(chatData); 
+    }}
+  />
+)}
 
                 {/* View Manajemen Perangkat */}
                 {activeTab === "devices" && (

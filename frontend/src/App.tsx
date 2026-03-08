@@ -13,18 +13,17 @@ function App() {
 
   // --- LOGIKA AUTH & LOGOUT ---
   const handleLogin = (userData: any) => {
-    // Simpan token jika tersedia agar sesi tidak hilang saat refresh
     if (userData.token) {
       localStorage.setItem("token", userData.token);
     }
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
     setIsLoggedIn(true);
-    console.log("Login sukses! Monitoring aktivitas dimulai...");
+    console.log("Login sukses! Sesi 1 jam dimulai.");
   };
 
   const handleLogout = useCallback(() => {
-    console.warn("Logout otomatis dipicu karena tidak ada aktivitas.");
+    console.warn("Sesi berakhir. Logout otomatis.");
 
     // 1. Bersihkan Storage
     localStorage.removeItem("token");
@@ -36,66 +35,43 @@ function App() {
       socketRef.current = null;
     }
 
-    // 3. Reset State (Otomatis menampilkan LoginPage)
+    // 3. Reset State
     setUser(null);
     setIsLoggedIn(false);
   }, []);
 
-  // --- LOGIKA SESSION TIMEOUT (SET 5 DETIK) ---
+  // --- LOGIKA AUTO-LOGOUT STATIS (1 JAM) ---
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    let timer: ReturnType<typeof setTimeout>;
+    // 1 jam = 3.600.000 ms
+    const SESSION_DURATION = 3600000;
 
-    // 1 jam = 60 menit * 60 detik * 1000 ms
-    const TIMEOUT_DURATION = 3600000;
+    const timer = setTimeout(() => {
+      handleLogout();
+    }, SESSION_DURATION);
 
-    const resetTimer = () => {
-      // console.log("Aktivitas terdeteksi, timer direset.");
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        handleLogout();
-      }, TIMEOUT_DURATION);
-    };
-
-    // Daftar aktivitas yang dipantau (gerakan mouse, klik, ketik, scroll)
-    const activityEvents = [
-      "mousedown",
-      "mousemove",
-      "keypress",
-      "scroll",
-      "touchstart",
-    ];
-
-    // Pasang event listener ke window
-    activityEvents.forEach((event) => {
-      window.addEventListener(event, resetTimer, true);
-    });
-
-    // Inisialisasi timer pertama kali saat login
-    resetTimer();
-
-    return () => {
-      if (timer) clearTimeout(timer);
-      activityEvents.forEach((event) => {
-        window.removeEventListener(event, resetTimer, true);
-      });
-    };
+    // Cleanup jika komponen unmount atau user logout manual
+    return () => clearTimeout(timer);
   }, [isLoggedIn, handleLogout]);
 
   // --- LOGIKA SUARA GLOBAL ---
   const speakNotification = () => {
     const now = Date.now();
     if (now - lastSpeakTime.current < 4000) return;
+
     const synth = window.speechSynthesis;
     synth.cancel();
+
     const msg = new SpeechSynthesisUtterance("Ada pesan masuk, cek sekarang");
     const voices = synth.getVoices();
+    
     const googleVoice = voices.find(
       (v) =>
         (v.name.includes("Google") || v.name.includes("Indonesian")) &&
         v.lang === "id-ID",
     );
+
     if (googleVoice) msg.voice = googleVoice;
     msg.lang = "id-ID";
     synth.speak(msg);
@@ -128,8 +104,8 @@ function App() {
 
     if (token && savedUser) {
       try {
-        setIsLoggedIn(true);
         setUser(JSON.parse(savedUser));
+        setIsLoggedIn(true);
       } catch (e) {
         handleLogout();
       }

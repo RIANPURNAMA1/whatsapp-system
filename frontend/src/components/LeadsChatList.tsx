@@ -1,21 +1,18 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  UserSearch,
-  Clock,
   Search,
   Loader2,
   RefreshCcw,
-  Target,
-  Smartphone,
-  Calendar,
-  CheckCircle2,
   RotateCcw,
+  MessageSquare,
+  Target,
 } from "lucide-react";
+import useStore from "../store/useStore"; 
 
 interface LeadsChatListProps {
   isDarkMode: boolean;
   sessions: any[];
-  onSelectChat?: (jid: string) => void;
+  onSelectChat?: (chat: any) => void;
 }
 
 const LeadsChatList: React.FC<LeadsChatListProps> = ({
@@ -23,23 +20,47 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
   sessions,
   onSelectChat,
 }) => {
+  const { selectedChat } = useStore();
+
   const [leads, setLeads] = useState<any[]>([]);
+  const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDevice, setSelectedDevice] = useState("all");
+  const [socialFilter, setSocialFilter] = useState("all");
 
-  // Fungsi untuk mendapatkan default waktu (Hari ini 00:00 s/d 23:59)
-  const getDefaultDateRange = () => ({
-    start: new Date(new Date().setHours(0, 0, 0, 0)).toISOString().slice(0, 16),
-    end: new Date(new Date().setHours(23, 59, 59, 999))
-      .toISOString()
-      .slice(0, 16),
-  });
+  const getDefaultDateRange = () => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    const toLocalISO = (date: Date) => {
+      const offset = date.getTimezoneOffset() * 60000;
+      return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+    };
+
+    return {
+      start: toLocalISO(start),
+      end: toLocalISO(end),
+    };
+  };
 
   const [tempDateRange, setTempDateRange] = useState(getDefaultDateRange());
-  const [appliedDateRange, setAppliedDateRange] = useState(
-    getDefaultDateRange(),
-  );
+  const [appliedDateRange, setAppliedDateRange] = useState(getDefaultDateRange());
+  const [showFilters, setShowFilters] = useState(false);
+
+  const formatTime = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+    return date.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
+  };
 
   const fetchLeads = useCallback(async () => {
     try {
@@ -48,22 +69,23 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
       const url = new URL(`${import.meta.env.VITE_API_URL}/chats/leads-only`);
 
       url.searchParams.append("sessionId", selectedDevice);
-      url.searchParams.append(
-        "startDate",
-        appliedDateRange.start.replace("T", " ") + ":00",
-      );
-      url.searchParams.append(
-        "endDate",
-        appliedDateRange.end.replace("T", " ") + ":59",
-      );
+      url.searchParams.append("startDate", appliedDateRange.start.replace("T", " ") + ":00");
+      url.searchParams.append("endDate", appliedDateRange.end.replace("T", " ") + ":59");
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json();
-      if (json.success) setLeads(json.data || []);
+
+      if (json.success) {
+        setLeads(json.data || []);
+        // Menyimpan daftar platform unik dari database untuk filter dropdown
+        if (json.platforms) {
+            setAvailablePlatforms(json.platforms);
+        }
+      }
     } catch (err) {
-      console.error("Error:", err);
+      console.error("Error fetching leads:", err);
     } finally {
       setLoading(false);
     }
@@ -73,245 +95,213 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
     fetchLeads();
   }, [fetchLeads]);
 
-  // Handler Terapkan
-  const handleApplyFilter = () => {
-    setAppliedDateRange(tempDateRange);
-  };
+  const handleApplyFilter = () => setAppliedDateRange(tempDateRange);
 
-  // Handler Reset
   const handleResetFilter = () => {
     const defaultDates = getDefaultDateRange();
     setTempDateRange(defaultDates);
     setAppliedDateRange(defaultDates);
     setSelectedDevice("all");
+    setSocialFilter("all");
     setSearchTerm("");
   };
 
-  const filteredLeads = leads.filter(
-    (lead) =>
-      lead.pushName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.remoteJid.includes(searchTerm) ||
-      lead.lead_source?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredLeads = leads.filter((lead) => {
+    const matchesSearch =
+      (lead.pushName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lead.remoteJid || "").includes(searchTerm) ||
+      (lead.content || "").toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesSocial =
+      socialFilter === "all" || lead.lead_source === socialFilter;
+
+    return matchesSearch && matchesSocial;
+  });
 
   return (
-    <div
-      className={`flex flex-col h-full transition-all duration-300 ${isDarkMode ? "bg-[#111B21]" : "bg-white"}`}
-    >
+    <div className={`flex flex-col h-full transition-all duration-300 ${isDarkMode ? "bg-[#111B21]" : "bg-white"}`}>
       {/* HEADER SECTION */}
-      <div
-        className={`p-4 border-b space-y-3 ${isDarkMode ? "border-[#222D34] bg-[#202C33]" : "border-gray-100 bg-[#F0F2F5]"}`}
-      >
-        <div className="flex justify-between items-center">
+      <div className={`flex flex-col border-b ${isDarkMode ? "bg-[#202C33] border-[#222D34]" : "bg-[#F0F2F5] border-gray-200"}`}>
+        <div className="px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-orange-500/10 rounded-xl border border-orange-500/20 shadow-inner">
-              <UserSearch className="text-orange-500" size={20} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2
-                  className={`font-black text-sm uppercase tracking-tight ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
-                >
-                  Monitoring Leads
-                </h2>
-                <span className="bg-[#00a884] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                  {filteredLeads.length}
-                </span>
-              </div>
+            <h2 className={`text-base font-bold ${isDarkMode ? "text-[#E9EDEF]" : "text-[#111B21]"}`}>
+              Monitoring Leads
+            </h2>
+            <div className="bg-[#00a884] text-[#111B21] text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+              {filteredLeads.length}
             </div>
           </div>
-          <button
-            onClick={fetchLeads}
-            className={`p-2 rounded-xl hover:bg-black/5 transition-all ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
-          >
-            <RefreshCcw
-              size={16}
-              className={loading ? "animate-spin text-[#00a884]" : ""}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchLeads}
+              className={`p-2 rounded-full hover:bg-black/5 transition-all ${isDarkMode ? "text-[#8696A0]" : "text-[#54656F]"}`}
+            >
+              <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
+            </button>
+          </div>
+        </div>
+
+        {/* SEARCH & FILTER BAR */}
+        <div className="px-3 pb-2 flex items-center gap-2">
+          <div className={`flex-1 flex items-center px-3 py-1.5 rounded-lg ${isDarkMode ? "bg-[#111B21]" : "bg-white"}`}>
+            <Search className={`${isDarkMode ? "text-[#8696A0]" : "text-[#54656F]"}`} size={16} />
+            <input
+              type="text"
+              placeholder="Cari lead..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full ml-4 bg-transparent border-none outline-none text-[14px] placeholder:text-[#8696A0]"
             />
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-2 rounded-full transition-all ${showFilters ? "bg-[#00a884] text-white" : isDarkMode ? "text-[#8696A0] hover:bg-[#3b4a54]" : "text-[#54656F] hover:bg-gray-200"}`}
+          >
+            <Target size={20} />
           </button>
         </div>
 
-        {/* CONTROLS AREA */}
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="relative">
-              <Smartphone
-                className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-[#8696A0]" : "text-gray-400"}`}
-                size={12}
-              />
-              <select
-                value={selectedDevice}
-                onChange={(e) => setSelectedDevice(e.target.value)}
-                className={`w-full pl-8 pr-2 py-2 rounded-xl text-[10px] font-bold outline-none border appearance-none ${isDarkMode ? "bg-[#2A3942] text-[#E9EDEF] border-[#3B4A54]" : "bg-white border-gray-200"}`}
+        {/* FILTER PANEL */}
+        {showFilters && (
+          <div className={`px-4 py-3 space-y-3 animate-in fade-in duration-200 ${isDarkMode ? "bg-[#202C33]" : "bg-white"}`}>
+            <div className="flex flex-col gap-2">
+              <label className={`text-[12px] font-semibold ${isDarkMode ? "text-[#00a884]" : "text-[#008069]"}`}>
+                Filter Sumber & Perangkat
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={selectedDevice}
+                  onChange={(e) => setSelectedDevice(e.target.value)}
+                  className={`px-3 py-2 rounded-lg text-xs outline-none border-none ${isDarkMode ? "bg-[#111B21] text-[#E9EDEF]" : "bg-[#F0F2F5] text-[#111B21]"}`}
+                >
+                  <option value="all">Semua Perangkat</option>
+                  {sessions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name || s.id}</option>
+                  ))}
+                </select>
+                <select
+                  value={socialFilter}
+                  onChange={(e) => setSocialFilter(e.target.value)}
+                  className={`px-3 py-2 rounded-lg text-xs outline-none border-none ${isDarkMode ? "bg-[#111B21] text-[#E9EDEF]" : "bg-[#F0F2F5] text-[#111B21]"}`}
+                >
+                  <option value="all">Semua Sumber</option>
+                  {availablePlatforms.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                  <option value="Organik">Organik</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className={`text-[12px] font-semibold ${isDarkMode ? "text-[#8696A0]" : "text-gray-500"}`}>
+                Rentang Waktu
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="datetime-local"
+                  value={tempDateRange.start}
+                  onChange={(e) => setTempDateRange({ ...tempDateRange, start: e.target.value })}
+                  className={`flex-1 p-2 rounded-lg text-[11px] outline-none ${isDarkMode ? "bg-[#111B21] text-white [color-scheme:dark]" : "bg-[#F0F2F5]"}`}
+                />
+                <span className="text-gray-500">-</span>
+                <input
+                  type="datetime-local"
+                  value={tempDateRange.end}
+                  onChange={(e) => setTempDateRange({ ...tempDateRange, end: e.target.value })}
+                  className={`flex-1 p-2 rounded-lg text-[11px] outline-none ${isDarkMode ? "bg-[#111B21] text-white [color-scheme:dark]" : "bg-[#F0F2F5]"}`}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => { handleApplyFilter(); setShowFilters(false); }}
+                className="flex-1 py-2 bg-[#00a884] text-[#111B21] rounded-full text-xs font-bold hover:shadow-md transition-all"
               >
-                <option value="all">Semua Device</option>
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name || s.id}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="relative">
-              <Search
-                className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDarkMode ? "text-[#8696A0]" : "text-gray-400"}`}
-                size={12}
-              />
-              <input
-                type="text"
-                placeholder="Cari..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-8 pr-4 py-2 rounded-xl text-[10px] font-bold outline-none border ${isDarkMode ? "bg-[#2A3942] text-white border-transparent" : "bg-white border-gray-200"}`}
-              />
+                Terapkan Filter
+              </button>
+              <button
+                onClick={handleResetFilter}
+                className={`px-4 py-2 rounded-full border ${isDarkMode ? "border-[#3b4a54] text-[#8696A0]" : "border-gray-200 text-gray-500"}`}
+              >
+                <RotateCcw size={16} />
+              </button>
             </div>
           </div>
-
-          {/* DATE PICKER */}
-          <div
-            className={`flex items-center gap-2 p-2 rounded-xl border ${isDarkMode ? "bg-[#111B21] border-[#3B4A54]" : "bg-white border-gray-200"}`}
-          >
-            <Calendar size={14} className="text-[#00a884]" />
-            <div className="flex items-center gap-1 flex-1">
-              <input
-                type="datetime-local"
-                value={tempDateRange.start}
-                onChange={(e) =>
-                  setTempDateRange({ ...tempDateRange, start: e.target.value })
-                }
-                className={`text-[9px] font-bold bg-transparent outline-none w-full ${isDarkMode ? "text-white [color-scheme:dark]" : "text-gray-600"}`}
-              />
-              <span className="text-[10px] opacity-30">→</span>
-              <input
-                type="datetime-local"
-                value={tempDateRange.end}
-                onChange={(e) =>
-                  setTempDateRange({ ...tempDateRange, end: e.target.value })
-                }
-                className={`text-[9px] font-bold bg-transparent outline-none w-full ${isDarkMode ? "text-white [color-scheme:dark]" : "text-gray-600"}`}
-              />
-            </div>
-          </div>
-
-          {/* ACTION BUTTONS (Terapkan & Reset) */}
-          <div className="grid grid-cols-5 gap-2">
-            <button
-              onClick={handleApplyFilter}
-              disabled={loading}
-              className="col-span-4 py-2 bg-[#00a884] hover:bg-[#008f6f] disabled:opacity-50 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-[#00a884]/20"
-            >
-              <CheckCircle2 size={14} />
-              Terapkan Filter
-            </button>
-            <button
-              onClick={handleResetFilter}
-              disabled={loading}
-              title="Reset Filter"
-              className={`col-span-1 py-2 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
-                isDarkMode
-                  ? "bg-[#2A3942] border-[#3B4A54] text-[#8696A0] hover:text-white"
-                  : "bg-white border-gray-200 text-gray-400 hover:text-gray-600 shadow-sm"
-              }`}
-            >
-              <RotateCcw size={14} />
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* LIST CONTENT */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className={`flex-1 overflow-y-auto custom-scrollbar relative ${isDarkMode ? "bg-[#111B21]" : "bg-white"}`}>
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
-            <Loader2 className="animate-spin text-[#00a884]" size={32} />
-            <p className="text-[10px] font-black uppercase tracking-widest text-[#8696A0]">
-              Memuat Data...
-            </p>
+            <Loader2 className="animate-spin text-[#00a884]" size={24} />
+            <p className="text-[11px] font-bold text-[#8696A0] uppercase tracking-widest">Sinkronisasi Leads...</p>
           </div>
         ) : filteredLeads.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 opacity-60">
-            <Target size={32} className="text-[#8696A0] mb-2" />
-            <p
-              className={`text-[11px] font-bold uppercase ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
-            >
-              Kosong
-            </p>
+            <MessageSquare size={48} className="text-[#3b4a54] mb-3 stroke-[1px]" />
+            <p className="text-[13px] text-[#8696A0]">Tidak ada leads yang ditemukan</p>
           </div>
         ) : (
-          filteredLeads.map((lead) => (
-            <div
-              key={lead.id}
-              onClick={() => onSelectChat?.(lead.remoteJid)}
-              className={`flex items-center p-4 border-b cursor-pointer transition-all ${isDarkMode ? "border-[#222D34] hover:bg-[#2A3942]" : "border-gray-50 hover:bg-[#F0F2F5]"}`}
-            >
-              {/* Avatar & Content tetap sama seperti sebelumnya */}
-              <div className="relative flex-shrink-0">
+          <div className={`divide-y ${isDarkMode ? "divide-[#1E2A30]/30" : "divide-gray-100"}`}>
+            {filteredLeads.map((lead) => {
+              const isSelected = selectedChat?.jid === lead.remoteJid;
+              return (
                 <div
-                  className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-md"
-                  style={{
-                    background: lead.source_color
-                      ? `linear-gradient(135deg, ${lead.source_color}, ${lead.source_color}dd)`
-                      : "linear-gradient(135deg, #8696A0, #667781)",
-                  }}
+                  key={lead.id}
+                  onClick={() => onSelectChat && onSelectChat({
+                    jid: lead.remoteJid,
+                    name: lead.pushName || lead.remoteJid.split("@")[0],
+                    last_message: lead.content,
+                  })}
+                  className={`group flex items-center px-4 py-3 cursor-pointer transition-all duration-150 relative border-b select-none ${
+                    isDarkMode ? (isSelected ? "bg-[#2A3942]" : "hover:bg-[#1E2A30] border-[#222D34]") : (isSelected ? "bg-[#F0F2F5]" : "hover:bg-gray-50 border-gray-50")
+                  }`}
                 >
-                  {lead.pushName ? lead.pushName[0].toUpperCase() : "?"}
-                </div>
-              </div>
-
-              <div className="ml-4 flex-1 overflow-hidden">
-                <div className="flex justify-between items-start mb-1">
-                  <div className="flex flex-col overflow-hidden text-left">
-                    <h3
-                      className={`font-bold text-[13px] truncate ${isDarkMode ? "text-[#E9EDEF]" : "text-[#111B21]"}`}
+                  {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#00a884]" />}
+                  
+                  <div className="relative flex-shrink-0">
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm transform transition-transform group-hover:scale-105"
+                      style={{ background: lead.source_color ? `linear-gradient(135deg, ${lead.source_color}, ${lead.source_color}dd)` : "linear-gradient(135deg, #8696A0, #667781)" }}
                     >
-                      {lead.pushName || "Potential Lead"}
-                    </h3>
-                    <span
-                      className={`text-[10px] font-mono ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
-                    >
-                      {lead.remoteJid.split("@")[0]}
-                    </span>
+                      {lead.pushName ? lead.pushName[0].toUpperCase() : "?"}
+                    </div>
                   </div>
-                  <span
-                    className={`text-[9px] font-black flex items-center gap-1 ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
-                  >
-                    <Clock size={10} className="text-[#00a884]" />
-                    {new Date(lead.updatedAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
 
-                <div className="flex items-center gap-2 mt-1.5 text-left">
-                  <div
-                    className="px-2 py-0.5 rounded-md flex items-center gap-1 border"
-                    style={{
-                      backgroundColor: `${lead.source_color || "#8696A0"}15`,
-                      borderColor: `${lead.source_color || "#8696A0"}40`,
-                    }}
-                  >
-                    <Target
-                      size={8}
-                      style={{ color: lead.source_color || "#8696A0" }}
-                    />
-                    <span
-                      className="text-[8px] font-black uppercase"
-                      style={{ color: lead.source_color || "#8696A0" }}
-                    >
-                      {lead.lead_source || "Organik"}
-                    </span>
+                  <div className="ml-3 flex-1 overflow-hidden">
+                    <div className="flex justify-between items-baseline mb-0.5">
+                      <h3 className={`text-[15px] font-normal truncate leading-tight ${isDarkMode ? "text-[#E9EDEF]" : "text-[#111B21]"}`}>
+                        {lead.pushName || lead.remoteJid.split("@")[0]}
+                      </h3>
+                      <span className={`text-[11px] flex-shrink-0 ${isSelected ? "text-[#00a884] font-semibold" : "text-[#8696A0]"}`}>
+                        {formatTime(lead.updatedAt)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-1">
+                      <div
+                        className="px-1.5 py-0.5 rounded flex items-center gap-1 border flex-shrink-0"
+                        style={{ backgroundColor: `${lead.source_color || "#8696A0"}15`, borderColor: `${lead.source_color || "#8696A0"}30` }}
+                      >
+                        <span className="text-[9px] font-bold uppercase tracking-tighter" style={{ color: lead.source_color || "#8696A0" }}>
+                          {lead.lead_source || "Organik"}
+                        </span>
+                      </div>
+                      <p className={`text-xs truncate flex-1 ${isSelected ? (isDarkMode ? "text-[#E9EDEF]" : "text-[#111B21]") : "text-[#8696A0]"}`}>
+                        {lead.content}
+                      </p>
+                      <div className="opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                        <MessageSquare size={14} className="text-[#00a884]" />
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div
-                  className={`mt-2 p-2 rounded-lg text-[11px] line-clamp-1 italic text-left ${isDarkMode ? "bg-[#111B21] text-[#8696A0]" : "bg-gray-50 text-[#667781]"}`}
-                >
-                  "{lead.content}"
-                </div>
-              </div>
-            </div>
-          ))
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

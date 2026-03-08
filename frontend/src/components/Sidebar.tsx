@@ -10,7 +10,8 @@ import {
   PlusCircle,
   LogOut,
   Settings,
-  UserSearch, // Icon tambahan untuk Leads
+  UserSearch,
+  KeyRound, // Icon untuk CRUD Keyword
 } from "lucide-react";
 import NavButton from "./NavButton";
 
@@ -37,6 +38,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     user?.role_type === "system" || user?.role_type === "manager";
   const canSeeDashboard =
     user?.role_type === "system" || user?.role_type === "manager" || user?.role_type === "custom";
+  
+  // Hanya Admin/Manager yang bisa kelola Keyword Iklan
+  const canManageKeywords = 
+    user?.role_type === "system" || user?.role_type === "manager";
 
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
@@ -101,15 +106,29 @@ const Sidebar: React.FC<SidebarProps> = ({
               </>
             )}
 
-            {/* GROUP 2: MONITORING */}
+            {/* GROUP 2: MONITORING & ANALYTICS */}
             {canSeeDashboard && (
-              <NavButton
-                icon={<BarChart2 className="w-5 h-5" />}
-                active={activeTab === "dashboard"}
-                onClick={() => handleNavClick("dashboard")}
-                title="Dashboard Statistik"
-              />
+              <div className="flex flex-col gap-2 items-center">
+                <NavButton
+                  icon={<BarChart2 className="w-5 h-5" />}
+                  active={activeTab === "dashboard"}
+                  onClick={() => handleNavClick("dashboard")}
+                  title="Dashboard Statistik"
+                />
+                
+                {/* MENU BARU: CRUD KEYWORD LEADS */}
+                {canManageKeywords && (
+                  <NavButton
+      icon={<KeyRound className="w-5 h-5 text-yellow-500" />}
+      active={activeTab === "keyword-management"}
+      onClick={() => handleNavClick("keyword-management")}
+      title="Keyword Leads"
+    />
+                )}
+              </div>
             )}
+
+            <div className="w-8 h-[1px] bg-[#313D45] my-1" />
 
             {/* GROUP 3: CHAT & MESSAGING */}
             <div className="flex flex-col gap-2 items-center">
@@ -120,7 +139,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 title="Chat WhatsApp"
               />
 
-              {/* MENU BARU: LEADS ONLY */}
               <NavButton
                 icon={<UserSearch className="w-5 h-5 text-orange-400" />}
                 active={activeTab === "leads-only"}
