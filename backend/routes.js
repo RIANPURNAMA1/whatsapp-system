@@ -1140,20 +1140,21 @@ router.get("/labels/all", async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
+
 router.get("/chats/leads-only", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const roleType = req.user.role_type.toLowerCase().trim();
     const { sessionId, startDate, endDate } = req.query;
 
-    // 1. Ambil Keyword
     const dbKeywords = await query(
       "SELECT TRIM(platform) as platform, TRIM(keyword_text) as keyword_text, session_id FROM lead_keywords"
     );
     
     if (dbKeywords.length === 0) return res.json({ success: true, data: [] });
 
-    // 2. Cek Izin Session
     let allowedSessions = (roleType === "system" || roleType === "manager")
       ? await query("SELECT id FROM wa_sessions")
       : await query("SELECT session_id as id FROM wa_user_sessions WHERE user_id = ?", [userId]);
@@ -1165,7 +1166,6 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
                           ? [sessionId] 
                           : allowedIds;
 
-    // 3. Bangun CASE WHEN & Filter
     const colors = { tiktok: '#EE1D52', instagram: '#E1306C', facebook: '#1877F2', whatsapp: '#25D366' };
 
     let sourceCase = "CASE ";
@@ -1189,7 +1189,7 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
       colorCase += `${condition} THEN ? `;
       colorParams.push(pattern, sId, platformColor);
 
-      keywordFilterConditions.push(`(LOWER(m.content) LIKE ? AND TRIM(m.session_id) = TRIM(?))`);
+      keywordFilterConditions.push(`(LOWER(content) LIKE ? AND TRIM(session_id) = TRIM(?))`);
       keywordFilterParams.push(pattern, sId);
     });
 
@@ -1197,11 +1197,10 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
     colorCase += "ELSE '#8696A0' END";
 
     const keywordWhereClause = `AND (${keywordFilterConditions.join(" OR ")})`;
-
-    // 4. Query Utama dengan GROUP BY
     const placeholders = finalSessionIds.map(() => "?").join(",");
-    let dateFilter = (startDate && endDate) ? `AND m.timestamp BETWEEN ? AND ?` : "";
+    let dateFilter = (startDate && endDate) ? `AND timestamp BETWEEN ? AND ?` : "";
     
+    // Perbaikan: Tambahkan GROUP BY m.id di bagian paling luar untuk menyatukan join kontak yang ganda
     const sql = `
       SELECT 
         m.id, 
@@ -1209,17 +1208,22 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
         m.content, 
         m.timestamp AS updatedAt,
         m.session_id,
-        COALESCE(ct.push_name, ct.name, 'Unknown') AS pushName,
+        COALESCE(MAX(ct.push_name), MAX(ct.name), 'Unknown') AS pushName,
         ${sourceCase} AS lead_source,
         ${colorCase} AS source_color
       FROM wa_messages m
+      INNER JOIN (
+        SELECT MAX(id) as max_id
+        FROM wa_messages
+        WHERE is_from_me = 0 
+          AND chat_jid NOT LIKE '%@g.us'
+          AND session_id IN (${placeholders})
+          ${dateFilter}
+          ${keywordWhereClause}
+        GROUP BY chat_jid
+      ) latest ON m.id = latest.max_id
       LEFT JOIN wa_contacts ct ON ct.jid = m.chat_jid
-      WHERE m.is_from_me = 0 
-        AND m.chat_jid NOT LIKE '%@g.us' 
-        AND m.session_id IN (${placeholders})
-        ${dateFilter}
-        ${keywordWhereClause}
-      GROUP BY m.id /* INI KUNCINYA: Mencegah Duplikasi Baris */
+      GROUP BY m.id
       ORDER BY m.timestamp DESC
       LIMIT 100
     `;
