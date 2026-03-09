@@ -806,26 +806,26 @@ router.put("/keywords/:platform", authenticateToken, async (req, res) => {
   }
 });
 
-
 // Simpan atau Update Keyword
 router.post("/keywords/save", authenticateToken, async (req, res) => {
-  const { platform, keyword_text } = req.body;
+  const { platform, keyword_text, session_id } = req.body; // Ambil session_id dari request
 
-  if (!platform || !keyword_text) {
-    return res.status(400).json({ success: false, message: "Platform dan Keyword harus diisi" });
+  if (!platform || !keyword_text || !session_id) {
+    return res.status(400).json({ success: false, message: "Platform, Keyword, dan Perangkat harus diisi" });
   }
 
   try {
-    // Menggunakan ON DUPLICATE KEY UPDATE agar jika platform sudah ada, dia otomatis update
     const sql = `
-      INSERT INTO lead_keywords (platform, keyword_text) 
-      VALUES (?, ?) 
-      ON DUPLICATE KEY UPDATE keyword_text = VALUES(keyword_text)
+      INSERT INTO lead_keywords (platform, session_id, keyword_text) 
+      VALUES (?, ?, ?) 
+      ON DUPLICATE KEY UPDATE 
+        keyword_text = VALUES(keyword_text),
+        session_id = VALUES(session_id)
     `;
     
-    await query(sql, [platform.toLowerCase(), keyword_text]);
+    await query(sql, [platform.toLowerCase(), session_id, keyword_text]);
     
-    res.json({ success: true, message: `Keyword ${platform} berhasil disimpan!` });
+    res.json({ success: true, message: `Keyword berhasil disimpan untuk perangkat tersebut!` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -834,13 +834,17 @@ router.post("/keywords/save", authenticateToken, async (req, res) => {
 // Ambil semua keyword untuk ditampilkan di tabel
 router.get("/keywords", authenticateToken, async (req, res) => {
   try {
-    const data = await query("SELECT * FROM lead_keywords ORDER BY platform ASC");
+    const data = await query(`
+      SELECT k.*, s.name as session_name 
+      FROM lead_keywords k
+      LEFT JOIN wa_sessions s ON k.session_id = s.id
+      ORDER BY k.platform ASC
+    `);
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
-
 // Pastikan ID diterima sebagai parameter :id
 router.delete("/keywords/:id", authenticateToken, async (req, res) => {
   try {
@@ -988,12 +992,12 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
 });
 
 // routes/stats.js atau router.js
-
 router.get("/social/media", authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
-    const keywords = await query("SELECT platform, keyword_text FROM lead_keywords");
+    // 1. Ambil semua keywords beserta session_id nya
+    const keywords = await query("SELECT platform, keyword_text, session_id FROM lead_keywords");
     
     if (keywords.length === 0) {
       return res.json({ success: true, data: [], platforms: [] });
@@ -1019,9 +1023,10 @@ router.get("/social/media", authenticateToken, async (req, res) => {
 
     messages.forEach(msg => {
       const sId = msg.session_id;
+      
       if (!stats[sId]) {
         stats[sId] = { session_id: sId, totalPesanMasuk: 0 };
-        // Inisialisasi field leads_ untuk setiap platform dari DB
+        // Inisialisasi field leads_ hanya untuk platform yang terdaftar di session ini
         keywords.forEach(k => { 
           stats[sId][`leads_${k.platform.toLowerCase()}`] = 0; 
         });
@@ -1029,22 +1034,24 @@ router.get("/social/media", authenticateToken, async (req, res) => {
 
       stats[sId].totalPesanMasuk++;
 
-      keywords.forEach(k => {
+      // 2. Filter keywords: Hanya gunakan keyword yang session_id nya cocok dengan session_id pesan
+      const relevantKeywords = keywords.filter(k => k.session_id === sId);
+
+      relevantKeywords.forEach(k => {
         const platformKey = `leads_${k.platform.toLowerCase()}`;
         const searchKeyword = k.keyword_text.toLowerCase().trim();
         
-        // Cek jika konten pesan mengandung keyword dari database
         if (searchKeyword && msg.content && msg.content.includes(searchKeyword)) {
           stats[sId][platformKey]++;
         }
       });
     });
 
-    // Kirim hasil dan daftar platform aktif agar Frontend tahu apa yang harus dirender
     res.json({ 
       success: true, 
       data: Object.values(stats),
-      platforms: keywords.map(k => k.platform.toLowerCase()) 
+      // Kirim daftar platform unik untuk membantu frontend
+      platforms: [...new Set(keywords.map(k => k.platform.toLowerCase()))] 
     });
 
   } catch (error) {

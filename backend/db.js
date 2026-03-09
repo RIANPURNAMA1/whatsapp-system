@@ -90,9 +90,12 @@ async function initDatabase() {
 
   `CREATE TABLE IF NOT EXISTS lead_keywords (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  platform VARCHAR(50) UNIQUE,
+  platform VARCHAR(50),
+  session_id VARCHAR(255), -- Tambahkan kolom ini untuk ID Perangkat
   keyword_text TEXT,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- Gabungkan platform dan session_id sebagai kunci unik
+  UNIQUE KEY unique_platform_per_session (platform, session_id) 
 )`,
     // ⭐ TABEL BARU: wa_lead_sources (UNTUK TRACKING IKLAN)
     `CREATE TABLE IF NOT EXISTS wa_lead_sources (
