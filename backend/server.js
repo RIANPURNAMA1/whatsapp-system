@@ -51,54 +51,69 @@ app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 // 1. PUBLIC REDIRECT (Link Pendek /r/slug)
 // Letakkan DI ATAS /api agar diprioritaskan
 // ===============================================
-app.get("/r/:slug", async (req, res) => {
+// 1. Pastikan rute ini ada di file utama (app.js atau routes.js)
+// Rute ini menangani pengalihan (redirect) dari short link ke WhatsApp
+app.get("/:slug", async (req, res) => {
   const { slug } = req.params;
+  
+  // Mengambil data dari database whatsapp_system
   console.log(`[Rotator] Menghitung klik untuk slug: ${slug}`);
 
   try {
-    // Cari data berdasarkan short_code
+    // Cari data berdasarkan short_code di tabel link_rotators
     const rotator = await queryOne(
       "SELECT * FROM link_rotators WHERE short_code = ?",
-      [slug],
+      [slug]
     );
 
     if (!rotator) {
       return res.status(404).send(`
         <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
           <h1>404 - Link Tidak Ditemukan</h1>
-          <p>Periksa kembali URL Anda atau hubungi admin.</p>
+          <p>Link "${slug}" tidak terdaftar di sistem SatuPintu.</p>
         </div>
       `);
     }
 
-    // Update jumlah klik secara asinkron (tidak menghambat redirect)
+    // Update jumlah klik secara asinkron
     query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [
       rotator.id,
     ]).catch((err) => console.error("Gagal update clicks:", err));
 
-    // Logika pembagian nomor WA (Rotator)
+    // Logika pembersihan nomor dan pembagian nomor WA (Rotator)
     const numbers = rotator.wa_numbers
       .split(",")
       .map((n) => n.trim().replace(/\D/g, ""));
+    
     let targetNumber = numbers[0];
 
+    // Jika tipe target adalah 'rotator', pilih nomor secara acak
     if (rotator.target_type === "rotator" && numbers.length > 1) {
       const randomIndex = Math.floor(Math.random() * numbers.length);
       targetNumber = numbers[randomIndex];
     }
 
-    // Build WhatsApp URL
+    // Bangun WhatsApp URL dengan pesan yang sudah di-encode
     const encodedMessage = encodeURIComponent(rotator.message || "");
     const waUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
 
-    // Eksekusi Redirect
+    // Eksekusi Redirect ke WhatsApp
     console.log(`[Rotator] Redirecting ${slug} -> ${targetNumber}`);
     res.redirect(waUrl);
+
   } catch (error) {
     console.error("CRITICAL REDIRECT ERROR:", error);
     res.status(500).send("Terjadi kesalahan internal pada sistem rotator.");
   }
 });
+
+// 2. Tambahkan Helper untuk Menghasilkan Link di Dashboard
+// Gunakan ini saat menampilkan link di tabel atau dashboard
+const generateRotatorLink = (slug) => {
+  // Mengambil domain frontend dari .env (https://satupintu.mendunia.id)
+  const baseUrl = process.env.FRONTEND_URL || "https://satupintu.mendunia.id";
+  return `${baseUrl}/r/${slug}`;
+};
 
 // ===============================================
 // 2. API Routes
