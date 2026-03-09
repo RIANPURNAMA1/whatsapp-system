@@ -57,60 +57,58 @@ const LabelSection: React.FC<LabelSectionProps> = ({
           : "bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-[#3B4A54]"
       } overflow-hidden border ${isDarkMode ? "border-[#2a3942]" : "border-[#f0f2f5]"} mb-8 font-sans`}
     >
-      {/* Header - Disamakan dengan Social Media Leads */}
-      <div className="px-8 py-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div
-            className={`p-2.5 rounded-2xl ${isDarkMode ? "bg-[#202C33]" : "bg-emerald-50 text-emerald-500"}`}
-          >
-            <Tag size={18} strokeWidth={2.5} />
-          </div>
-          <div>
-            <h2 className="text-base font-bold tracking-tight">
-              WhatsApp Labels
-            </h2>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className={`text-[11px] font-medium opacity-60`}>
-                {items.length} Active Labels
-              </span>
-            </div>
-          </div>
-        </div>
+ {/* Header - Disamakan dengan Social Media Leads */}
+<div className="px-8 py-6 flex flex-wrap items-center justify-between gap-4">
+  
+  <div className="flex items-center gap-4">
+    <div
+      className={`p-2.5 rounded-2xl ${isDarkMode ? "bg-[#202C33]" : "bg-emerald-50 text-emerald-500"}`}
+    >
+      <Tag size={18} strokeWidth={2.5} />
+    </div>
 
-        {/* Filter Device - Style Ramping */}
-        <div
-          className={`flex p-1 rounded-xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-[#f8f9fa] border-[#f0f2f5]"}`}
-        >
-          <button
-            onClick={() => setLabelDeviceFilter("all")}
-            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
-              labelDeviceFilter === "all"
-                ? "bg-emerald-500 text-white shadow-sm"
-                : isDarkMode
-                  ? "text-[#8696A0] hover:text-white"
-                  : "text-[#667781] hover:text-[#3B4A54]"
-            }`}
-          >
-            Semua
-          </button>
-          {sessions.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setLabelDeviceFilter(s.id)}
-              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
-                labelDeviceFilter === s.id
-                  ? "bg-emerald-500 text-white shadow-sm"
-                  : isDarkMode
-                    ? "text-[#8696A0] hover:text-white"
-                    : "text-[#667781] hover:text-[#3B4A54]"
-              }`}
-            >
-              {s.name.split(" ")[0]}
-            </button>
-          ))}
-        </div>
+    <div>
+      <h2 className="text-base font-bold tracking-tight">
+        WhatsApp Labels
+      </h2>
+
+      <div className="flex items-center gap-2 mt-1">
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="text-[11px] font-medium opacity-60">
+          {items.length} Active Labels
+        </span>
       </div>
+    </div>
+  </div>
+
+  {/* Filter Device - Select */}
+  <div
+    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-semibold ${
+      isDarkMode
+        ? "bg-[#202C33] border-[#313D45] text-[#E9EDEF]"
+        : "bg-[#f8f9fa] border-[#f0f2f5] text-[#3B4A54]"
+    }`}
+  >
+    <span className="opacity-60">Device</span>
+
+    <select
+      value={labelDeviceFilter}
+      onChange={(e) => setLabelDeviceFilter(e.target.value)}
+      className={`bg-transparent outline-none text-[11px] font-bold cursor-pointer ${
+        isDarkMode ? "text-white" : "text-gray-700"
+      }`}
+    >
+      <option value="all">Semua Device</option>
+
+      {sessions.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.name}
+        </option>
+      ))}
+    </select>
+  </div>
+
+</div>
 
       {/* Content Area */}
       <div className="px-8 pb-8 relative min-h-[160px]">

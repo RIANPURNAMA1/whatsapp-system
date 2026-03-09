@@ -24,10 +24,10 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { log } from "console";
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
-});
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+  });
 
 // ===============================================
 // HELPER: Bangun filter WHERE berdasarkan period & sessionId
