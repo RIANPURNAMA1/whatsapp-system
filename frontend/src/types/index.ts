@@ -94,3 +94,15 @@ export interface SocketEvents {
   message: Message;
   chatUpdate: string;
 }
+
+
+export interface LinkRotator {
+  id: string;
+  name: string;
+  short_url: string;
+  clicks: number;
+  type: 'direct' | 'lander';
+  target_type: 'single' | 'rotator';
+  wa_numbers: string[]; // Bisa simpan sebagai string dipisah koma atau array
+  message: string;
+}

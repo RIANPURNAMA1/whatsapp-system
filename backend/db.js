@@ -86,7 +86,21 @@ export const assignSessionToUser = async (userId, sessionId) => {
 async function initDatabase() {
   const tables = [
 
-
+`CREATE TABLE IF NOT EXISTS link_rotators (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    short_code VARCHAR(100) UNIQUE NOT NULL,
+    type ENUM('direct', 'lander') DEFAULT 'direct',
+    target_type ENUM('single', 'rotator') DEFAULT 'single',
+    wa_numbers TEXT NOT NULL,
+    message TEXT,
+    clicks INT DEFAULT 0,
+    -- PERBAIKAN DI SINI:
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES wa_users(id) ON DELETE CASCADE
+)`,
 
   `CREATE TABLE IF NOT EXISTS lead_keywords (
   id INT AUTO_INCREMENT PRIMARY KEY,

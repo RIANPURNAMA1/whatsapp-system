@@ -1,15 +1,16 @@
 // server.js - Server Utama Express + Socket.IO
-import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
-import routes from './routes.js';
-import { createSession, getSessionInfo, isSessionConnected } from './whatsapp.js';
-import { query, ensureDbReady } from './db.js'; // Tambahkan ensureDbReady di sini
+import express from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import cors from "cors";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
+import routes from "./routes.js";
+import { createSession } from "./whatsapp.js";
+// TAMBAHKAN queryOne DI SINI Agar tidak "Server Error"
+import { query, queryOne, ensureDbReady } from "./db.js";
 
 dotenv.config();
 
@@ -22,122 +23,152 @@ const httpServer = createServer(app);
 // ===============================================
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST'],
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ['websocket', 'polling'],
+  transports: ["websocket", "polling"],
 });
 
-// Expose io ke routes
-app.set('io', io);
+app.set("io", io);
 
 // ===============================================
 // Middleware
 // ===============================================
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true,
-}));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
+  }),
+);
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// // Folder untuk menyimpan media
-// const mediaDir = path.join(__dirname, 'media');
-// if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
-// app.use('/media', express.static(mediaDir));
+// Static Files
+app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 
 // ===============================================
-// Routes
+// 1. PUBLIC REDIRECT (Link Pendek /r/slug)
+// Letakkan DI ATAS /api agar diprioritaskan
 // ===============================================
-app.use('/api', routes);
+app.get("/r/:slug", async (req, res) => {
+  const { slug } = req.params;
+  console.log(`[Rotator] Menghitung klik untuk slug: ${slug}`);
+
+  try {
+    // Cari data berdasarkan short_code
+    const rotator = await queryOne(
+      "SELECT * FROM link_rotators WHERE short_code = ?",
+      [slug],
+    );
+
+    if (!rotator) {
+      return res.status(404).send(`
+        <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
+          <h1>404 - Link Tidak Ditemukan</h1>
+          <p>Periksa kembali URL Anda atau hubungi admin.</p>
+        </div>
+      `);
+    }
+
+    // Update jumlah klik secara asinkron (tidak menghambat redirect)
+    query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [
+      rotator.id,
+    ]).catch((err) => console.error("Gagal update clicks:", err));
+
+    // Logika pembagian nomor WA (Rotator)
+    const numbers = rotator.wa_numbers
+      .split(",")
+      .map((n) => n.trim().replace(/\D/g, ""));
+    let targetNumber = numbers[0];
+
+    if (rotator.target_type === "rotator" && numbers.length > 1) {
+      const randomIndex = Math.floor(Math.random() * numbers.length);
+      targetNumber = numbers[randomIndex];
+    }
+
+    // Build WhatsApp URL
+    const encodedMessage = encodeURIComponent(rotator.message || "");
+    const waUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
+
+    // Eksekusi Redirect
+    console.log(`[Rotator] Redirecting ${slug} -> ${targetNumber}`);
+    res.redirect(waUrl);
+  } catch (error) {
+    console.error("CRITICAL REDIRECT ERROR:", error);
+    res.status(500).send("Terjadi kesalahan internal pada sistem rotator.");
+  }
+});
+
+// ===============================================
+// 2. API Routes
+// ===============================================
+app.use("/api", routes);
 
 // Health check
-app.get('/health', (req, res) => {
+app.get("/health", (req, res) => {
   res.json({
-    status: 'ok',
+    status: "ok",
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
+    version: "1.0.0",
   });
 });
 
-app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
 // ===============================================
 // Socket.IO Events
 // ===============================================
-io.on('connection', (socket) => {
+io.on("connection", (socket) => {
   console.log(`🔌 Client terhubung: ${socket.id}`);
-
-  socket.on('join:session', (sessionId) => {
+  socket.on("join:session", (sessionId) => {
     socket.join(`session:${sessionId}`);
-    console.log(`Socket ${socket.id} bergabung ke sesi: ${sessionId}`);
   });
-
-  socket.on('leave:session', (sessionId) => {
-    socket.leave(`session:${sessionId}`);
-  });
-
-  socket.on('disconnect', () => {
+  socket.on("disconnect", () => {
     console.log(`🔌 Client terputus: ${socket.id}`);
   });
 });
 
 // ===============================================
-// Startup: Reconnect sesi yang sebelumnya aktif
+// Startup: Reconnect sesi aktif
 // ===============================================
 async function startActiveSessions() {
   try {
-    // Query ini akan otomatis menunggu ensureDbReady karena fungsi query di db.js sudah kita modifikasi
     const activeSessions = await query(
-      "SELECT id FROM wa_sessions WHERE status IN ('connected', 'connecting')"
+      "SELECT id FROM wa_sessions WHERE status IN ('connected', 'connecting')",
     );
 
     if (activeSessions.length > 0) {
-      console.log(`🔄 Mencoba reconnect ${activeSessions.length} sesi aktif...`);
+      console.log(`🔄 Reconnect ${activeSessions.length} sesi...`);
       for (const session of activeSessions) {
-        console.log(`  → Memulai sesi: ${session.id}`);
-        await createSession(session.id, io).catch(err => {
-          console.error(`  ✗ Gagal reconnect sesi ${session.id}:`, err.message);
-        });
-        // Delay antar sesi agar tidak membebani sistem
-        await new Promise(r => setTimeout(r, 2000));
+        createSession(session.id, io).catch((err) =>
+          console.error(`Err ${session.id}:`, err.message),
+        );
+        await new Promise((r) => setTimeout(r, 1500));
       }
-    } else {
-      console.log('✅ Tidak ada sesi aktif yang perlu di-reconnect.');
     }
   } catch (err) {
-    console.error('❌ Error startup sesi:', err.message);
+    console.error("❌ Error startup:", err.message);
   }
 }
 
 // ===============================================
-// Mulai server
+// Jalankan Server
 // ===============================================
 const PORT = process.env.PORT || 3001;
 
 httpServer.listen(PORT, async () => {
-  console.log('');
-  console.log('╔════════════════════════════════════════╗');
-  console.log('║     WhatsApp System - Backend API      ║');
-  console.log('╚════════════════════════════════════════╝');
-  
+  console.log("╔════════════════════════════════════════╗");
+  console.log("║      WhatsApp & Rotator System         ║");
+  console.log("╚════════════════════════════════════════╝");
+
   try {
-    // LANGKAH KRUSIAL: Tunggu Database & Tabel Siap
-    console.log('⏳ Menyiapkan database...');
     await ensureDbReady();
-    
-    console.log(`🚀 Server berjalan di: http://localhost:${PORT}`);
-    console.log(`📡 Socket.IO aktif`);
-    console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-    console.log('');
+    console.log(`🚀 Server: http://localhost:${PORT}`);
+    console.log(`🔗 Link Rotator: http://localhost:${PORT}/r/[slug]`);
 
-    // Jalankan reconnect setelah database dipastikan siap
     await startActiveSessions();
-
   } catch (error) {
-    console.error('💥 GAGAL MEMULAI SERVER:');
-    console.error(error.message);
-    process.exit(1); // Matikan aplikasi jika database gagal
+    console.error("💥 GAGAL MEMULAI SERVER:", error.message);
+    process.exit(1);
   }
 });
 

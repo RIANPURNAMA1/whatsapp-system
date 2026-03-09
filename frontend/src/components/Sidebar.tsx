@@ -11,7 +11,8 @@ import {
   LogOut,
   Settings,
   UserSearch,
-  KeyRound, // Icon untuk CRUD Keyword
+  KeyRound,
+  Link2, // Ikon baru untuk Link Rotator
 } from "lucide-react";
 import NavButton from "./NavButton";
 
@@ -39,8 +40,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const canSeeDashboard =
     user?.role_type === "system" || user?.role_type === "manager" || user?.role_type === "custom";
   
-  // Hanya Admin/Manager yang bisa kelola Keyword Iklan
-  const canManageKeywords = 
+  // Admin/Manager bisa kelola Keyword & Link Rotator
+  const canManageMarketing = 
     user?.role_type === "system" || user?.role_type === "manager";
 
   const handleNavClick = (tab: string) => {
@@ -106,7 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </>
             )}
 
-            {/* GROUP 2: MONITORING & ANALYTICS */}
+            {/* GROUP 2: MONITORING & MARKETING */}
             {canSeeDashboard && (
               <div className="flex flex-col gap-2 items-center">
                 <NavButton
@@ -116,14 +117,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                   title="Dashboard Statistik"
                 />
                 
-                {/* MENU BARU: CRUD KEYWORD LEADS */}
-                {canManageKeywords && (
-                  <NavButton
-      icon={<KeyRound className="w-5 h-5 text-yellow-500" />}
-      active={activeTab === "keyword-management"}
-      onClick={() => handleNavClick("keyword-management")}
-      title="Keyword Leads"
-    />
+                {canManageMarketing && (
+                  <>
+                    <NavButton
+                      icon={<KeyRound className="w-5 h-5 text-yellow-500" />}
+                      active={activeTab === "keyword-management"}
+                      onClick={() => handleNavClick("keyword-management")}
+                      title="Keyword Leads"
+                    />
+                    
+                    {/* MENU BARU: LINK ROTATOR */}
+                    <NavButton
+                      icon={<Link2 className="w-5 h-5 text-emerald-400" />}
+                      active={activeTab === "link-rotator"}
+                      onClick={() => handleNavClick("link-rotator")}
+                      title="Link Rotator"
+                    />
+                  </>
                 )}
               </div>
             )}
@@ -143,7 +153,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 icon={<UserSearch className="w-5 h-5 text-orange-400" />}
                 active={activeTab === "leads-only"}
                 onClick={() => handleNavClick("leads-only")}
-                title="Pesan Leads Baru (Non-Kontak)"
+                title="Pesan Leads Baru"
               />
 
               {canSeeGlobalInbox && (
@@ -181,16 +191,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div
               onClick={() => handleNavClick("settings")}
               className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-colors group ${
-                activeTab === "settings"
-                  ? "bg-[#00a884]/20"
-                  : "hover:bg-[#313D45]"
+                activeTab === "settings" ? "bg-[#00a884]/20" : "hover:bg-[#313D45]"
               }`}
             >
               <Settings
                 className={`w-5 h-5 transition-colors ${
-                  activeTab === "settings"
-                    ? "text-[#00a884]"
-                    : "text-[#8696A0] group-hover:text-white"
+                  activeTab === "settings" ? "text-[#00a884]" : "text-[#8696A0] group-hover:text-white"
                 }`}
               />
             </div>

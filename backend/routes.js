@@ -24,10 +24,10 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { log } from "console";
 
-  const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 },
-  });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+});
 
 // ===============================================
 // HELPER: Bangun filter WHERE berdasarkan period & sessionId
@@ -777,7 +777,7 @@ router.delete("/sessions/:sessionId", async (req, res) => {
   }
 });
 
-// GET: QR Code untuk sesi 
+// GET: QR Code untuk sesi
 router.get("/sessions/:sessionId/qr", async (req, res) => {
   const { sessionId } = req.params;
   const session = await queryOne(
@@ -794,13 +794,249 @@ router.get("/sessions/:sessionId/qr", async (req, res) => {
   });
 });
 
+// ===============================================
+// LINK ROTATOR ROUTES
+// ===============================================
+
+// GET: Ambil semua link rotator milik user (atau semua jika system)
+router.get("/rotators", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const roleType = req.user.role_type.toLowerCase().trim();
+
+    let sql = "";
+    let params = [];
+
+    if (roleType === "system" || roleType === "manager") {
+      // System/Manager bisa melihat semua rotator
+      sql = "SELECT * FROM link_rotators ORDER BY id DESC";
+    } else {
+      // User biasa hanya melihat miliknya sendiri
+      sql = "SELECT * FROM link_rotators WHERE user_id = ? ORDER BY id DESC";
+      params = [userId];
+    }
+
+    const data = await query(sql, params);
+
+    // Tambahkan domain ke short_code agar menjadi URL lengkap di frontend
+    const domain =
+      process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const formattedData = data.map((item) => ({
+      ...item,
+      url: `${domain}/r/${item.short_code}`,
+    }));
+
+    res.json({ success: true, data: formattedData });
+  } catch (error) {
+    console.error("GET Rotators Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST: Tambah Rotator Baru
+router.post("/rotators", authenticateToken, async (req, res) => {
+  const { name, shortCode, type, targetType, waNumbers, message } = req.body;
+  const userId = req.user.id;
+
+  if (!name || !shortCode || !waNumbers) {
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Nama, Slug, dan Nomor WA wajib diisi",
+      });
+  }
+
+  try {
+    // 1. Cek apakah slug/short_code sudah digunakan
+    const existing = await queryOne(
+      "SELECT id FROM link_rotators WHERE short_code = ?",
+      [shortCode],
+    );
+    if (existing) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Slug/Shortcode sudah digunakan, coba yang lain.",
+        });
+    }
+
+    // 2. Insert ke Database
+    const sql = `
+      INSERT INTO link_rotators 
+      (user_id, name, short_code, type, target_type, wa_numbers, message, clicks, created_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())
+    `;
+
+    const result = await query(sql, [
+      userId,
+      name,
+      shortCode.trim().toLowerCase().replace(/\s+/g, "-"), // Bersihkan slug
+      type || "direct",
+      targetType || "single",
+      waNumbers,
+      message || "",
+    ]);
+
+    res.json({
+      success: true,
+      message: "Link Rotator berhasil dibuat",
+      id: result.insertId,
+    });
+  } catch (error) {
+    console.error("POST Rotator Error:", error);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Gagal menyimpan ke database: " + error.message,
+      });
+  }
+});
+
+// ===============================================
+// PUBLIC REDIRECT ROUTER (LOGIK ROTATOR)
+// ===============================================
+
+// PUT: Update Rotator (Edit Data)
+router.put("/rotators/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { name, shortCode, type, targetType, waNumbers, message } = req.body;
+  const userId = req.user.id;
+  const roleType = req.user.role_type.toLowerCase().trim();
+
+  // 1. Validasi Input Dasar
+  if (!name || !shortCode || !waNumbers) {
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Nama, Slug, dan Nomor WA wajib diisi",
+      });
+  }
+
+  try {
+    // 2. Cek Kepemilikan (Hanya pemilik atau admin 'system' yang boleh edit)
+    const existingData = await queryOne(
+      "SELECT user_id, short_code FROM link_rotators WHERE id = ?",
+      [id],
+    );
+
+    if (!existingData) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Data tidak ditemukan" });
+    }
+
+    if (roleType !== "system" && existingData.user_id !== userId) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Anda tidak memiliki akses mengedit link ini",
+        });
+    }
+
+    // 3. Cek Duplikasi Slug (Jika slug diubah, pastikan slug baru belum dipakai orang lain)
+    const newSlug = shortCode.trim().toLowerCase().replace(/\s+/g, "-");
+    if (newSlug !== existingData.short_code) {
+      const slugExists = await queryOne(
+        "SELECT id FROM link_rotators WHERE short_code = ? AND id != ?",
+        [newSlug, id],
+      );
+      if (slugExists) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Slug sudah digunakan oleh link lain.",
+          });
+      }
+    }
+
+    // 4. Proses Update ke Database
+    const sql = `
+      UPDATE link_rotators 
+      SET 
+        name = ?, 
+        short_code = ?, 
+        type = ?, 
+        target_type = ?, 
+        wa_numbers = ?, 
+        message = ?,
+        updated_at = NOW()
+      WHERE id = ?
+    `;
+
+    await query(sql, [
+      name,
+      newSlug,
+      type || "direct",
+      targetType || "single",
+      waNumbers,
+      message || "",
+      id,
+    ]);
+
+    res.json({
+      success: true,
+      message: "Link Rotator berhasil diperbarui",
+    });
+  } catch (error) {
+    console.error("PUT Rotator Error:", error);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Gagal memperbarui database: " + error.message,
+      });
+  }
+});
+
+// DELETE: Hapus Rotator
+router.delete("/rotators/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  const roleType = req.user.role_type.toLowerCase().trim();
+
+  try {
+    // Proteksi: Hanya pemilik atau admin system yang boleh hapus
+    if (roleType !== "system") {
+      const owner = await queryOne(
+        "SELECT user_id FROM link_rotators WHERE id = ?",
+        [id],
+      );
+      if (!owner || owner.user_id !== userId) {
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message: "Anda tidak memiliki akses menghapus link ini",
+          });
+      }
+    }
+
+    await query("DELETE FROM link_rotators WHERE id = ?", [id]);
+    res.json({ success: true, message: "Link berhasil dihapus" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // PUT: Update keyword berdasarkan platform
 router.put("/keywords/:platform", authenticateToken, async (req, res) => {
   const { platform } = req.params;
   const { keyword_text } = req.body;
   try {
-    await query("UPDATE lead_keywords SET keyword_text = ? WHERE platform = ?", [keyword_text, platform]);
-    res.json({ success: true, message: `Keyword ${platform} berhasil diperbarui` });
+    await query(
+      "UPDATE lead_keywords SET keyword_text = ? WHERE platform = ?",
+      [keyword_text, platform],
+    );
+    res.json({
+      success: true,
+      message: `Keyword ${platform} berhasil diperbarui`,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -811,7 +1047,12 @@ router.post("/keywords/save", authenticateToken, async (req, res) => {
   const { platform, keyword_text, session_id } = req.body; // Ambil session_id dari request
 
   if (!platform || !keyword_text || !session_id) {
-    return res.status(400).json({ success: false, message: "Platform, Keyword, dan Perangkat harus diisi" });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Platform, Keyword, dan Perangkat harus diisi",
+      });
   }
 
   try {
@@ -822,10 +1063,13 @@ router.post("/keywords/save", authenticateToken, async (req, res) => {
         keyword_text = VALUES(keyword_text),
         session_id = VALUES(session_id)
     `;
-    
+
     await query(sql, [platform.toLowerCase(), session_id, keyword_text]);
-    
-    res.json({ success: true, message: `Keyword berhasil disimpan untuk perangkat tersebut!` });
+
+    res.json({
+      success: true,
+      message: `Keyword berhasil disimpan untuk perangkat tersebut!`,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -855,9 +1099,9 @@ router.delete("/keywords/:id", authenticateToken, async (req, res) => {
 
     // Cek apakah ada baris yang terhapus
     if (result.affectedRows === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Keyword tidak ditemukan atau sudah dihapus." 
+      return res.status(404).json({
+        success: false,
+        message: "Keyword tidak ditemukan atau sudah dihapus.",
       });
     }
 
@@ -871,7 +1115,6 @@ router.delete("/keywords/:id", authenticateToken, async (req, res) => {
 // ===============================================
 // STATS ROUTES - DASHBOARD UTAMA
 // ===============================================
-
 
 // GET: Semua label lintas session untuk dashboard
 router.get("/labels/all", async (req, res) => {
@@ -890,24 +1133,26 @@ router.get("/labels/all", async (req, res) => {
        WHERE ws.user_id = ?
        GROUP BY l.session_id, l.wa_label_id
        ORDER BY chat_count DESC, l.name ASC`,
-      [userId]
+      [userId],
     );
     res.json({ success: true, data: labels });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
-
 router.get("/chats/leads-only", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const roleType = req.user.role_type.toLowerCase().trim();
     const { sessionId, startDate, endDate } = req.query;
 
-    // 1. Ambil Keyword dari Database
-    const dbKeywords = await query("SELECT platform, keyword_text FROM lead_keywords");
+    // 1. Ambil Keyword
+    const dbKeywords = await query(
+      "SELECT TRIM(platform) as platform, TRIM(keyword_text) as keyword_text, session_id FROM lead_keywords"
+    );
     
+    if (dbKeywords.length === 0) return res.json({ success: true, data: [] });
+
     // 2. Cek Izin Session
     let allowedSessions = (roleType === "system" || roleType === "manager")
       ? await query("SELECT id FROM wa_sessions")
@@ -920,37 +1165,51 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
                           ? [sessionId] 
                           : allowedIds;
 
-    // 3. Bangun Dinamis CASE WHEN
+    // 3. Bangun CASE WHEN & Filter
     const colors = { tiktok: '#EE1D52', instagram: '#E1306C', facebook: '#1877F2', whatsapp: '#25D366' };
 
     let sourceCase = "CASE ";
     let colorCase = "CASE ";
     let sourceParams = [];
     let colorParams = [];
+    let keywordFilterConditions = [];
+    let keywordFilterParams = [];
 
     dbKeywords.forEach(kw => {
       const pattern = `%${kw.keyword_text.toLowerCase().trim()}%`;
-      // sourceCase menggunakan parameter sendiri
-      sourceCase += `WHEN LOWER(m.content) LIKE ? THEN ? `;
-      sourceParams.push(pattern, kw.platform);
+      const sId = kw.session_id;
+      const platformName = kw.platform.toLowerCase().trim();
+      const platformColor = colors[platformName] || '#8696A0';
+
+      const condition = `WHEN LOWER(m.content) LIKE ? AND TRIM(m.session_id) = TRIM(?) `;
       
-      // colorCase menggunakan parameter sendiri
-      colorCase += `WHEN LOWER(m.content) LIKE ? THEN ? `;
-      const platformColor = colors[kw.platform.toLowerCase()] || '#8696A0';
-      colorParams.push(pattern, platformColor);
+      sourceCase += `${condition} THEN ? `;
+      sourceParams.push(pattern, sId, platformName);
+      
+      colorCase += `${condition} THEN ? `;
+      colorParams.push(pattern, sId, platformColor);
+
+      keywordFilterConditions.push(`(LOWER(m.content) LIKE ? AND TRIM(m.session_id) = TRIM(?))`);
+      keywordFilterParams.push(pattern, sId);
     });
 
     sourceCase += "ELSE 'Organik' END";
     colorCase += "ELSE '#8696A0' END";
 
-    // 4. Bangun Query Utama
+    const keywordWhereClause = `AND (${keywordFilterConditions.join(" OR ")})`;
+
+    // 4. Query Utama dengan GROUP BY
     const placeholders = finalSessionIds.map(() => "?").join(",");
     let dateFilter = (startDate && endDate) ? `AND m.timestamp BETWEEN ? AND ?` : "";
     
     const sql = `
       SELECT 
-        m.id, m.chat_jid AS remoteJid, m.content, m.timestamp AS updatedAt,
-        COALESCE(ct.push_name, 'Unknown') AS pushName,
+        m.id, 
+        m.chat_jid AS remoteJid, 
+        m.content, 
+        m.timestamp AS updatedAt,
+        m.session_id,
+        COALESCE(ct.push_name, ct.name, 'Unknown') AS pushName,
         ${sourceCase} AS lead_source,
         ${colorCase} AS source_color
       FROM wa_messages m
@@ -959,46 +1218,43 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
         AND m.chat_jid NOT LIKE '%@g.us' 
         AND m.session_id IN (${placeholders})
         ${dateFilter}
-        /* Filter agar hanya mengambil pesan pertama dari orang yang belum dikenal (Leads Baru) */
-        AND NOT EXISTS (
-          SELECT 1 FROM wa_messages older 
-          WHERE older.chat_jid = m.chat_jid AND older.id < m.id
-        )
-        AND (ct.name IS NULL OR ct.name = '')
+        ${keywordWhereClause}
+      GROUP BY m.id /* INI KUNCINYA: Mencegah Duplikasi Baris */
       ORDER BY m.timestamp DESC
       LIMIT 100
     `;
 
-    // Urutan Parameter Sangat Penting! 
-    // [Source Params] -> [Color Params] -> [Session IDs] -> [Dates]
     const finalParams = [
       ...sourceParams, 
       ...colorParams, 
       ...finalSessionIds, 
-      ...(startDate && endDate ? [startDate, endDate] : [])
+      ...(startDate && endDate ? [startDate, endDate] : []),
+      ...keywordFilterParams
     ];
 
     const leads = await query(sql, finalParams);
+
     res.json({ 
       success: true, 
       data: leads, 
-      platforms: [...new Set(dbKeywords.map(k => k.platform))] 
+      platforms: [...new Set(dbKeywords.map(k => k.platform.toLowerCase().trim()))] 
     });
 
   } catch (err) {
-    console.error("Leads Error:", err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error("Leads Filter Error:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
-
 // routes/stats.js atau router.js
 router.get("/social/media", authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
     // 1. Ambil semua keywords beserta session_id nya
-    const keywords = await query("SELECT platform, keyword_text, session_id FROM lead_keywords");
-    
+    const keywords = await query(
+      "SELECT platform, keyword_text, session_id FROM lead_keywords",
+    );
+
     if (keywords.length === 0) {
       return res.json({ success: true, data: [], platforms: [] });
     }
@@ -1021,39 +1277,42 @@ router.get("/social/media", authenticateToken, async (req, res) => {
     const messages = await query(sql, params);
     const stats = {};
 
-    messages.forEach(msg => {
+    messages.forEach((msg) => {
       const sId = msg.session_id;
-      
+
       if (!stats[sId]) {
         stats[sId] = { session_id: sId, totalPesanMasuk: 0 };
         // Inisialisasi field leads_ hanya untuk platform yang terdaftar di session ini
-        keywords.forEach(k => { 
-          stats[sId][`leads_${k.platform.toLowerCase()}`] = 0; 
+        keywords.forEach((k) => {
+          stats[sId][`leads_${k.platform.toLowerCase()}`] = 0;
         });
       }
 
       stats[sId].totalPesanMasuk++;
 
       // 2. Filter keywords: Hanya gunakan keyword yang session_id nya cocok dengan session_id pesan
-      const relevantKeywords = keywords.filter(k => k.session_id === sId);
+      const relevantKeywords = keywords.filter((k) => k.session_id === sId);
 
-      relevantKeywords.forEach(k => {
+      relevantKeywords.forEach((k) => {
         const platformKey = `leads_${k.platform.toLowerCase()}`;
         const searchKeyword = k.keyword_text.toLowerCase().trim();
-        
-        if (searchKeyword && msg.content && msg.content.includes(searchKeyword)) {
+
+        if (
+          searchKeyword &&
+          msg.content &&
+          msg.content.includes(searchKeyword)
+        ) {
           stats[sId][platformKey]++;
         }
       });
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: Object.values(stats),
       // Kirim daftar platform unik untuk membantu frontend
-      platforms: [...new Set(keywords.map(k => k.platform.toLowerCase()))] 
+      platforms: [...new Set(keywords.map((k) => k.platform.toLowerCase()))],
     });
-
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1065,8 +1324,7 @@ router.get("/social/media", authenticateToken, async (req, res) => {
 //  // 1. Tentukan Keyword (Pastikan ini sesuai dengan template pesan iklanmu)
 //     const kwTikTok = "%Hallo Teh Rindu, saya mau tanya Kelas Mendunia%";
 //     const kwIG = "%Hallo Teh, saya mau tanya Kelas Mendunia%";
-//     const kwFB = "%Hallo Kak, saya mau tanya Kelas Mendunia%"; 
-   
+//     const kwFB = "%Hallo Kak, saya mau tanya Kelas Mendunia%";
 
 //     // 2. Siapkan Params sesuai urutan tanda tanya (?) di SQL
 //     // Urutan: TikTok, IG, TikTok(Exclude), FB
@@ -1081,20 +1339,20 @@ router.get("/social/media", authenticateToken, async (req, res) => {
 
 //     // 3. Query (Menghitung leads per session_id)
 //     const sql = `
-//       SELECT 
+//       SELECT
 //         m.session_id,
 //         SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsTikTok,
 //         SUM(CASE WHEN m.content LIKE ? AND m.content NOT LIKE ? THEN 1 ELSE 0 END) as leadsIG,
 //         SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsFB,
 //         COUNT(*) as totalPesanMasuk
 //       FROM wa_messages m
-//       WHERE m.is_from_me = 0 
+//       WHERE m.is_from_me = 0
 //         AND m.chat_jid NOT LIKE '%@g.us'
 //         ${dateFilter}
 //       GROUP BY m.session_id
 //     `;
 
-//     const results = await query(sql, params); 
+//     const results = await query(sql, params);
 
 //     res.json({
 //       success: true,
@@ -1451,8 +1709,6 @@ router.get("/sessions/:sessionId/stats", async (req, res) => {
 // ===============================================
 // GLOBAL INBOX - MENGAMBIL PESAN TERAKHIR (FIXED)
 // ===============================================
-
-
 
 router.get("/all-global-messages", async (req, res) => {
   try {
@@ -2055,34 +2311,38 @@ router.post("/sessions/:sessionId/labels", async (req, res) => {
     const session = sessions.get(sessionId);
 
     if (!session?.sock) {
-      return res.status(404).json({ success: false, message: "Sesi tidak ditemukan" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Sesi tidak ditemukan" });
     }
 
     // Cek apakah nama label sudah ada
     const existing = await query(
       "SELECT id FROM wa_labels WHERE session_id = ? AND name = ?",
-      [sessionId, name.trim()]
+      [sessionId, name.trim()],
     );
     if (existing.length > 0) {
-      return res.status(400).json({ success: false, message: "Label dengan nama ini sudah ada" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Label dengan nama ini sudah ada" });
     }
 
     // ⚠️ addLabel Baileys tidak sync ke WA Business dengan benar
-    // Solusi: sync dari WA HP — minta user buat label di HP, 
+    // Solusi: sync dari WA HP — minta user buat label di HP,
     // sistem akan auto-detect via labels.edit event
     // Tapi tetap simpan ke DB lokal dulu dengan temp ID
     const tempId = `temp_${Date.now()}`;
     await query(
       `INSERT INTO wa_labels (session_id, wa_label_id, name, color) VALUES (?, ?, ?, ?)`,
-      [sessionId, tempId, name.trim(), color || "#25D366"]
+      [sessionId, tempId, name.trim(), color || "#25D366"],
     );
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       warning: true, // ✅ flag untuk frontend tampilkan pesan
-      message: "Label disimpan lokal. Buat juga label dengan nama yang SAMA di WhatsApp Business HP agar tersinkron.",
+      message:
+        "Label disimpan lokal. Buat juga label dengan nama yang SAMA di WhatsApp Business HP agar tersinkron.",
     });
-
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -2181,7 +2441,9 @@ router.put("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
       } else if (typeof sock.labelChat === "function") {
         return await sock.labelChat(jid, labelId, "add");
       } else {
-        throw new Error(`Tidak ada method assign label. Tersedia: ${labelMethods.join(", ")}`);
+        throw new Error(
+          `Tidak ada method assign label. Tersedia: ${labelMethods.join(", ")}`,
+        );
       }
     };
 
@@ -2191,7 +2453,9 @@ router.put("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
       } else if (typeof sock.labelChat === "function") {
         return await sock.labelChat(jid, labelId, "remove");
       } else {
-        throw new Error(`Tidak ada method remove label. Tersedia: ${labelMethods.join(", ")}`);
+        throw new Error(
+          `Tidak ada method remove label. Tersedia: ${labelMethods.join(", ")}`,
+        );
       }
     };
 
@@ -2215,7 +2479,6 @@ router.put("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
 
     // ✅ io.emit dihapus — sudah di-handle otomatis oleh labels.association event dari Baileys
     res.json({ success: true, message: "Label berhasil disinkronkan" });
-
   } catch (err) {
     console.error("❌ FULL ERROR:", err.message);
     res.status(500).json({ error: err.message });

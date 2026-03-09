@@ -23,6 +23,7 @@ import { Settings } from "../components/Settings";
 import LeadsChatList from "../components/LeadsChatList"; // <--- Komponen Baru
 import { Menu } from "lucide-react";
 import { KeywordManager } from "../components/KeywordManager";
+import { LinkRotatorSection } from "../components/LinkRotatorSection";
 
 interface UserData {
   id: number;
@@ -208,116 +209,123 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
         setIsSidebarOpen={setIsSidebarOpen}
       />
 
-      <main className="flex flex-1 overflow-hidden relative">
-        {/* --- KATEGORI 1: FULL SCREEN VIEW (Tanpa List di Kiri) --- */}
-        {[
-          "dashboard",
-          "groups",
-          "role-management",
-          "user-management",
-          "settings",
-        ].includes(activeTab) ? (
-          <div className="flex flex-1 flex-col overflow-hidden relative">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden absolute top-4 left-4 z-40 p-2 bg-[#202C33] rounded-lg border border-[#313D45] text-[#00a884]"
-            >
-              <Menu size={20} />
-            </button>
+   <main className="flex flex-1 overflow-hidden relative">
+  {/* --- KATEGORI 1: FULL SCREEN VIEW (Tanpa List di Kiri) --- */}
+  {[
+    "dashboard",
+    "groups",
+    "role-management",
+    "user-management",
+    "settings",
+    "link-rotator", // <-- Tambahkan identifier tab di sini
+  ].includes(activeTab) ? (
+    <div className="flex flex-1 flex-col overflow-hidden relative">
+      <button
+        onClick={() => setIsSidebarOpen(true)}
+        className="md:hidden absolute top-4 left-4 z-40 p-2 bg-[#202C33] rounded-lg border border-[#313D45] text-[#00a884]"
+      >
+        <Menu size={20} />
+      </button>
 
-            {activeTab === "dashboard" && <StatDashboard />}
-            {activeTab === "groups" && (
-              <GroupsPage sessionId={currentSessionId} />
-            )}
-            {activeTab === "role-management" && <RoleManagementView />}
-            {activeTab === "user-management" && <UserManagementView />}
-            {activeTab === "settings" && (
-              <Settings onBack={() => setActiveTab("chats")} />
-            )}
-          </div>
-        ) : (
-          /* --- KATEGORI 2: SPLIT SCREEN VIEW (List + Chat Window) --- */
-          <>
-            {/* PANEL KIRI: Daftar Chat / Pesan */}
-            <section
-              className={`${mobileView === "chat" ? "hidden" : "flex"} md:flex flex-col w-full md:w-[380px] lg:w-[420px] bg-[#111B21] border-r border-[#222d34] z-20`}
-            >
-              {/* Mobile Header Custom */}
-              <div className="md:hidden flex items-center p-4 border-b border-[#222d34] bg-[#202C33] gap-4">
-                <button
-                  onClick={() => setIsSidebarOpen(true)}
-                  className="p-1 text-[#00a884]"
-                >
-                  <Menu size={24} />
-                </button>
-                <h1 className="font-bold text-lg capitalize">
-                  {activeTab === "leads-only" ? "Leads Baru" : activeTab}
-                </h1>
-              </div>
+      {activeTab === "dashboard" && <StatDashboard />}
+      {activeTab === "groups" && (
+        <GroupsPage sessionId={currentSessionId} />
+      )}
+      {activeTab === "role-management" && <RoleManagementView />}
+      {activeTab === "user-management" && <UserManagementView />}
+      
+      {/* --- RENDER LINK ROTATOR DI SINI --- */}
+      {activeTab === "link-rotator" && (
+        <div className="flex-1 overflow-y-auto bg-[#0B141A]">
+          <LinkRotatorSection isDarkMode={true} />
+        </div>
+      )}
 
-              <div className="flex-1 overflow-hidden flex flex-col">
-                {/* View Pesan Global */}
-                {activeTab === "all-messages" && <GlobalInboxView />}
+      {activeTab === "settings" && (
+        <Settings onBack={() => setActiveTab("chats")} />
+      )}
+    </div>
+  ) : (
+    /* --- KATEGORI 2: SPLIT SCREEN VIEW (List + Chat Window) --- */
+    <>
+      {/* PANEL KIRI: Daftar Chat / Pesan */}
+      <section
+        className={`${mobileView === "chat" ? "hidden" : "flex"} md:flex flex-col w-full md:w-[380px] lg:w-[420px] bg-[#111B21] border-r border-[#222d34] z-20`}
+      >
+        {/* Mobile Header Custom */}
+        <div className="md:hidden flex items-center p-4 border-b border-[#222d34] bg-[#202C33] gap-4">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-1 text-[#00a884]"
+          >
+            <Menu size={24} />
+          </button>
+          <h1 className="font-bold text-lg capitalize">
+            {activeTab === "leads-only" ? "Leads Baru" : activeTab}
+          </h1>
+        </div>
 
-                {/* View Chat WhatsApp Normal */}
-                {activeTab === "chats" &&
-                  (isConnected ? (
-                    <ChatList sessionId={activeSession?.id || ""} />
-                  ) : (
-                    <NoSessionSelected
-                      onManageDevices={() => setActiveTab("devices")}
-                    />
-                  ))}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {/* View Pesan Global */}
+          {activeTab === "all-messages" && <GlobalInboxView />}
 
-                  {/* TAMBAHKAN INI */}
-{activeTab === "keyword-management" && (
-  <KeywordManager isDarkMode={true} />
-)}
-
-                {/* View LEADS ONLY (Nomor Non-Kontak) */}
-              {activeTab === "leads-only" && (
-  <LeadsChatList
-    isDarkMode={true}
-    sessions={sessions || []}
-    // TAMBAHKAN INI: Hubungkan klik lead ke fungsi selectChat store
-    onSelectChat={(chatData) => {
-       console.log("Membuka chat untuk lead:", chatData.jid);
-       selectChat(chatData); 
-    }}
-  />
-)}
-
-                {/* View Manajemen Perangkat */}
-                {activeTab === "devices" && (
-                  <DevicePanel
-                    sessions={sessions}
-                    activeId={activeSession?.id}
-                    user={user}
-                    onAdd={handleAddNewDevice}
-                    onSelect={(s: any) => {
-                      setActiveSession(s);
-                      setActiveTab("chats");
-                    }}
-                    onDelete={handleDeleteDevice}
-                    onReconnect={handleReconnect}
-                    onLogout={handleLogoutWA}
-                  />
-                )}
-              </div>
-            </section>
-
-            {/* PANEL KANAN: Jendela Percakapan */}
-            <section
-              className={`${mobileView === "list" ? "hidden" : "flex"} md:flex flex-1 flex-col bg-[#0B141A] z-10`}
-            >
-              <ChatWindow
-                sessionId={currentSessionId}
-                onBack={() => setMobileView("list")}
+          {/* View Chat WhatsApp Normal */}
+          {activeTab === "chats" &&
+            (isConnected ? (
+              <ChatList sessionId={activeSession?.id || ""} />
+            ) : (
+              <NoSessionSelected
+                onManageDevices={() => setActiveTab("devices")}
               />
-            </section>
-          </>
-        )}
-      </main>
+            ))}
+
+          {activeTab === "keyword-management" && (
+            <KeywordManager isDarkMode={true} />
+          )}
+
+          {/* View LEADS ONLY */}
+          {activeTab === "leads-only" && (
+            <LeadsChatList
+              isDarkMode={true}
+              sessions={sessions || []}
+              onSelectChat={(chatData) => {
+                console.log("Membuka chat untuk lead:", chatData.jid);
+                selectChat(chatData);
+              }}
+            />
+          )}
+
+          {/* View Manajemen Perangkat */}
+          {activeTab === "devices" && (
+            <DevicePanel
+              sessions={sessions}
+              activeId={activeSession?.id}
+              user={user}
+              onAdd={handleAddNewDevice}
+              onSelect={(s: any) => {
+                setActiveSession(s);
+                setActiveTab("chats");
+              }}
+              onDelete={handleDeleteDevice}
+              onReconnect={handleReconnect}
+              onLogout={handleLogoutWA}
+            />
+          )}
+        </div>
+      </section>
+
+      {/* PANEL KANAN: Jendela Percakapan */}
+      <section
+        className={`${mobileView === "list" ? "hidden" : "flex"} md:flex flex-1 flex-col bg-[#0B141A] z-10`}
+      >
+        <ChatWindow
+          sessionId={currentSessionId}
+          onBack={() => setMobileView("list")}
+        />
+      </section>
+    </>
+  )}
+</main>
 
       {/* MODALS AREA */}
       {showQRModal && (
@@ -347,3 +355,4 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
     </div>
   );
 };
+export default MainApp;
