@@ -53,92 +53,94 @@ app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 // ===============================================
 // PERBAIKAN: PUBLIC REDIRECT (Link Rotator)
 // ===============================================
-// server.js
 // 1. PUBLIC REDIRECT (Link Rotator)
 app.get("/r/:slug", async (req, res) => {
   const { slug } = req.params;
 
   try {
-    // Cari data berdasarkan shortCode (Mendukung snake_case dan camelCase)
+    // FIX: Hapus pencarian ke kolom 'shortCode' yang tidak ada
     const rotator = await queryOne(
-      "SELECT * FROM link_rotators WHERE short_code = ? OR shortCode = ?",
-      [slug, slug]
+      "SELECT * FROM link_rotators WHERE short_code = ?",
+      [slug]
     );
 
     if (!rotator) {
-      return res.status(404).send("<h1>404 - Link Rotator Tidak Ditemukan</h1>");
+      return res.status(404).send("<h1 style='text-align:center; margin-top:50px;'>404 - Link Rotator Tidak Ditemukan</h1>");
     }
 
-    // Increment klik di background
+    // Increment klik di background (Gunakan rotator.id dari hasil query)
     query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [rotator.id])
       .catch(err => console.error("Gagal update clicks:", err));
 
     // --- LOGIKA PARSING NOMOR WA (ROBUST) ---
     let waData = [];
-    const rawWa = rotator.wa_numbers || rotator.waNumbers || "";
+    // Pastikan fallback ke properti yang benar (snake_case)
+    const rawWa = rotator.wa_numbers || "";
 
     try {
-      // Deteksi otomatis: Jika diawali '[' berarti JSON (ID 8, 9)
       if (typeof rawWa === 'string' && rawWa.trim().startsWith('[')) {
+        // Jika data adalah JSON (format baru)
         waData = JSON.parse(rawWa);
-      } else {
-        // Jika teks biasa/koma (ID 1, 3, 4), ubah jadi format objek standard
+      } else if (typeof rawWa === 'string' && rawWa.trim() !== "") {
+        // Jika data teks biasa/koma (format lama)
         waData = rawWa.split(",").map(num => ({ 
           number: num.trim(), 
           weight: 1 
         }));
+      } else {
+        waData = [];
       }
     } catch (e) {
-      // Jika tetap gagal parse, masukkan sebagai single number
       waData = [{ number: String(rawWa).trim(), weight: 1 }];
     }
 
-    // Bersihkan data kosong atau data sampah (seperti "Et aut...")
-    waData = waData.filter(item => item.number && /\d/.test(item.number));
+    // Filter data sampah atau kosong
+    waData = waData.filter(item => item && item.number && /\d/.test(item.number));
 
     if (waData.length === 0) {
-      return res.status(404).send("Nomor WhatsApp tujuan tidak valid di database.");
+      return res.status(404).send("Nomor WhatsApp tujuan tidak ditemukan atau tidak valid.");
     }
 
-    let targetNumber = "";
-
     // --- LOGIKA PEMILIHAN NOMOR ---
-    const isRotator = rotator.target_type === "rotator" || rotator.targetType === "rotator";
+    let targetNumber = "";
+    const isRotatorMode = rotator.target_type === "rotator";
     
-    if (isRotator && waData.length > 1) {
-      // Logika Weighted Random
+    if (isRotatorMode && waData.length > 1) {
+      // Logika Weighted Random (Pembagian beban berdasarkan Weight)
       const totalWeight = waData.reduce((sum, item) => sum + (Number(item.weight) || 1), 0);
-      let random = Math.random() * totalWeight;
+      let randomValue = Math.random() * totalWeight;
       
       for (const item of waData) {
-        if (random < (Number(item.weight) || 1)) {
+        const itemWeight = Number(item.weight) || 1;
+        if (randomValue < itemWeight) {
           targetNumber = item.number;
           break;
         }
-        random -= (Number(item.weight) || 1);
+        randomValue -= itemWeight;
       }
     } else {
-      // Mode Single atau jika list cuma 1
+      // Mode Single atau jika list cuma berisi 1 nomor
       targetNumber = waData[0].number;
     }
 
+    // Final Clean: Pastikan targetNumber ada, jika tidak ambil yang pertama
+    if (!targetNumber) targetNumber = waData[0].number;
+
     // Bersihkan nomor (hanya angka) dan buat link WA
-    const cleanNumber = targetNumber.replace(/\D/g, "");
+    const cleanNumber = targetNumber.toString().replace(/\D/g, "");
     const encodedMessage = encodeURIComponent(rotator.message || "");
     const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
 
-    console.log(`[Redirect Success] ${slug} -> ${cleanNumber}`);
+    console.log(`[Redirect Success] /r/${slug} -> ${cleanNumber}`);
 
     // Redirect langsung ke WhatsApp
     return res.redirect(302, waUrl);
 
   } catch (error) {
-    console.error("SERVER ERROR:", error);
-    // Tampilkan pesan error detail jika di lingkungan development
-    res.status(500).send(`Terjadi kesalahan: ${error.message}`);
+    console.error("SERVER ERROR AT REDIRECT:", error);
+    res.status(500).send(`Terjadi kesalahan sistem: ${error.message}`);
   }
 });
-
 // ===============================================
 // 2. API Routes
 // ===============================================
