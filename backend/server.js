@@ -50,53 +50,76 @@ app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 // 1. PUBLIC REDIRECT (Link Rotator)
 // Gunakan prefix /r/ agar tidak bentrok dengan route lain
 // ===============================================
+// ===============================================
+// PERBAIKAN: PUBLIC REDIRECT (Link Rotator)
+// ===============================================
+// server.js
+
+// 1. PUBLIC REDIRECT (Link Rotator)
+// Diletakkan di atas agar diproses paling awal
 app.get("/r/:slug", async (req, res) => {
   const { slug } = req.params;
 
-  console.log(`[Rotator] Menghitung klik untuk slug: ${slug}`);
-
   try {
+    // Cari data berdasarkan shortCode
     const rotator = await queryOne(
-      "SELECT * FROM link_rotators WHERE short_code = ?",
-      [slug],
+      "SELECT * FROM link_rotators WHERE short_code = ? OR shortCode = ?",
+      [slug, slug]
     );
 
     if (!rotator) {
-      return res.status(404).send(`
-        <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
-          <h1>404 - Link Tidak Ditemukan</h1>
-          <p>Link "${slug}" tidak terdaftar di sistem SatuPintu.</p>
-        </div>
-      `);
+      return res.status(404).send("<h1>404 - Link Rotator Tidak Ditemukan</h1>");
     }
 
-    // Update klik (Asynchronous)
-    query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [
-      rotator.id,
-    ]).catch((err) => console.error("Gagal update clicks:", err));
+    // Increment klik (Jalankan di background)
+    query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [rotator.id])
+      .catch(err => console.error("Gagal update clicks:", err));
 
-    // Logika pembagian nomor WA
-    const numbers = rotator.wa_numbers
-      .split(",")
-      .map((n) => n.trim().replace(/\D/g, ""));
-
-    let targetNumber = numbers[0];
-
-    if (rotator.target_type === "rotator" && numbers.length > 1) {
-      const randomIndex = Math.floor(Math.random() * numbers.length);
-      targetNumber = numbers[randomIndex];
+    // --- LOGIKA PARSING NOMOR WA ---
+    let waData = [];
+    try {
+      // Parse JSON dari database (karena frontend mengirim JSON.stringify)
+      waData = JSON.parse(rotator.wa_numbers || rotator.waNumbers);
+    } catch (e) {
+      // Fallback jika data lama masih format teks biasa
+      waData = (rotator.wa_numbers || "").split(",").map(num => ({ number: num.trim(), weight: 1 }));
     }
 
+    if (waData.length === 0) return res.status(404).send("Nomor tujuan tidak diatur.");
+
+    let targetNumber = "";
+
+    // Cek apakah tipe target adalah Rotator atau Single
+    if (rotator.target_type === "rotator" || rotator.targetType === "rotator") {
+      // Logika Weighted Random (Bobot)
+      const totalWeight = waData.reduce((sum, item) => sum + (Number(item.weight) || 1), 0);
+      let random = Math.random() * totalWeight;
+      
+      for (const item of waData) {
+        if (random < (Number(item.weight) || 1)) {
+          targetNumber = item.number;
+          break;
+        }
+        random -= (Number(item.weight) || 1);
+      }
+    } else {
+      // Mode Single: Ambil nomor pertama
+      targetNumber = waData[0].number;
+    }
+
+    // Bersihkan nomor (hanya angka) dan buat link WA
+    const cleanNumber = targetNumber.replace(/\D/g, "");
     const encodedMessage = encodeURIComponent(rotator.message || "");
-    const waUrl = `https://wa.me/${targetNumber}?text=${encodedMessage}`;
+    const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
 
-    console.log(`[Rotator] Redirecting ${slug} -> ${targetNumber}`);
+    console.log(`[Redirect] ${slug} -> ${cleanNumber}`);
 
-    // Redirect langsung ke WhatsApp
-    res.redirect(waUrl);
+    // PERINTAH REDIRECT KE WHATSAPP
+    return res.redirect(waUrl);
+
   } catch (error) {
-    console.error("CRITICAL REDIRECT ERROR:", error);
-    res.status(500).send("Terjadi kesalahan internal pada sistem rotator.");
+    console.error("SERVER ERROR:", error);
+    res.status(500).send("Terjadi kesalahan pada server redirect.");
   }
 });
 
