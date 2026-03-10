@@ -832,9 +832,6 @@ router.get("/rotators", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
-
-
-
 // ==========================================
 // 1. POST: Tambah Rotator Baru
 // ==========================================
@@ -901,63 +898,55 @@ router.post("/rotators", authenticateToken, async (req, res) => {
     });
   }
 });
-// ===============================================
-// PUBLIC REDIRECT ROUTER (LOGIK ROTATOR)
-// ===============================================
 
 // PUT: Update Rotator (Edit Data)
 router.put("/rotators/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { name, shortCode, type, targetType, waNumbers, message } = req.body;
+  
+  // PERBAIKAN: Gunakan snake_case agar sama dengan payload dari frontend
+  const { name, short_code, type, target_type, wa_numbers, message } = req.body;
+  
   const userId = req.user.id;
   const roleType = req.user.role_type.toLowerCase().trim();
 
-  // 1. Validasi Input Dasar
-  if (!name || !shortCode || !waNumbers) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Nama, Slug, dan Nomor WA wajib diisi",
-      });
+  // 1. Validasi Input Dasar - Sekarang menggunakan nama variabel yang benar
+  if (!name || !short_code || !wa_numbers) {
+    return res.status(400).json({
+      success: false,
+      message: "Nama, Slug, dan Nomor WA wajib diisi",
+    });
   }
 
   try {
-    // 2. Cek Kepemilikan (Hanya pemilik atau admin 'system' yang boleh edit)
+    // 2. Cek Kepemilikan
     const existingData = await queryOne(
       "SELECT user_id, short_code FROM link_rotators WHERE id = ?",
-      [id],
+      [id]
     );
 
     if (!existingData) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Data tidak ditemukan" });
+      return res.status(404).json({ success: false, message: "Data tidak ditemukan" });
     }
 
     if (roleType !== "system" && existingData.user_id !== userId) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Anda tidak memiliki akses mengedit link ini",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Anda tidak memiliki akses mengedit link ini",
+      });
     }
 
-    // 3. Cek Duplikasi Slug (Jika slug diubah, pastikan slug baru belum dipakai orang lain)
-    const newSlug = shortCode.trim().toLowerCase().replace(/\s+/g, "-");
+    // 3. Cek Duplikasi Slug
+    const newSlug = short_code.trim().toLowerCase().replace(/\s+/g, "-");
     if (newSlug !== existingData.short_code) {
       const slugExists = await queryOne(
         "SELECT id FROM link_rotators WHERE short_code = ? AND id != ?",
-        [newSlug, id],
+        [newSlug, id]
       );
       if (slugExists) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Slug sudah digunakan oleh link lain.",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Slug sudah digunakan oleh link lain.",
+        });
       }
     }
 
@@ -979,8 +968,8 @@ router.put("/rotators/:id", authenticateToken, async (req, res) => {
       name,
       newSlug,
       type || "direct",
-      targetType || "single",
-      waNumbers,
+      target_type || "single",
+      wa_numbers, // Data JSON dari frontend
       message || "",
       id,
     ]);
@@ -991,12 +980,10 @@ router.put("/rotators/:id", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("PUT Rotator Error:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Gagal memperbarui database: " + error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Gagal memperbarui database: " + error.message,
+    });
   }
 });
 
@@ -1260,7 +1247,6 @@ router.get("/social/media", authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
-    // 1. Ambil semua keywords beserta session_id nya
     const keywords = await query(
       "SELECT platform, keyword_text, session_id FROM lead_keywords",
     );
@@ -1276,8 +1262,9 @@ router.get("/social/media", authenticateToken, async (req, res) => {
       params.push(startDate, endDate);
     }
 
+    // TAMBAHKAN m.chat_jid agar kita bisa tahu siapa pengirimnya
     const sql = `
-      SELECT m.session_id, LOWER(m.content) as content
+      SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
       FROM wa_messages m
       WHERE m.is_from_me = 0 
         AND m.chat_jid NOT LIKE '%@g.us'
@@ -1286,21 +1273,28 @@ router.get("/social/media", authenticateToken, async (req, res) => {
 
     const messages = await query(sql, params);
     const stats = {};
+    
+    // Objek pembantu untuk melacak pengirim unik per platform per session
+    // Format: { 'session1': { 'leads_ig': Set(['nomor1', 'nomor2']) } }
+    const uniqueSenders = {};
 
     messages.forEach((msg) => {
       const sId = msg.session_id;
+      const sender = msg.chat_jid;
 
       if (!stats[sId]) {
         stats[sId] = { session_id: sId, totalPesanMasuk: 0 };
-        // Inisialisasi field leads_ hanya untuk platform yang terdaftar di session ini
+        uniqueSenders[sId] = {}; // Inisialisasi pelacak unik
+        
         keywords.forEach((k) => {
-          stats[sId][`leads_${k.platform.toLowerCase()}`] = 0;
+          const pKey = `leads_${k.platform.toLowerCase()}`;
+          stats[sId][pKey] = 0;
+          uniqueSenders[sId][pKey] = new Set(); // Gunakan Set untuk otomatis handle duplikasi
         });
       }
 
       stats[sId].totalPesanMasuk++;
 
-      // 2. Filter keywords: Hanya gunakan keyword yang session_id nya cocok dengan session_id pesan
       const relevantKeywords = keywords.filter((k) => k.session_id === sId);
 
       relevantKeywords.forEach((k) => {
@@ -1312,7 +1306,11 @@ router.get("/social/media", authenticateToken, async (req, res) => {
           msg.content &&
           msg.content.includes(searchKeyword)
         ) {
-          stats[sId][platformKey]++;
+          // CEK APAKAH NOMOR INI SUDAH PERNAH DIHITUNG SEBAGAI LEAD
+          if (!uniqueSenders[sId][platformKey].has(sender)) {
+            uniqueSenders[sId][platformKey].add(sender);
+            stats[sId][platformKey]++; // Hanya tambah jika nomor belum ada di Set
+          }
         }
       });
     });
@@ -1320,7 +1318,6 @@ router.get("/social/media", authenticateToken, async (req, res) => {
     res.json({
       success: true,
       data: Object.values(stats),
-      // Kirim daftar platform unik untuk membantu frontend
       platforms: [...new Set(keywords.map((k) => k.platform.toLowerCase()))],
     });
   } catch (error) {
@@ -1328,52 +1325,6 @@ router.get("/social/media", authenticateToken, async (req, res) => {
   }
 });
 
-// router.get("/social/media", authenticateToken, async (req, res) => {
-//   try {
-//     const { startDate, endDate } = req.query;
-//  // 1. Tentukan Keyword (Pastikan ini sesuai dengan template pesan iklanmu)
-//     const kwTikTok = "%Hallo Teh Rindu, saya mau tanya Kelas Mendunia%";
-//     const kwIG = "%Hallo Teh, saya mau tanya Kelas Mendunia%";
-//     const kwFB = "%Hallo Kak, saya mau tanya Kelas Mendunia%";
-
-//     // 2. Siapkan Params sesuai urutan tanda tanya (?) di SQL
-//     // Urutan: TikTok, IG, TikTok(Exclude), FB
-//     let params = [kwTikTok, kwIG, kwTikTok, kwFB];
-
-//     // Filter Tanggal
-//     let dateFilter = "";
-//     if (startDate && endDate) {
-//       dateFilter = "AND m.timestamp BETWEEN ? AND ? ";
-//       params.push(startDate, endDate);
-//     }
-
-//     // 3. Query (Menghitung leads per session_id)
-//     const sql = `
-//       SELECT
-//         m.session_id,
-//         SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsTikTok,
-//         SUM(CASE WHEN m.content LIKE ? AND m.content NOT LIKE ? THEN 1 ELSE 0 END) as leadsIG,
-//         SUM(CASE WHEN m.content LIKE ? THEN 1 ELSE 0 END) as leadsFB,
-//         COUNT(*) as totalPesanMasuk
-//       FROM wa_messages m
-//       WHERE m.is_from_me = 0
-//         AND m.chat_jid NOT LIKE '%@g.us'
-//         ${dateFilter}
-//       GROUP BY m.session_id
-//     `;
-
-//     const results = await query(sql, params);
-
-//     res.json({
-//       success: true,
-//       data: results
-//     });
-
-//   } catch (error) {
-//     console.error('BACKEND ERROR:', error.message);
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// });
 
 router.get("/stats/dashboard", authenticateToken, async (req, res) => {
   try {
@@ -1941,30 +1892,15 @@ router.put("/sessions/:sessionId/chats/:chatJid/read", async (req, res) => {
   }
 });
 
-// PUT: Mark chat as read
-router.put("/sessions/:sessionId/chats/:chatJid/read", async (req, res) => {
-  const { sessionId, chatJid } = req.params;
-  const decodedJid = decodeURIComponent(chatJid);
-  try {
-    await markAsRead(sessionId, decodedJid);
-    res.json({ success: true, message: "Chat ditandai sudah dibaca" });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
 // ===============================================
 // MESSAGE ROUTES
 // ===============================================
-
-// POST: Kirim pesan teks
-// 1. Fungsi pembantu untuk jeda (letakkan di luar route)
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
+// POST: Kirim pesan teks (INSTANT MODE)
 router.post("/sessions/:sessionId/messages/text", async (req, res) => {
   const { sessionId } = req.params;
   const { to, text, quotedMsgId } = req.body;
 
+  // 1. Validasi Input Dasar
   if (!to || !text) {
     return res.status(400).json({
       success: false,
@@ -1973,35 +1909,24 @@ router.post("/sessions/:sessionId/messages/text", async (req, res) => {
   }
 
   try {
-    // --- STRATEGI ANTI-BLOKIR ---
-
-    // 2. Berikan delay acak (Misal: antara 2 sampai 5 detik)
-    // Tujuannya agar pola pengiriman tidak kaku/robotik
-    const randomDelay = Math.floor(Math.random() * (5000 - 2000 + 1) + 2000);
-    console.log(
-      `[WhatsApp] Menunggu ${randomDelay}ms sebelum mengirim ke ${to}...`,
-    );
-    await delay(randomDelay);
-
-    // 3. (Opsional) Kirim status 'composing' (mengetik)
-    // Anda perlu akses ke object 'sock' (socket) di dalam sendTextMessage
-    // atau panggil fungsi update kehadiran jika library Anda mendukungnya.
-    // Contoh jika menggunakan instance langsung:
-    // await socket.sendPresenceUpdate('composing', to);
-    // await delay(2000); // Simulasi mengetik selama 2 detik
-
-    // 4. Kirim pesan utama
+    // 2. Langsung Kirim (Tanpa Delay/Jeda)
+    console.log(`[WhatsApp] Mengirim pesan instan ke ${to} via session ${sessionId}...`);
+    
     const sent = await sendTextMessage(sessionId, to, text, quotedMsgId);
 
+    // 3. Response Berhasil
     res.json({
       success: true,
       data: sent,
-      message: "Pesan berhasil dikirim dengan delay",
-      delayApplied: `${randomDelay}ms`,
+      message: "Pesan berhasil dikirim secara instan",
     });
+
   } catch (err) {
     console.error("Error kirim pesan:", err);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ 
+      success: false, 
+      message: "Gagal mengirim pesan: " + err.message 
+    });
   }
 });
 

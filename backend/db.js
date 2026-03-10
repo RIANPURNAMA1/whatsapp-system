@@ -85,8 +85,18 @@ export const assignSessionToUser = async (userId, sessionId) => {
 // 4. LOGIKA AUTO-MIGRATE / INIT TABEL
 async function initDatabase() {
   const tables = [
+    `CREATE TABLE IF NOT EXISTS rotator_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  rotator_id INT,
+  target_number VARCHAR(20),
+  user_agent TEXT,
+  referer TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (rotator_id) REFERENCES link_rotators(id) ON DELETE CASCADE
+);
+    `,
 
-`CREATE TABLE IF NOT EXISTS link_rotators (
+    `CREATE TABLE IF NOT EXISTS link_rotators (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -102,7 +112,7 @@ async function initDatabase() {
     FOREIGN KEY (user_id) REFERENCES wa_users(id) ON DELETE CASCADE
 )`,
 
-  `CREATE TABLE IF NOT EXISTS lead_keywords (
+    `CREATE TABLE IF NOT EXISTS lead_keywords (
   id INT AUTO_INCREMENT PRIMARY KEY,
   platform VARCHAR(50),
   session_id VARCHAR(255), -- Tambahkan kolom ini untuk ID Perangkat
@@ -120,10 +130,9 @@ async function initDatabase() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
 
-
     // 1. BUAT TABEL ROLE DULU
-  // Di file db.js
-`CREATE TABLE IF NOT EXISTS sys_roles (
+    // Di file db.js
+    `CREATE TABLE IF NOT EXISTS sys_roles (
   id INT AUTO_INCREMENT PRIMARY KEY, -- WAJIB ADA AUTO_INCREMENT
   name VARCHAR(50) NOT NULL UNIQUE,
   type ENUM('system', 'manager', 'custom') DEFAULT 'custom',
@@ -131,8 +140,8 @@ async function initDatabase() {
 ) ENGINE=InnoDB`,
 
     // 2. BUAT TABEL USER
-  // Di dalam file db.js pada bagian array tables:
-`CREATE TABLE IF NOT EXISTS wa_users (
+    // Di dalam file db.js pada bagian array tables:
+    `CREATE TABLE IF NOT EXISTS wa_users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     role_id INT,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -263,7 +272,7 @@ async function initDatabase() {
     )`,
 
     // wa_labels
-`CREATE TABLE IF NOT EXISTS wa_labels (
+    `CREATE TABLE IF NOT EXISTS wa_labels (
   id INT AUTO_INCREMENT PRIMARY KEY,
   session_id VARCHAR(50) NOT NULL,
   wa_label_id VARCHAR(50) NULL, -- Simpan ID asli dari WhatsApp di sini
@@ -276,7 +285,7 @@ async function initDatabase() {
 )`,
 
     // wa_chat_labels
-`CREATE TABLE IF NOT EXISTS wa_chat_labels (
+    `CREATE TABLE IF NOT EXISTS wa_chat_labels (
   id INT AUTO_INCREMENT PRIMARY KEY,
   session_id VARCHAR(50) NOT NULL,
   chat_jid VARCHAR(100) NOT NULL,

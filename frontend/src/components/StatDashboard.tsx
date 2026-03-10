@@ -12,7 +12,17 @@ import {
   Loader2,
   Search,
   MailCheck,
+  TrendingUp,
+  Palette,
 } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+  YAxis,
+  XAxis,
+  Tooltip,
+} from "recharts";
 import useStore from "../store/useStore";
 import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
 import LiveFeed from "./LiveChatFeed";
@@ -28,6 +38,17 @@ const FILTER_MAP: Record<string, string> = {
   Bulan: "Bulan",
   Custom: "Custom",
 };
+
+// Contoh data dummy untuk grafik (nanti bisa kamu ambil dari database)
+const chartData = [
+  { day: "Sen", value: 10 },
+  { day: "Sel", value: 25 },
+  { day: "Rab", value: 18 },
+  { day: "Kam", value: 35 },
+  { day: "Jum", value: 30 },
+  { day: "Sab", value: 45 },
+  { day: "Min", value: 40 },
+];
 
 const StatDashboard: React.FC = () => {
   const { isDarkMode, toggleDarkMode } = useStore();
@@ -77,6 +98,59 @@ const StatDashboard: React.FC = () => {
     chartData: [],
     deviceStats: [],
   });
+
+// --- FITUR BACKGROUND IMAGE ---
+  const themes = useMemo(
+    () => [
+      {
+        name: "Deep Black",
+        darkImg: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop",
+        lightImg: "https://images.unsplash.com/photo-1554034483-04fda0d3507b?q=80&w=2070&auto=format&fit=crop",
+        cardDark: "bg-black/60",
+        cardLight: "bg-white/80",
+      },
+      {
+        name: "Cyber Punk",
+        darkImg: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop",
+        lightImg: "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2029&auto=format&fit=crop",
+        cardDark: "bg-[#0B141A]/70",
+        cardLight: "bg-white/90",
+      },
+      {
+        name: "Abstract Blue",
+        darkImg: "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?q=80&w=2070&auto=format&fit=crop",
+        lightImg: "https://images.unsplash.com/photo-1519750783826-e2420f4d687f?q=80&w=1974&auto=format&fit=crop",
+        cardDark: "bg-slate-900/60",
+        cardLight: "bg-white/85",
+      },
+      {
+        name: "Emerald Nature",
+        darkImg: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=2070&auto=format&fit=crop",
+        lightImg: "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?q=80&w=2074&auto=format&fit=crop",
+        cardDark: "bg-emerald-950/60",
+        cardLight: "bg-white/80",
+      },
+      {
+        name: "Midnight Purple",
+        darkImg: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?q=80&w=2071&auto=format&fit=crop",
+        lightImg: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964&auto=format&fit=crop",
+        cardDark: "bg-purple-950/60",
+        cardLight: "bg-white/85",
+      },
+    ],
+    [],
+  );
+
+  const [themeIndex, setThemeIndex] = useState(0);
+  const currentBgImg = isDarkMode
+    ? themes[themeIndex].darkImg
+    : themes[themeIndex].lightImg;
+  const currentCardClass = isDarkMode
+    ? themes[themeIndex].cardDark
+    : themes[themeIndex].cardLight;
+
+  // Fungsi untuk ganti-ganti background lewat tombol
+  const cycleTheme = () => setThemeIndex((prev) => (prev + 1) % themes.length);
 
   // --- LOGIC FETCHING DASHBOARD ---
   const fetchDashboard = useCallback(
@@ -230,7 +304,10 @@ const StatDashboard: React.FC = () => {
 
   return (
     <div
-      className={`flex-1 p-4 md:p-8 overflow-y-auto ${isDarkMode ? "bg-[#0B141A]" : "bg-[#F0F2F5]"}`}
+      className="flex-1 p-4 md:p-8 overflow-y-auto transition-all duration-700 bg-cover bg-center bg-no-repeat bg-fixed"
+      style={{
+        backgroundImage: `linear-gradient(rgba(0,0,0,${isDarkMode ? 0.7 : 0.2}), rgba(0,0,0,${isDarkMode ? 0.7 : 0.2})), url(${currentBgImg})`,
+      }}
     >
       <div className="max-w-7xl mx-auto mb-6">
         {/* Header Section */}
@@ -252,6 +329,13 @@ const StatDashboard: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-fit">
+            {/* Tombol Ganti Background */}
+            <button
+              onClick={cycleTheme}
+              className={`p-2.5 rounded-xl border transition-all ${isDarkMode ? "bg-black/40 border-white/10 text-emerald-400" : "bg-white border-gray-200 text-emerald-600"}`}
+            >
+              <Palette size={16} />
+            </button>
             <button
               onClick={toggleDarkMode}
               className={`p-2.5 rounded-xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-yellow-400" : "bg-white border-[#E9EDEF] text-gray-600"}`}
@@ -345,10 +429,7 @@ const StatDashboard: React.FC = () => {
           labelDeviceFilter={labelDeviceFilter}
           setLabelDeviceFilter={setLabelDeviceFilter}
         />
-        <SocialLeadsSection
-          isDarkMode={isDarkMode}
-          sessions={data.sessions}
-        />
+        <SocialLeadsSection isDarkMode={isDarkMode} sessions={data.sessions} />
 
         {/* Stats Grid Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5 pb-6">
@@ -357,6 +438,68 @@ const StatDashboard: React.FC = () => {
             totalPesan={data.stats.pesanMasukAllTime}
             dark={isDarkMode}
           />
+
+          {/* Stat Card Closing dengan Grafik Dinamis */}
+          <div
+            className={`p-5 rounded-2xl border transition-all flex flex-col min-h-[160px] ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-gray-100 shadow-sm"}`}
+          >
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#8696A0]">
+                  Total Closing
+                </p>
+                <h2
+                  className={`text-2xl font-black mt-1 ${isDarkMode ? "text-[#E9EDEF]" : "text-[#111B21]"}`}
+                >
+                  {data.stats.totalClosing || 0}
+                </h2>
+              </div>
+              <div className="p-2 bg-emerald-500/10 rounded-lg">
+                <TrendingUp className="text-emerald-500" size={20} />
+              </div>
+            </div>
+
+            {/* Area Chart Dinamis */}
+            <div className="h-16 w-full -ml-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient
+                      id="colorClosing"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorClosing)"
+                    animationDuration={1500}
+                  />
+                  {/* Tooltip agar saat di-hover muncul angka */}
+                  <Tooltip
+                    contentStyle={{ display: "none" }} // Hilangkan box hitam default agar tetap clean
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="flex items-center gap-1 mt-auto">
+              <span className="text-[10px] font-bold text-emerald-500">
+                +12.5%
+              </span>
+              <span className="text-[10px] text-[#8696A0]">vs bulan lalu</span>
+            </div>
+          </div>
+
           <StatCard
             dark={isDarkMode}
             title={`Masuk ${activeFilter}`}

@@ -47,98 +47,101 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 
 // ===============================================
-// 1. PUBLIC REDIRECT (Link Rotator)
-// Gunakan prefix /r/ agar tidak bentrok dengan route lain
+// PUBLIC ROUTE: REDIRECT ROTATOR (r/:slug)
 // ===============================================
-// ===============================================
-// PERBAIKAN: PUBLIC REDIRECT (Link Rotator)
-// ===============================================
-// 1. PUBLIC REDIRECT (Link Rotator)
 app.get("/r/:slug", async (req, res) => {
   const { slug } = req.params;
 
   try {
-    // FIX: Hapus pencarian ke kolom 'shortCode' yang tidak ada
+    // 1. Ambil data rotator berdasarkan slug/short_code
     const rotator = await queryOne(
       "SELECT * FROM link_rotators WHERE short_code = ?",
       [slug]
     );
 
     if (!rotator) {
-      return res.status(404).send("<h1 style='text-align:center; margin-top:50px;'>404 - Link Rotator Tidak Ditemukan</h1>");
+      return res.status(404).send(`
+        <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
+          <h1 style="color:#ef4444;">404 - Link Tidak Ditemukan</h1>
+          <p>Mohon periksa kembali URL yang Anda masukkan.</p>
+        </div>
+      `);
     }
 
-    // Increment klik di background (Gunakan rotator.id dari hasil query)
-    query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [rotator.id])
-      .catch(err => console.error("Gagal update clicks:", err));
-
-    // --- LOGIKA PARSING NOMOR WA (ROBUST) ---
+    // 2. Parsing Data Nomor WA (Menangani JSON atau String biasa)
     let waData = [];
-    // Pastikan fallback ke properti yang benar (snake_case)
     const rawWa = rotator.wa_numbers || "";
 
     try {
       if (typeof rawWa === 'string' && rawWa.trim().startsWith('[')) {
-        // Jika data adalah JSON (format baru)
         waData = JSON.parse(rawWa);
       } else if (typeof rawWa === 'string' && rawWa.trim() !== "") {
-        // Jika data teks biasa/koma (format lama)
-        waData = rawWa.split(",").map(num => ({ 
-          number: num.trim(), 
-          weight: 1 
-        }));
-      } else {
-        waData = [];
+        // Fallback jika data di DB hanya string nomor biasa (comma separated)
+        waData = rawWa.split(",").map(num => ({ number: num.trim(), weight: 1 }));
       }
     } catch (e) {
+      // Fallback terakhir jika JSON korup
       waData = [{ number: String(rawWa).trim(), weight: 1 }];
     }
 
-    // Filter data sampah atau kosong
+    // Filter nomor yang tidak valid
     waData = waData.filter(item => item && item.number && /\d/.test(item.number));
 
     if (waData.length === 0) {
-      return res.status(404).send("Nomor WhatsApp tujuan tidak ditemukan atau tidak valid.");
+      return res.status(404).send("Nomor tujuan WhatsApp tidak tersedia.");
     }
 
-    // --- LOGIKA PEMILIHAN NOMOR ---
-    let targetNumber = "";
-    const isRotatorMode = rotator.target_type === "rotator";
-    
-    if (isRotatorMode && waData.length > 1) {
-      // Logika Weighted Random (Pembagian beban berdasarkan Weight)
+    // 3. Logika Pemilihan Nomor Berdasarkan Bobot (Weighted Random)
+    let selected = waData[0]; // Default nomor pertama
+
+    if (rotator.target_type === "rotator" && waData.length > 1) {
       const totalWeight = waData.reduce((sum, item) => sum + (Number(item.weight) || 1), 0);
       let randomValue = Math.random() * totalWeight;
-      
+
       for (const item of waData) {
         const itemWeight = Number(item.weight) || 1;
         if (randomValue < itemWeight) {
-          targetNumber = item.number;
+          selected = item;
           break;
         }
         randomValue -= itemWeight;
       }
-    } else {
-      // Mode Single atau jika list cuma berisi 1 nomor
-      targetNumber = waData[0].number;
     }
 
-    // Final Clean: Pastikan targetNumber ada, jika tidak ambil yang pertama
-    if (!targetNumber) targetNumber = waData[0].number;
+    const targetNumber = selected.number;
 
-    // Bersihkan nomor (hanya angka) dan buat link WA
+    // 4. Proses Logging & Analytics (Async/Background)
+    const userAgent = req.headers['user-agent'] || 'Unknown Device';
+    const referer = req.headers['referer'] || 'Direct';
+    
+    // Update counter klik total
+    query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [rotator.id])
+      .catch(err => console.error("Error update click count:", err));
+
+    // Simpan log detail kunjungan
+    query(
+      "INSERT INTO rotator_logs (rotator_id, target_number, user_agent, referer, created_at) VALUES (?, ?, ?, ?, NOW())",
+      [rotator.id, targetNumber, userAgent, referer]
+    ).catch(err => console.error("Error saving log:", err));
+
+    // 5. Konstruksi URL WhatsApp
     const cleanNumber = targetNumber.toString().replace(/\D/g, "");
     const encodedMessage = encodeURIComponent(rotator.message || "");
     const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
 
-    console.log(`[Redirect Success] /r/${slug} -> ${cleanNumber}`);
+    // 6. Header Anti-Cache (Sangat Penting untuk Akurasi Rotator)
+    // Mencegah browser melakukan redirect otomatis dari cache tanpa bertanya ke server
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
-    // Redirect langsung ke WhatsApp
+    // 7. Execute Redirect
+    console.log(`[Rotator] ${slug} -> ${cleanNumber} (W:${selected.weight || 1})`);
     return res.redirect(302, waUrl);
 
   } catch (error) {
     console.error("SERVER ERROR AT REDIRECT:", error);
-    res.status(500).send(`Terjadi kesalahan sistem: ${error.message}`);
+    res.status(500).send("Terjadi kesalahan pada sistem redirect.");
   }
 });
 // ===============================================
