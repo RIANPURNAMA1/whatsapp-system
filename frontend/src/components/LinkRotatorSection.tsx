@@ -378,11 +378,13 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 opacity-60">
                         <p className="text-[10px] font-mono truncate max-w-[150px] md:max-w-xs">
-                          {item.url}
+                          {`${window.location.origin}/${item.shortCode}`}
                         </p>
                         <button
                           onClick={() => {
-                            navigator.clipboard.writeText(item.url);
+                            // Generate link secara dinamis menggunakan domain saat ini
+                            const dynamicLink = `${window.location.origin}/${item.shortCode}`;
+                            navigator.clipboard.writeText(dynamicLink);
                             setCopiedId(item.id);
                             setTimeout(() => setCopiedId(null), 2000);
                           }}
