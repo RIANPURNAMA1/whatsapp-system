@@ -54,14 +54,12 @@ app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 // PERBAIKAN: PUBLIC REDIRECT (Link Rotator)
 // ===============================================
 // server.js
-
 // 1. PUBLIC REDIRECT (Link Rotator)
-// Diletakkan di atas agar diproses paling awal
 app.get("/r/:slug", async (req, res) => {
   const { slug } = req.params;
 
   try {
-    // Cari data berdasarkan shortCode
+    // Cari data berdasarkan shortCode (Mendukung snake_case dan camelCase)
     const rotator = await queryOne(
       "SELECT * FROM link_rotators WHERE short_code = ? OR shortCode = ?",
       [slug, slug]
@@ -71,27 +69,44 @@ app.get("/r/:slug", async (req, res) => {
       return res.status(404).send("<h1>404 - Link Rotator Tidak Ditemukan</h1>");
     }
 
-    // Increment klik (Jalankan di background)
+    // Increment klik di background
     query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [rotator.id])
       .catch(err => console.error("Gagal update clicks:", err));
 
-    // --- LOGIKA PARSING NOMOR WA ---
+    // --- LOGIKA PARSING NOMOR WA (ROBUST) ---
     let waData = [];
+    const rawWa = rotator.wa_numbers || rotator.waNumbers || "";
+
     try {
-      // Parse JSON dari database (karena frontend mengirim JSON.stringify)
-      waData = JSON.parse(rotator.wa_numbers || rotator.waNumbers);
+      // Deteksi otomatis: Jika diawali '[' berarti JSON (ID 8, 9)
+      if (typeof rawWa === 'string' && rawWa.trim().startsWith('[')) {
+        waData = JSON.parse(rawWa);
+      } else {
+        // Jika teks biasa/koma (ID 1, 3, 4), ubah jadi format objek standard
+        waData = rawWa.split(",").map(num => ({ 
+          number: num.trim(), 
+          weight: 1 
+        }));
+      }
     } catch (e) {
-      // Fallback jika data lama masih format teks biasa
-      waData = (rotator.wa_numbers || "").split(",").map(num => ({ number: num.trim(), weight: 1 }));
+      // Jika tetap gagal parse, masukkan sebagai single number
+      waData = [{ number: String(rawWa).trim(), weight: 1 }];
     }
 
-    if (waData.length === 0) return res.status(404).send("Nomor tujuan tidak diatur.");
+    // Bersihkan data kosong atau data sampah (seperti "Et aut...")
+    waData = waData.filter(item => item.number && /\d/.test(item.number));
+
+    if (waData.length === 0) {
+      return res.status(404).send("Nomor WhatsApp tujuan tidak valid di database.");
+    }
 
     let targetNumber = "";
 
-    // Cek apakah tipe target adalah Rotator atau Single
-    if (rotator.target_type === "rotator" || rotator.targetType === "rotator") {
-      // Logika Weighted Random (Bobot)
+    // --- LOGIKA PEMILIHAN NOMOR ---
+    const isRotator = rotator.target_type === "rotator" || rotator.targetType === "rotator";
+    
+    if (isRotator && waData.length > 1) {
+      // Logika Weighted Random
       const totalWeight = waData.reduce((sum, item) => sum + (Number(item.weight) || 1), 0);
       let random = Math.random() * totalWeight;
       
@@ -103,7 +118,7 @@ app.get("/r/:slug", async (req, res) => {
         random -= (Number(item.weight) || 1);
       }
     } else {
-      // Mode Single: Ambil nomor pertama
+      // Mode Single atau jika list cuma 1
       targetNumber = waData[0].number;
     }
 
@@ -112,14 +127,15 @@ app.get("/r/:slug", async (req, res) => {
     const encodedMessage = encodeURIComponent(rotator.message || "");
     const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
 
-    console.log(`[Redirect] ${slug} -> ${cleanNumber}`);
+    console.log(`[Redirect Success] ${slug} -> ${cleanNumber}`);
 
-    // PERINTAH REDIRECT KE WHATSAPP
-    return res.redirect(waUrl);
+    // Redirect langsung ke WhatsApp
+    return res.redirect(302, waUrl);
 
   } catch (error) {
     console.error("SERVER ERROR:", error);
-    res.status(500).send("Terjadi kesalahan pada server redirect.");
+    // Tampilkan pesan error detail jika di lingkungan development
+    res.status(500).send(`Terjadi kesalahan: ${error.message}`);
   }
 });
 
