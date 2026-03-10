@@ -833,36 +833,45 @@ router.get("/rotators", authenticateToken, async (req, res) => {
   }
 });
 
-// POST: Tambah Rotator Baru
+
+
+// ==========================================
+// 1. POST: Tambah Rotator Baru
+// ==========================================
 router.post("/rotators", authenticateToken, async (req, res) => {
-  const { name, shortCode, type, targetType, waNumbers, message } = req.body;
+  // Ambil data sesuai payload Frontend (snake_case)
+  const { name, short_code, type, target_type, wa_numbers, message } = req.body;
   const userId = req.user.id;
 
-  if (!name || !shortCode || !waNumbers) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Nama, Slug, dan Nomor WA wajib diisi",
-      });
+  // Validasi wajib isi
+  if (!name || !short_code || !wa_numbers) {
+    return res.status(400).json({
+      success: false,
+      message: "Nama, Slug, dan Nomor WA wajib diisi",
+    });
   }
 
   try {
-    // 1. Cek apakah slug/short_code sudah digunakan
+    // Bersihkan slug agar URL-friendly
+    const cleanSlug = short_code
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+
+    // PENTING: Gunakan 'short_code' (snake_case) di query WHERE
     const existing = await queryOne(
       "SELECT id FROM link_rotators WHERE short_code = ?",
-      [shortCode],
+      [cleanSlug]
     );
+
     if (existing) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Slug/Shortcode sudah digunakan, coba yang lain.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Slug/Shortcode sudah digunakan, coba yang lain.",
+      });
     }
 
-    // 2. Insert ke Database
     const sql = `
       INSERT INTO link_rotators 
       (user_id, name, short_code, type, target_type, wa_numbers, message, clicks, created_at) 
@@ -872,10 +881,10 @@ router.post("/rotators", authenticateToken, async (req, res) => {
     const result = await query(sql, [
       userId,
       name,
-      shortCode.trim().toLowerCase().replace(/\s+/g, "-"), // Bersihkan slug
+      cleanSlug,
       type || "direct",
-      targetType || "single",
-      waNumbers,
+      target_type || "single",
+      wa_numbers, // Pastikan ini string JSON dari Frontend
       message || "",
     ]);
 
@@ -886,15 +895,12 @@ router.post("/rotators", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("POST Rotator Error:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Gagal menyimpan ke database: " + error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Server Error: " + error.message,
+    });
   }
 });
-
 // ===============================================
 // PUBLIC REDIRECT ROUTER (LOGIK ROTATOR)
 // ===============================================
