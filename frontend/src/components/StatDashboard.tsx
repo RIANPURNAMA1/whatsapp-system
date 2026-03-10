@@ -141,16 +141,24 @@ const StatDashboard: React.FC = () => {
     [],
   );
 
-  const [themeIndex, setThemeIndex] = useState(0);
-  const currentBgImg = isDarkMode
-    ? themes[themeIndex].darkImg
-    : themes[themeIndex].lightImg;
-  const currentCardClass = isDarkMode
-    ? themes[themeIndex].cardDark
-    : themes[themeIndex].cardLight;
+  // Ambil data dari localStorage saat pertama kali render (Inisialisasi)
+  const [themeIndex, setThemeIndex] = useState(() => {
+    const saved = localStorage.getItem("dashboard-theme-index");
+    return saved ? parseInt(saved, 10) : 0;
+  });
 
-  // Fungsi untuk ganti-ganti background lewat tombol
-  const cycleTheme = () => setThemeIndex((prev) => (prev + 1) % themes.length);
+  // Fungsi cycle yang otomatis menyimpan ke localStorage
+  const cycleTheme = () => {
+    setThemeIndex((prev) => {
+      const next = (prev + 1) % themes.length;
+      localStorage.setItem("dashboard-theme-index", next.toString());
+      return next;
+    });
+  };
+
+  const currentBgImg = isDarkMode ? themes[themeIndex].darkImg : themes[themeIndex].lightImg;
+  const currentCardClass = isDarkMode ? themes[themeIndex].cardDark : themes[themeIndex].cardLight;
+
 
   // --- LOGIC FETCHING DASHBOARD ---
   const fetchDashboard = useCallback(
