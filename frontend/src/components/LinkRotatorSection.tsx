@@ -34,7 +34,8 @@ api.interceptors.request.use((config) => {
 interface Rotator {
   id: number;
   name: string;
-  shortCode: string;
+  short_code?: string; // Menangani snake_case dari database
+  shortCode?: string; // Menangani CamelCase
   url: string;
   clicks: number;
   type: string;
@@ -84,7 +85,7 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
     setEditingId(item.id);
     setFormData({
       name: item.name || "",
-      shortCode: item.shortCode || "",
+      shortCode: item.short_code || item.shortCode || "", // Fix undefined
       type: item.type || "direct",
       targetType: item.targetType || "single",
       waNumbers: item.waNumbers || "",
@@ -144,7 +145,7 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
       rotators.filter(
         (item) =>
           (item.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (item.shortCode || "")
+          (item.short_code || item.shortCode || "")
             .toLowerCase()
             .includes(searchTerm.toLowerCase()),
       ),
@@ -164,7 +165,6 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300 font-sans">
-      {/* HEADER */}
       <header
         className={`px-6 py-4 flex items-center justify-between border-b sticky top-0 z-10 ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-[#F0F2F5] border-gray-200"}`}
       >
@@ -195,7 +195,6 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
       </header>
 
       <div className="max-w-4xl mx-auto w-full p-4 md:p-6 space-y-8 overflow-y-auto">
-        {/* FORM SECTION */}
         <section
           className={`p-5 rounded-md border transition-all ${editingId ? "ring-2 ring-emerald-500/50" : ""} ${theme.card}`}
         >
@@ -229,7 +228,7 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
             <div className="space-y-4">
               <InputGroup label="Campaign Name" icon={<Hash size={14} />}>
                 <input
-                  value={formData.name || ""}
+                  value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
@@ -237,7 +236,6 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
                   className={`w-full pl-9 pr-3 py-2 rounded-md text-sm outline-none ${theme.input}`}
                 />
               </InputGroup>
-
               <InputGroup
                 label="Custom Slug"
                 icon={
@@ -245,7 +243,7 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
                 }
               >
                 <input
-                  value={formData.shortCode || ""}
+                  value={formData.shortCode}
                   onChange={(e) =>
                     setFormData({ ...formData, shortCode: e.target.value })
                   }
@@ -261,7 +259,7 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
                 icon={<Smartphone size={14} />}
               >
                 <input
-                  value={formData.waNumbers || ""}
+                  value={formData.waNumbers}
                   onChange={(e) =>
                     setFormData({ ...formData, waNumbers: e.target.value })
                   }
@@ -269,11 +267,10 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
                   className={`w-full pl-9 pr-3 py-2 rounded-md text-sm outline-none ${theme.input}`}
                 />
               </InputGroup>
-
               <div className="grid grid-cols-2 gap-2">
                 <InputGroup label="Type">
                   <select
-                    value={formData.type || "direct"}
+                    value={formData.type}
                     onChange={(e) =>
                       setFormData({ ...formData, type: e.target.value })
                     }
@@ -285,7 +282,7 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
                 </InputGroup>
                 <InputGroup label="Method">
                   <select
-                    value={formData.targetType || "single"}
+                    value={formData.targetType}
                     onChange={(e) =>
                       setFormData({ ...formData, targetType: e.target.value })
                     }
@@ -301,7 +298,7 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
             <div className="md:col-span-2 space-y-4">
               <InputGroup label="Auto Message" icon={<Type size={14} />}>
                 <textarea
-                  value={formData.message || ""}
+                  value={formData.message}
                   onChange={(e) =>
                     setFormData({ ...formData, message: e.target.value })
                   }
@@ -310,7 +307,6 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
                   className={`w-full pl-9 pr-3 py-2 rounded-md text-sm outline-none resize-none ${theme.input}`}
                 />
               </InputGroup>
-
               <button
                 disabled={submitting}
                 className={`w-full py-2.5 rounded-md text-sm font-bold text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${editingId ? "bg-blue-600 hover:bg-blue-700" : "bg-emerald-500 hover:bg-emerald-600"}`}
@@ -326,7 +322,6 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
           </form>
         </section>
 
-        {/* LIST SECTION */}
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4 px-1">
             <h3
@@ -340,7 +335,7 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
                 size={12}
               />
               <input
-                value={searchTerm || ""}
+                value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search..."
                 className={`w-full pl-8 pr-3 py-1.5 rounded-md text-[11px] outline-none ${theme.input}`}
@@ -354,90 +349,93 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
                 <Loader2 className="animate-spin" />
               </div>
             ) : filteredData.length > 0 ? (
-              filteredData.map((item) => (
-                <div
-                  key={item.id}
-                  className={`group flex flex-col md:flex-row md:items-center justify-between p-4 rounded-md border transition-all hover:border-emerald-500/50 ${editingId === item.id ? "border-emerald-500 bg-emerald-500/5" : theme.card}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`w-9 h-9 rounded-md flex items-center justify-center bg-emerald-500/5 text-emerald-500`}
-                    >
-                      <MousePointerClick size={16} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-sm font-bold truncate ${theme.textMain}`}
-                        >
-                          {item.name}
-                        </span>
-                        <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 font-bold uppercase">
-                          {item.targetType}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 opacity-60">
-                        <p className="text-[10px] font-mono truncate max-w-[150px] md:max-w-xs">
-                          {`${window.location.origin}/${item.shortCode}`}
-                        </p>
-                        <button
-                          onClick={() => {
-                            // Generate link secara dinamis menggunakan domain saat ini
-                            const dynamicLink = `${window.location.origin}/${item.shortCode}`;
-                            navigator.clipboard.writeText(dynamicLink);
-                            setCopiedId(item.id);
-                            setTimeout(() => setCopiedId(null), 2000);
-                          }}
-                          className="text-emerald-500 transition-transform active:scale-125"
-                        >
-                          {copiedId === item.id ? (
-                            <Check size={12} />
-                          ) : (
-                            <Copy size={12} />
-                          )}
-                        </button>
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={
-                            isDarkMode
-                              ? "text-white/40 hover:text-emerald-500"
-                              : "text-black/40 hover:text-emerald-500"
-                          }
-                        >
-                          <ExternalLink size={12} />
-                        </a>
-                      </div>
-                    </div>
-                  </div>
+              filteredData.map((item) => {
+                // SINKRONISASI SLUG (Cegah Undefined)
+                const currentSlug =
+                  item.short_code || item.shortCode || "error";
+                const displayLink = `${window.location.origin}/r/${currentSlug}`;
 
-                  <div className="flex items-center justify-between md:justify-end gap-6 mt-4 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0">
-                    <div className="text-right">
-                      <p className={`text-sm font-black ${theme.textMain}`}>
-                        {item.clicks}
-                      </p>
-                      <p className="text-[8px] uppercase font-bold opacity-40">
-                        Clicks
-                      </p>
+                return (
+                  <div
+                    key={item.id}
+                    className={`group flex flex-col md:flex-row md:items-center justify-between p-4 rounded-md border transition-all hover:border-emerald-500/50 ${editingId === item.id ? "border-emerald-500 bg-emerald-500/5" : theme.card}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-9 h-9 rounded-md flex items-center justify-center bg-emerald-500/5 text-emerald-500">
+                        <MousePointerClick size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-sm font-bold truncate ${theme.textMain}`}
+                          >
+                            {item.name}
+                          </span>
+                          <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 font-bold uppercase">
+                            {item.targetType}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 opacity-60">
+                          <p className="text-[10px] font-mono truncate max-w-[150px] md:max-w-xs">
+                            {displayLink}
+                          </p>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(displayLink);
+                              setCopiedId(item.id);
+                              setTimeout(() => setCopiedId(null), 2000);
+                            }}
+                            className="text-emerald-500 transition-transform active:scale-125"
+                          >
+                            {copiedId === item.id ? (
+                              <Check size={12} />
+                            ) : (
+                              <Copy size={12} />
+                            )}
+                          </button>
+                          <a
+                            href={displayLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={
+                              isDarkMode
+                                ? "text-white/40 hover:text-emerald-500"
+                                : "text-black/40 hover:text-emerald-500"
+                            }
+                          >
+                            <ExternalLink size={12} />
+                          </a>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleEditClick(item)}
-                        className="p-2 text-blue-500 hover:bg-blue-50/10 rounded-md transition-colors"
-                      >
-                        <Edit3 size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="p-2 text-red-500 hover:bg-red-50/10 rounded-md transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+
+                    <div className="flex items-center justify-between md:justify-end gap-6 mt-4 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0">
+                      <div className="text-right">
+                        <p className={`text-sm font-black ${theme.textMain}`}>
+                          {item.clicks}
+                        </p>
+                        <p className="text-[8px] uppercase font-bold opacity-40">
+                          Clicks
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEditClick(item)}
+                          className="p-2 text-blue-500 hover:bg-blue-50/10 rounded-md transition-colors"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="p-2 text-red-500 hover:bg-red-50/10 rounded-md transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-center py-20 border-2 border-dashed rounded-md opacity-20 text-xs font-bold uppercase">
                 No links found

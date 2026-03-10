@@ -50,7 +50,7 @@ app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 // 1. PUBLIC REDIRECT (Link Rotator)
 // Gunakan prefix /r/ agar tidak bentrok dengan route lain
 // ===============================================
-app.get("/:slug", async (req, res) => {
+app.get("/r/:slug", async (req, res) => {
   const { slug } = req.params;
 
   console.log(`[Rotator] Menghitung klik untuk slug: ${slug}`);
@@ -163,7 +163,7 @@ httpServer.listen(PORT, async () => {
     // Info Link yang benar
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     console.log(`🔗 Link Dashboard: ${frontendUrl}`);
-    console.log(`📲 Rotator Endpoint: http://localhost:${PORT}/[slug]`);
+    console.log(`📲 Rotator Endpoint: http://localhost:${PORT}/r/[slug]`);
 
     await startActiveSessions();
   } catch (error) {
