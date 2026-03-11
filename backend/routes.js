@@ -1396,14 +1396,14 @@ router.get("/social/media", authenticateToken, async (req, res) => {
   }
 });
 
-
 router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    // Tambahkan jam (startTime & endTime) ke destructuring query
+    const { startDate, endDate, startTime, endTime, sessionId } = req.query;
     const userId = req.user.id;
     const roleType = req.user.role_type?.toLowerCase().trim();
 
-    // 1. Dapatkan Session ID yang berhak diakses (ACL)
+    // 1. ACL: Filter Device yang diizinkan
     let allowedSessions = [];
     if (roleType === "system" || roleType === "manager") {
       allowedSessions = await query("SELECT id, name FROM wa_sessions ORDER BY name ASC");
@@ -1411,91 +1411,70 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
       allowedSessions = await query(
         `SELECT s.id, s.name FROM wa_sessions s 
          INNER JOIN wa_user_sessions us ON s.id = us.session_id 
-         WHERE us.user_id = ? ORDER BY s.name ASC`, 
-         [userId]
+         WHERE us.user_id = ? ORDER BY s.name ASC`, [userId]
       );
     }
 
     const allowedIds = allowedSessions.map(s => s.id);
+    if (allowedIds.length === 0) return res.json({ success: true, summary: { totalLeads: 0, totalClosing: 0 }, deviceData: [] });
 
-    if (allowedIds.length === 0) {
-      return res.json({ 
-        success: true, 
-        summary: { totalLeads: 0, totalClosing: 0, averageConversionRate: 0 }, 
-        deviceData: [] 
-      });
+    // 2. Tentukan Session mana yang akan diproses
+    // Jika user memilih device tertentu, pastikan device itu ada di allowedIds (Security)
+    let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) 
+      ? [sessionId] 
+      : allowedIds;
+
+    const inPlaceholder = targetSessionIds.map(() => '?').join(',');
+
+    // 3. Bangun Filter Waktu & Tanggal
+    // Default: Hari ini
+    let startFull = startDate ? `${startDate} ${startTime || '00:00:00'}` : null;
+    let endFull = endDate ? `${endDate} ${endTime || '23:59:59'}` : null;
+
+    let dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+    let dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+    let queryParams = [...targetSessionIds];
+
+    if (startFull && endFull) {
+      dateFilterMsg = "AND m.timestamp BETWEEN ? AND ?";
+      dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ?";
+      queryParams.push(startFull, endFull);
     }
 
-    const inPlaceholder = allowedIds.map(() => '?').join(',');
-
-    // 2. Query Data secara Paralel
+    // 4. Query Paralel
     const [keywords, closingData, messages] = await Promise.all([
-      // Ambil keywords untuk deteksi leads
-      query(
-        `SELECT keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, 
-        allowedIds
-      ),
-      // Hitung total closing unik (DISTINCT jid)
-      query(
-        `SELECT COUNT(DISTINCT cl.chat_jid) as total_closing 
-         FROM wa_chat_labels cl 
-         JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
-         WHERE cl.session_id IN (${inPlaceholder}) 
-         AND LOWER(l.name) LIKE '%closing%' 
-         ${startDate && endDate ? "AND cl.assigned_at BETWEEN ? AND ?" : ""}`, 
-         [...allowedIds, ...(startDate ? [startDate, endDate] : [])]
-      ),
-      // Ambil pesan masuk (is_from_me = 0) bukan dari grup
-      query(
-        `SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
-         FROM wa_messages m
-         WHERE m.session_id IN (${inPlaceholder}) 
-         AND m.is_from_me = 0 
-         AND m.chat_jid NOT LIKE '%@g.us'
-         ${startDate && endDate ? "AND m.timestamp BETWEEN ? AND ?" : ""}`,
-         [...allowedIds, ...(startDate ? [startDate, endDate] : [])]
-      )
+      query(`SELECT keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
+      query(`SELECT COUNT(DISTINCT cl.chat_jid) as total_closing 
+             FROM wa_chat_labels cl 
+             JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
+             WHERE cl.session_id IN (${inPlaceholder}) 
+             AND LOWER(l.name) LIKE '%closing%' ${dateFilterClosing}`, queryParams),
+      query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
+             FROM wa_messages m
+             WHERE m.session_id IN (${inPlaceholder}) 
+             AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams)
     ]);
 
-    // 3. Mapping Keywords per Session
+    // 5. Perhitungan Leads (Sama seperti sebelumnya)
     const keywordMap = new Map();
-    allowedIds.forEach(id => keywordMap.set(id, []));
-    keywords.forEach(k => {
-      if (keywordMap.has(k.session_id)) {
-        keywordMap.get(k.session_id).push(k.keyword_text.toLowerCase().trim());
-      }
-    });
+    targetSessionIds.forEach(id => keywordMap.set(id, []));
+    keywords.forEach(k => { if(keywordMap.has(k.session_id)) keywordMap.get(k.session_id).push(k.keyword_text.toLowerCase()); });
 
-    // 4. Logic Hitung Leads (Kontak Unik per Device yang sesuai Keyword)
     let totalLeadsSet = new Set();
     const deviceLeadsMap = new Map();
-    
-    // Inisialisasi awal agar semua device muncul (termasuk CABANG)
-    allowedSessions.forEach(s => {
-      deviceLeadsMap.set(s.id, new Set());
-    });
+    targetSessionIds.forEach(id => deviceLeadsMap.set(id, new Set()));
 
     messages.forEach((msg) => {
-      if (msg.content) {
-        const sessionKeywords = keywordMap.get(msg.session_id) || [];
-        // Cek apakah pesan mengandung keyword
-        const isMatch = sessionKeywords.some(kw => msg.content.includes(kw));
-
-        if (isMatch) {
-          // Menambahkan chat_jid ke set (otomatis unik, tidak double count)
-          totalLeadsSet.add(`${msg.session_id}-${msg.chat_jid}`); // Unik per session
-          if (deviceLeadsMap.has(msg.session_id)) {
-            deviceLeadsMap.get(msg.session_id).add(msg.chat_jid);
-          }
-        }
+      const sessionKeywords = keywordMap.get(msg.session_id) || [];
+      if (msg.content && sessionKeywords.some(kw => msg.content.includes(kw))) {
+        totalLeadsSet.add(`${msg.session_id}-${msg.chat_jid}`);
+        deviceLeadsMap.get(msg.session_id).add(msg.chat_jid);
       }
     });
 
-    // Kita hitung totalLeads berdasarkan jumlah unik chat_jid yang masuk kriteria
     const totalLeads = totalLeadsSet.size;
     const totalClosing = parseInt(closingData[0]?.total_closing || 0);
 
-    // 5. Kirim Response
     res.json({
       success: true,
       summary: {
@@ -1503,15 +1482,17 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
         totalClosing,
         averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0
       },
-      // Map semua session yang diizinkan (Device CABANG pasti muncul meskipun 0)
-      deviceData: allowedSessions.map(s => ({
-        name: s.name.toUpperCase(),
-        lead_count: deviceLeadsMap.get(s.id)?.size || 0
-      }))
+      // Kembalikan nama device sesuai yang difilter
+      deviceData: allowedSessions
+        .filter(s => targetSessionIds.includes(s.id))
+        .map(s => ({
+          name: s.name.toUpperCase(),
+          lead_count: deviceLeadsMap.get(s.id)?.size || 0
+        }))
     });
 
   } catch (error) {
-    console.error("API Error at /all/leads:", error);
+    console.error(error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 });

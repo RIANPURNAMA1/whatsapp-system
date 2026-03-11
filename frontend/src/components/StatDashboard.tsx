@@ -220,23 +220,35 @@ const StatDashboard: React.FC = () => {
     [activeFilter, selectedDevice, appliedDates],
   );
 
-  const fetchOverallLeads = useCallback(async () => {
+const fetchOverallLeads = useCallback(async () => {
   setLoadingSocial(true);
   try {
     const token = localStorage.getItem("token");
     const baseApi = import.meta.env.VITE_API_URL.replace(/\/$/, "");
     const params = new URLSearchParams();
 
-    params.append("period", FILTER_MAP[activeFilter]);
+    // 1. Filter Device
+    if (selectedDevice !== "all") {
+      params.append("sessionId", selectedDevice);
+    }
 
+    // 2. Logika Tanggal & Waktu
     if (activeFilter === "Custom" && appliedDates.start && appliedDates.end) {
-      params.append("startDate", appliedDates.start.replace("T", " ") + ":00");
-      params.append("endDate", appliedDates.end.replace("T", " ") + ":59");
+      // split('T') memisahkan "2023-10-27T15:30" menjadi ["2023-10-27", "15:30"]
+      const [startDate, startTime] = appliedDates.start.split("T");
+      const [endDate, endTime] = appliedDates.end.split("T");
+
+      params.append("startDate", startDate);
+      params.append("startTime", startTime + ":00");
+      params.append("endDate", endDate);
+      params.append("endTime", endTime + ":59");
+    } else {
+      // Jika bukan custom, kirim period (Backend akan handle CURDATE)
+      params.append("period", FILTER_MAP[activeFilter]);
     }
 
     const url = `${baseApi}/social/media/all/leads?${params.toString()}`;
     const res = await fetch(url, {
-      method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -245,46 +257,18 @@ const StatDashboard: React.FC = () => {
 
     const json = await res.json();
 
-    // DEBUG: Cek struktur asli data dari backend di console browser
-    console.log("Raw Backend Data:", json);
-
     if (json.success) {
-      // 1. Set Summary Stats
       setOverallSummary({
         totalLeads: Number(json.summary?.totalLeads || 0),
         totalClosing: Number(json.summary?.totalClosing || 0),
         averageConversionRate: Number(json.summary?.averageConversionRate || 0),
       });
 
-      // 2. Mapping Data untuk DeviceBarChart
-      // Kita lakukan normalisasi properti agar sinkron dengan dataKey di Recharts
-      const mappedDeviceData = (json.deviceData || []).map((device: any) => {
-        // Logika pencarian nilai Leads yang fleksibel
-        const leads = 
-          device.lead_count ?? 
-          device.totalLeads ?? 
-          device.leads ?? 
-          0;
-
-        // Logika pencarian nilai Closing yang fleksibel (Masalah utama biasanya di sini)
-        const closing = 
-          device.closing_count ?? 
-          device.totalClosing ?? 
-          device.closing ?? 
-          device.total_closing ?? 
-          0;
-
-        return {
-          // Pastikan name adalah string
-          name: (device.name || device.deviceName || "Unknown").toUpperCase(),
-          // Pastikan nilai adalah Number agar Recharts bisa merender
-          lead_count: Number(leads),
-          closing_count: Number(closing),
-        };
-      });
-
-      // DEBUG: Pastikan hasil mapping sudah memiliki 'closing_count' berbentuk angka
-      console.log("Mapped Data for Chart:", mappedDeviceData);
+      const mappedDeviceData = (json.deviceData || []).map((device: any) => ({
+        name: (device.name || "Unknown").toUpperCase(),
+        lead_count: Number(device.lead_count || 0),
+        closing_count: Number(device.closing_count || 0),
+      }));
 
       setDeviceLeadsData(mappedDeviceData);
     }
@@ -293,9 +277,7 @@ const StatDashboard: React.FC = () => {
   } finally {
     setLoadingSocial(false);
   }
-}, [activeFilter, appliedDates]);
-
-
+}, [activeFilter, appliedDates, selectedDevice]); // selectedDevice ditambahkan di sini
 
   // --- LOGIC FETCHING LABELS ---
   const fetchAllLabels = useCallback(async () => {
@@ -418,8 +400,8 @@ const StatDashboard: React.FC = () => {
 
 // Pastikan useEffect untuk Refreshing terlihat seperti ini
 useEffect(() => {
-  // Jalankan fetch awal
   const loadData = async () => {
+    // Jalankan secara paralel agar cepat
     await Promise.all([
       fetchDashboard(true),
       fetchSocialStats(),
@@ -428,19 +410,17 @@ useEffect(() => {
   };
   loadData();
 
-  // Logika Interval yang aman
+  // Interval refresh otomatis (setiap 30 detik)
   if (activeFilter !== "Custom") {
     const interval = setInterval(() => {
-      // Panggil tanpa Loader agar tidak mengganggu UI (Silent Refresh)
       fetchDashboard(false); 
       fetchSocialStats();
       fetchOverallLeads();
     }, 30000);
-
     return () => clearInterval(interval);
   }
-}, [fetchDashboard, fetchSocialStats, fetchOverallLeads, activeFilter, appliedDates]);
-
+}, [fetchDashboard, fetchSocialStats, fetchOverallLeads, activeFilter, appliedDates, selectedDevice]); 
+// Tambahkan selectedDevice di atas agar dropdown device langsung men-trigger refresh data
 
 useEffect(() => {
   if (data.sessions.length > 0) {
