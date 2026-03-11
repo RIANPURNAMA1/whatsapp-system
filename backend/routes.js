@@ -56,7 +56,7 @@ const buildPeriodFilter = (period, columnName, startDate, endDate) => {
   };
 
   switch (
-    period?.toLowerCase() // Pakai toLowerCase agar lebih aman
+  period?.toLowerCase() // Pakai toLowerCase agar lebih aman
   ) {
     case "hari ini":
     case "today":
@@ -902,10 +902,10 @@ router.post("/rotators", authenticateToken, async (req, res) => {
 // PUT: Update Rotator (Edit Data)
 router.put("/rotators/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  
+
   // PERBAIKAN: Gunakan snake_case agar sama dengan payload dari frontend
   const { name, short_code, type, target_type, wa_numbers, message } = req.body;
-  
+
   const userId = req.user.id;
   const roleType = req.user.role_type.toLowerCase().trim();
 
@@ -1145,7 +1145,7 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
     const dbKeywords = await query(
       "SELECT TRIM(platform) as platform, TRIM(keyword_text) as keyword_text, session_id FROM lead_keywords"
     );
-    
+
     if (dbKeywords.length === 0) return res.json({ success: true, data: [] });
 
     let allowedSessions = (roleType === "system" || roleType === "manager")
@@ -1155,9 +1155,9 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
     const allowedIds = allowedSessions.map((s) => s.id);
     if (allowedIds.length === 0) return res.json({ success: true, data: [] });
 
-    let finalSessionIds = (sessionId && sessionId !== "all" && allowedIds.includes(sessionId)) 
-                          ? [sessionId] 
-                          : allowedIds;
+    let finalSessionIds = (sessionId && sessionId !== "all" && allowedIds.includes(sessionId))
+      ? [sessionId]
+      : allowedIds;
 
     const colors = { tiktok: '#EE1D52', instagram: '#E1306C', facebook: '#1877F2', whatsapp: '#25D366' };
 
@@ -1175,10 +1175,10 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
       const platformColor = colors[platformName] || '#8696A0';
 
       const condition = `WHEN LOWER(m.content) LIKE ? AND TRIM(m.session_id) = TRIM(?) `;
-      
+
       sourceCase += `${condition} THEN ? `;
       sourceParams.push(pattern, sId, platformName);
-      
+
       colorCase += `${condition} THEN ? `;
       colorParams.push(pattern, sId, platformColor);
 
@@ -1192,7 +1192,7 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
     const keywordWhereClause = `AND (${keywordFilterConditions.join(" OR ")})`;
     const placeholders = finalSessionIds.map(() => "?").join(",");
     let dateFilter = (startDate && endDate) ? `AND timestamp BETWEEN ? AND ?` : "";
-    
+
     // Perbaikan: Tambahkan GROUP BY m.id di bagian paling luar untuk menyatukan join kontak yang ganda
     const sql = `
       SELECT 
@@ -1222,19 +1222,19 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
     `;
 
     const finalParams = [
-      ...sourceParams, 
-      ...colorParams, 
-      ...finalSessionIds, 
+      ...sourceParams,
+      ...colorParams,
+      ...finalSessionIds,
       ...(startDate && endDate ? [startDate, endDate] : []),
       ...keywordFilterParams
     ];
 
     const leads = await query(sql, finalParams);
 
-    res.json({ 
-      success: true, 
-      data: leads, 
-      platforms: [...new Set(dbKeywords.map(k => k.platform.toLowerCase().trim()))] 
+    res.json({
+      success: true,
+      data: leads,
+      platforms: [...new Set(dbKeywords.map(k => k.platform.toLowerCase().trim()))]
     });
 
   } catch (err) {
@@ -1242,40 +1242,94 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-// routes/stats.js atau router.js
 router.get("/social/media", authenticateToken, async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, sessionId } = req.query;
+    const userId = req.user.id;
+    const roleType = req.user.role_type?.toLowerCase().trim();
 
-    const keywords = await query(
-      "SELECT platform, keyword_text, session_id FROM lead_keywords",
-    );
+    // 1. Ambil list device yang diizinkan (Security: Role-Based Access)
+    let allowedSessions = [];
+    if (roleType === "system" || roleType === "manager") {
+      allowedSessions = await query(
+        "SELECT id FROM wa_sessions"
+      );
+    } else {
+      allowedSessions = await query(
+        `SELECT s.id FROM wa_sessions s 
+         INNER JOIN wa_user_sessions us ON s.id = us.session_id 
+         WHERE us.user_id = ?`,
+        [userId]
+      );
+    }
 
-    if (keywords.length === 0) {
+    const allowedIds = allowedSessions.map((s) => s.id);
+    if (allowedIds.length === 0) {
       return res.json({ success: true, data: [], platforms: [] });
     }
 
-    let params = [];
-    let dateFilter = "";
-    if (startDate && endDate) {
-      dateFilter = "AND m.timestamp BETWEEN ? AND ? ";
-      params.push(startDate, endDate);
+    // 2. Filter Device Security (Hanya proses ID yang memang diizinkan)
+    let finalSessionIds = 
+      sessionId && sessionId !== "all" && allowedIds.includes(sessionId)
+        ? [sessionId]
+        : allowedIds;
+
+    // 3. Ambil Keywords hanya untuk Session yang diizinkan
+    const keywords = await query(
+      "SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (?)",
+      [finalSessionIds]
+    );
+
+    if (keywords.length === 0 && finalSessionIds.length > 0) {
+       // Tetap lanjut untuk hitung closing, tapi platforms akan kosong
     }
 
-    // TAMBAHKAN m.chat_jid agar kita bisa tahu siapa pengirimnya
-    const sql = `
+    // 4. Siapkan filter tanggal
+    let paramsMessages = [finalSessionIds];
+    let paramsClosing = [finalSessionIds];
+    let dateFilterMsg = "";
+    let dateFilterClosing = "";
+
+    if (startDate && endDate) {
+      dateFilterMsg = "AND m.timestamp BETWEEN ? AND ? ";
+      paramsMessages.push(startDate, endDate);
+
+      dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ? ";
+      paramsClosing.push(startDate, endDate);
+    }
+
+    // 5. Query Utama (Messages & Labels)
+    const sqlMessages = `
       SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
       FROM wa_messages m
-      WHERE m.is_from_me = 0 
+      WHERE m.session_id IN (?) 
+        AND m.is_from_me = 0 
         AND m.chat_jid NOT LIKE '%@g.us'
-        ${dateFilter}
+        ${dateFilterMsg}
     `;
 
-    const messages = await query(sql, params);
+    const sqlClosing = `
+      SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as closing_count
+      FROM wa_chat_labels cl
+      JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
+      WHERE cl.session_id IN (?)
+        AND LOWER(l.name) LIKE '%closing%'
+        ${dateFilterClosing}
+      GROUP BY cl.session_id
+    `;
+
+    const [messages, closingData] = await Promise.all([
+      query(sqlMessages, paramsMessages),
+      query(sqlClosing, paramsClosing)
+    ]);
+
+    // 6. Mapping & Kalkulasi (Sama dengan logic sebelumnya)
+    const closingMap = {};
+    closingData.forEach(c => {
+      closingMap[c.session_id] = parseInt(c.closing_count);
+    });
+
     const stats = {};
-    
-    // Objek pembantu untuk melacak pengirim unik per platform per session
-    // Format: { 'session1': { 'leads_ig': Set(['nomor1', 'nomor2']) } }
     const uniqueSenders = {};
 
     messages.forEach((msg) => {
@@ -1283,36 +1337,51 @@ router.get("/social/media", authenticateToken, async (req, res) => {
       const sender = msg.chat_jid;
 
       if (!stats[sId]) {
-        stats[sId] = { session_id: sId, totalPesanMasuk: 0 };
-        uniqueSenders[sId] = {}; // Inisialisasi pelacak unik
+        stats[sId] = { 
+          session_id: sId, 
+          totalPesanMasuk: 0,
+          totalLeads: 0,
+          totalClosing: closingMap[sId] || 0 
+        };
+        uniqueSenders[sId] = { all_leads: new Set() };
         
-        keywords.forEach((k) => {
+        keywords.filter(k => k.session_id === sId).forEach((k) => {
           const pKey = `leads_${k.platform.toLowerCase()}`;
           stats[sId][pKey] = 0;
-          uniqueSenders[sId][pKey] = new Set(); // Gunakan Set untuk otomatis handle duplikasi
+          uniqueSenders[sId][pKey] = new Set();
         });
       }
 
       stats[sId].totalPesanMasuk++;
 
       const relevantKeywords = keywords.filter((k) => k.session_id === sId);
-
       relevantKeywords.forEach((k) => {
         const platformKey = `leads_${k.platform.toLowerCase()}`;
         const searchKeyword = k.keyword_text.toLowerCase().trim();
 
-        if (
-          searchKeyword &&
-          msg.content &&
-          msg.content.includes(searchKeyword)
-        ) {
-          // CEK APAKAH NOMOR INI SUDAH PERNAH DIHITUNG SEBAGAI LEAD
+        if (searchKeyword && msg.content && msg.content.includes(searchKeyword)) {
           if (!uniqueSenders[sId][platformKey].has(sender)) {
             uniqueSenders[sId][platformKey].add(sender);
-            stats[sId][platformKey]++; // Hanya tambah jika nomor belum ada di Set
+            stats[sId][platformKey]++;
+          }
+          if (!uniqueSenders[sId].all_leads.has(sender)) {
+            uniqueSenders[sId].all_leads.add(sender);
+            stats[sId].totalLeads++;
           }
         }
       });
+    });
+
+    // Pastikan session yang diizinkan tetap muncul di data meski stats-nya nol
+    finalSessionIds.forEach(id => {
+        if (!stats[id]) {
+            stats[id] = {
+                session_id: id,
+                totalPesanMasuk: 0,
+                totalLeads: 0,
+                totalClosing: closingMap[id] || 0
+            };
+        }
     });
 
     res.json({
@@ -1320,11 +1389,132 @@ router.get("/social/media", authenticateToken, async (req, res) => {
       data: Object.values(stats),
       platforms: [...new Set(keywords.map((k) => k.platform.toLowerCase()))],
     });
+
   } catch (error) {
+    console.error("Error at /social/media:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
+
+router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const userId = req.user.id;
+    const roleType = req.user.role_type?.toLowerCase().trim();
+
+    // 1. Dapatkan Session ID yang berhak diakses (ACL)
+    let allowedSessions = [];
+    if (roleType === "system" || roleType === "manager") {
+      allowedSessions = await query("SELECT id, name FROM wa_sessions ORDER BY name ASC");
+    } else {
+      allowedSessions = await query(
+        `SELECT s.id, s.name FROM wa_sessions s 
+         INNER JOIN wa_user_sessions us ON s.id = us.session_id 
+         WHERE us.user_id = ? ORDER BY s.name ASC`, 
+         [userId]
+      );
+    }
+
+    const allowedIds = allowedSessions.map(s => s.id);
+
+    if (allowedIds.length === 0) {
+      return res.json({ 
+        success: true, 
+        summary: { totalLeads: 0, totalClosing: 0, averageConversionRate: 0 }, 
+        deviceData: [] 
+      });
+    }
+
+    const inPlaceholder = allowedIds.map(() => '?').join(',');
+
+    // 2. Query Data secara Paralel
+    const [keywords, closingData, messages] = await Promise.all([
+      // Ambil keywords untuk deteksi leads
+      query(
+        `SELECT keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, 
+        allowedIds
+      ),
+      // Hitung total closing unik (DISTINCT jid)
+      query(
+        `SELECT COUNT(DISTINCT cl.chat_jid) as total_closing 
+         FROM wa_chat_labels cl 
+         JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
+         WHERE cl.session_id IN (${inPlaceholder}) 
+         AND LOWER(l.name) LIKE '%closing%' 
+         ${startDate && endDate ? "AND cl.assigned_at BETWEEN ? AND ?" : ""}`, 
+         [...allowedIds, ...(startDate ? [startDate, endDate] : [])]
+      ),
+      // Ambil pesan masuk (is_from_me = 0) bukan dari grup
+      query(
+        `SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
+         FROM wa_messages m
+         WHERE m.session_id IN (${inPlaceholder}) 
+         AND m.is_from_me = 0 
+         AND m.chat_jid NOT LIKE '%@g.us'
+         ${startDate && endDate ? "AND m.timestamp BETWEEN ? AND ?" : ""}`,
+         [...allowedIds, ...(startDate ? [startDate, endDate] : [])]
+      )
+    ]);
+
+    // 3. Mapping Keywords per Session
+    const keywordMap = new Map();
+    allowedIds.forEach(id => keywordMap.set(id, []));
+    keywords.forEach(k => {
+      if (keywordMap.has(k.session_id)) {
+        keywordMap.get(k.session_id).push(k.keyword_text.toLowerCase().trim());
+      }
+    });
+
+    // 4. Logic Hitung Leads (Kontak Unik per Device yang sesuai Keyword)
+    let totalLeadsSet = new Set();
+    const deviceLeadsMap = new Map();
+    
+    // Inisialisasi awal agar semua device muncul (termasuk CABANG)
+    allowedSessions.forEach(s => {
+      deviceLeadsMap.set(s.id, new Set());
+    });
+
+    messages.forEach((msg) => {
+      if (msg.content) {
+        const sessionKeywords = keywordMap.get(msg.session_id) || [];
+        // Cek apakah pesan mengandung keyword
+        const isMatch = sessionKeywords.some(kw => msg.content.includes(kw));
+
+        if (isMatch) {
+          // Menambahkan chat_jid ke set (otomatis unik, tidak double count)
+          totalLeadsSet.add(`${msg.session_id}-${msg.chat_jid}`); // Unik per session
+          if (deviceLeadsMap.has(msg.session_id)) {
+            deviceLeadsMap.get(msg.session_id).add(msg.chat_jid);
+          }
+        }
+      }
+    });
+
+    // Kita hitung totalLeads berdasarkan jumlah unik chat_jid yang masuk kriteria
+    const totalLeads = totalLeadsSet.size;
+    const totalClosing = parseInt(closingData[0]?.total_closing || 0);
+
+    // 5. Kirim Response
+    res.json({
+      success: true,
+      summary: {
+        totalLeads,
+        totalClosing,
+        averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0
+      },
+      // Map semua session yang diizinkan (Device CABANG pasti muncul meskipun 0)
+      deviceData: allowedSessions.map(s => ({
+        name: s.name.toUpperCase(),
+        lead_count: deviceLeadsMap.get(s.id)?.size || 0
+      }))
+    });
+
+  } catch (error) {
+    console.error("API Error at /all/leads:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+});
 
 router.get("/stats/dashboard", authenticateToken, async (req, res) => {
   try {
@@ -1911,7 +2101,7 @@ router.post("/sessions/:sessionId/messages/text", async (req, res) => {
   try {
     // 2. Langsung Kirim (Tanpa Delay/Jeda)
     console.log(`[WhatsApp] Mengirim pesan instan ke ${to} via session ${sessionId}...`);
-    
+
     const sent = await sendTextMessage(sessionId, to, text, quotedMsgId);
 
     // 3. Response Berhasil
@@ -1923,9 +2113,9 @@ router.post("/sessions/:sessionId/messages/text", async (req, res) => {
 
   } catch (err) {
     console.error("Error kirim pesan:", err);
-    res.status(500).json({ 
-      success: false, 
-      message: "Gagal mengirim pesan: " + err.message 
+    res.status(500).json({
+      success: false,
+      message: "Gagal mengirim pesan: " + err.message
     });
   }
 });

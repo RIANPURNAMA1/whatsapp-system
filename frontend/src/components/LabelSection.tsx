@@ -66,7 +66,7 @@ const LabelSection: React.FC<LabelSectionProps> = ({
   };
 
   return (
-    <div className={`rounded-3xl transition-all duration-300 ${isDarkMode ? "bg-[#111B21] text-white" : "bg-white shadow-sm text-[#3B4A54]"} overflow-hidden border ${isDarkMode ? "border-[#2a3942]" : "border-[#f0f2f5]"} mb-8 font-sans`}>
+    <div className={`rounded-md transition-all duration-300 ${isDarkMode ? "bg-[#111B21] text-white" : "bg-white shadow-sm text-[#3B4A54]"} overflow-hidden border ${isDarkMode ? "border-[#2a3942]" : "border-[#f0f2f5]"} mb-8 font-sans`}>
       
       {/* Header */}
       <div className="px-8 py-6 flex flex-wrap items-center justify-between gap-4">
@@ -84,7 +84,7 @@ const LabelSection: React.FC<LabelSectionProps> = ({
           {/* Tombol Gear untuk masuk mode setting */}
           <button 
             onClick={() => setShowSettings(!showSettings)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[11px] font-black transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-md border text-[11px] font-black transition-all ${
               showSettings 
                 ? "bg-emerald-500 border-emerald-500 text-white" 
                 : isDarkMode ? "bg-[#202C33] border-[#313D45] text-white" : "bg-gray-100 border-gray-200"
@@ -96,7 +96,7 @@ const LabelSection: React.FC<LabelSectionProps> = ({
           <select
             value={labelDeviceFilter}
             onChange={(e) => setLabelDeviceFilter(e.target.value)}
-            className={`px-3 py-2 rounded-xl border text-[11px] font-bold outline-none cursor-pointer ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-white" : "bg-[#f8f9fa] border-[#f0f2f5]"}`}
+            className={`px-3 py-2 rounded-md border text-[11px] font-bold outline-none cursor-pointer ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-white" : "bg-[#f8f9fa] border-[#f0f2f5]"}`}
           >
             <option value="all">SEMUA DEVICE</option>
             {sessions.map((s) => (<option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>))}
@@ -124,7 +124,7 @@ const LabelSection: React.FC<LabelSectionProps> = ({
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            className={`relative p-5 rounded-2xl border transition-all ${
+                            className={`relative p-5 rounded-md border transition-all ${
                               isHidden ? "opacity-40 grayscale" : "opacity-100"
                             } ${isDarkMode ? "bg-[#202C33] border-transparent" : "bg-[#f8f9fa] border-gray-100"}`}
                           >

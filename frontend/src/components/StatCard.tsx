@@ -25,7 +25,7 @@ const StatCard: React.FC<StatCardProps> = ({
   const iconBg = dark ? "bg-[#0B141A]/50" : "bg-[#F0F2F5]";
 
   return (
-    <div className={`${bgClass} ${borderClass} border p-5 rounded-xl flex flex-col justify-between transition-all shadow-sm group`}>
+    <div className={`${bgClass} ${borderClass} border p-5 rounded-md flex flex-col justify-between transition-all shadow-sm group`}>
       <div className="flex justify-between items-start">
         {/* Judul Stat */}
         <h3 className={`${titleColor} text-[10px] font-bold uppercase tracking-[0.1em]`}>

@@ -30,6 +30,8 @@ import StatCard from "./StatCard";
 import AIAnalyticSection from "./AIAnalyticSection";
 import LabelSection from "./LabelSection";
 import SocialLeadsSection from "./SocialLeadsSection";
+import OverallLeadsCard from "./stats/OverallLeadsCard";
+import ClosingStatCard from "./stats/ClosingStatCard";
 
 const FILTER_MAP: Record<string, string> = {
   "Hari ini": "Hari ini",
@@ -38,17 +40,6 @@ const FILTER_MAP: Record<string, string> = {
   Bulan: "Bulan",
   Custom: "Custom",
 };
-
-// Contoh data dummy untuk grafik (nanti bisa kamu ambil dari database)
-const chartData = [
-  { day: "Sen", value: 10 },
-  { day: "Sel", value: 25 },
-  { day: "Rab", value: 18 },
-  { day: "Kam", value: 35 },
-  { day: "Jum", value: 30 },
-  { day: "Sab", value: 45 },
-  { day: "Min", value: 40 },
-];
 
 const StatDashboard: React.FC = () => {
   const { isDarkMode, toggleDarkMode } = useStore();
@@ -62,6 +53,12 @@ const StatDashboard: React.FC = () => {
     .toISOString()
     .slice(0, 16);
 
+  const [overallSummary, setOverallSummary] = useState({
+    totalLeads: 0,
+    totalClosing: 0,
+    averageConversionRate: 0,
+  });
+
   // States
   const [activeFilter, setActiveFilter] = useState("Hari ini");
   const [selectedDevice, setSelectedDevice] = useState("all");
@@ -74,7 +71,10 @@ const StatDashboard: React.FC = () => {
     end: todayEnd,
   });
   const [loading, setLoading] = useState(true);
+  const [socialMediaData, setSocialMediaData] = useState<any[]>([]);
+  const [loadingSocial, setLoadingSocial] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [deviceLeadsData, setDeviceLeadsData] = useState([]);
 
   // Label States
   const [allLabels, setAllLabels] = useState<any[]>([]);
@@ -99,41 +99,51 @@ const StatDashboard: React.FC = () => {
     deviceStats: [],
   });
 
-// --- FITUR BACKGROUND IMAGE ---
+  // --- FITUR BACKGROUND IMAGE ---
   const themes = useMemo(
     () => [
       {
         name: "Deep Black",
-        darkImg: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop",
-        lightImg: "https://images.unsplash.com/photo-1554034483-04fda0d3507b?q=80&w=2070&auto=format&fit=crop",
+        darkImg:
+          "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop",
+        lightImg:
+          "https://images.unsplash.com/photo-1554034483-04fda0d3507b?q=80&w=2070&auto=format&fit=crop",
         cardDark: "bg-black/60",
         cardLight: "bg-white/80",
       },
       {
         name: "Cyber Punk",
-        darkImg: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop",
-        lightImg: "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2029&auto=format&fit=crop",
+        darkImg:
+          "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop",
+        lightImg:
+          "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2029&auto=format&fit=crop",
         cardDark: "bg-[#0B141A]/70",
         cardLight: "bg-white/90",
       },
       {
         name: "Abstract Blue",
-        darkImg: "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?q=80&w=2070&auto=format&fit=crop",
-        lightImg: "https://images.unsplash.com/photo-1519750783826-e2420f4d687f?q=80&w=1974&auto=format&fit=crop",
+        darkImg:
+          "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?q=80&w=2070&auto=format&fit=crop",
+        lightImg:
+          "https://images.unsplash.com/photo-1519750783826-e2420f4d687f?q=80&w=1974&auto=format&fit=crop",
         cardDark: "bg-slate-900/60",
         cardLight: "bg-white/85",
       },
       {
         name: "Emerald Nature",
-        darkImg: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=2070&auto=format&fit=crop",
-        lightImg: "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?q=80&w=2074&auto=format&fit=crop",
+        darkImg:
+          "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=2070&auto=format&fit=crop",
+        lightImg:
+          "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?q=80&w=2074&auto=format&fit=crop",
         cardDark: "bg-emerald-950/60",
         cardLight: "bg-white/80",
       },
       {
         name: "Midnight Purple",
-        darkImg: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?q=80&w=2071&auto=format&fit=crop",
-        lightImg: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964&auto=format&fit=crop",
+        darkImg:
+          "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?q=80&w=2071&auto=format&fit=crop",
+        lightImg:
+          "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964&auto=format&fit=crop",
         cardDark: "bg-purple-950/60",
         cardLight: "bg-white/85",
       },
@@ -156,9 +166,12 @@ const StatDashboard: React.FC = () => {
     });
   };
 
-  const currentBgImg = isDarkMode ? themes[themeIndex].darkImg : themes[themeIndex].lightImg;
-  const currentCardClass = isDarkMode ? themes[themeIndex].cardDark : themes[themeIndex].cardLight;
-
+  const currentBgImg = isDarkMode
+    ? themes[themeIndex].darkImg
+    : themes[themeIndex].lightImg;
+  const currentCardClass = isDarkMode
+    ? themes[themeIndex].cardDark
+    : themes[themeIndex].cardLight;
 
   // --- LOGIC FETCHING DASHBOARD ---
   const fetchDashboard = useCallback(
@@ -207,6 +220,83 @@ const StatDashboard: React.FC = () => {
     [activeFilter, selectedDevice, appliedDates],
   );
 
+  const fetchOverallLeads = useCallback(async () => {
+  setLoadingSocial(true);
+  try {
+    const token = localStorage.getItem("token");
+    const baseApi = import.meta.env.VITE_API_URL.replace(/\/$/, "");
+    const params = new URLSearchParams();
+
+    params.append("period", FILTER_MAP[activeFilter]);
+
+    if (activeFilter === "Custom" && appliedDates.start && appliedDates.end) {
+      params.append("startDate", appliedDates.start.replace("T", " ") + ":00");
+      params.append("endDate", appliedDates.end.replace("T", " ") + ":59");
+    }
+
+    const url = `${baseApi}/social/media/all/leads?${params.toString()}`;
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const json = await res.json();
+
+    // DEBUG: Cek struktur asli data dari backend di console browser
+    console.log("Raw Backend Data:", json);
+
+    if (json.success) {
+      // 1. Set Summary Stats
+      setOverallSummary({
+        totalLeads: Number(json.summary?.totalLeads || 0),
+        totalClosing: Number(json.summary?.totalClosing || 0),
+        averageConversionRate: Number(json.summary?.averageConversionRate || 0),
+      });
+
+      // 2. Mapping Data untuk DeviceBarChart
+      // Kita lakukan normalisasi properti agar sinkron dengan dataKey di Recharts
+      const mappedDeviceData = (json.deviceData || []).map((device: any) => {
+        // Logika pencarian nilai Leads yang fleksibel
+        const leads = 
+          device.lead_count ?? 
+          device.totalLeads ?? 
+          device.leads ?? 
+          0;
+
+        // Logika pencarian nilai Closing yang fleksibel (Masalah utama biasanya di sini)
+        const closing = 
+          device.closing_count ?? 
+          device.totalClosing ?? 
+          device.closing ?? 
+          device.total_closing ?? 
+          0;
+
+        return {
+          // Pastikan name adalah string
+          name: (device.name || device.deviceName || "Unknown").toUpperCase(),
+          // Pastikan nilai adalah Number agar Recharts bisa merender
+          lead_count: Number(leads),
+          closing_count: Number(closing),
+        };
+      });
+
+      // DEBUG: Pastikan hasil mapping sudah memiliki 'closing_count' berbentuk angka
+      console.log("Mapped Data for Chart:", mappedDeviceData);
+
+      setDeviceLeadsData(mappedDeviceData);
+    }
+  } catch (err) {
+    console.error("Fetch Overall Leads Error:", err);
+  } finally {
+    setLoadingSocial(false);
+  }
+}, [activeFilter, appliedDates]);
+
+
+
   // --- LOGIC FETCHING LABELS ---
   const fetchAllLabels = useCallback(async () => {
     setLoadingLabels(true);
@@ -214,8 +304,23 @@ const StatDashboard: React.FC = () => {
       const token = localStorage.getItem("token");
       const baseApi = import.meta.env.VITE_API_URL.replace(/\/$/, "");
 
-      // Mencoba endpoint global terlebih dahulu
-      const res = await fetch(`${baseApi}/labels/all`, {
+      // 1. Siapkan Parameter Filter
+      const params = new URLSearchParams();
+
+      // Gunakan FILTER_MAP yang sama dengan fetchDashboard
+      if (activeFilter !== "Custom") {
+        params.append("period", FILTER_MAP[activeFilter]);
+      } else {
+        // Jika Custom, kirim rentang waktu lengkap (tanggal + jam)
+        params.append(
+          "startDate",
+          appliedDates.start.replace("T", " ") + ":00",
+        );
+        params.append("endDate", appliedDates.end.replace("T", " ") + ":59");
+      }
+
+      // 2. Mencoba endpoint global terlebih dahulu
+      const res = await fetch(`${baseApi}/labels/all?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -227,14 +332,17 @@ const StatDashboard: React.FC = () => {
         }
       }
 
-      // Fallback: Jika endpoint global tidak ada, fetch per session yang aktif
+      // 3. Fallback: Jika endpoint global tidak ada, fetch per session yang aktif
       if (data.sessions.length > 0) {
         const allFetched: any[] = [];
         for (const session of data.sessions) {
           try {
-            const r = await fetch(`${baseApi}/sessions/${session.id}/labels`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
+            const r = await fetch(
+              `${baseApi}/sessions/${session.id}/labels?${params.toString()}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            );
             const d = await r.json();
             if (d.success) {
               allFetched.push(
@@ -256,20 +364,89 @@ const StatDashboard: React.FC = () => {
     } finally {
       setLoadingLabels(false);
     }
-  }, [data.sessions]);
+  }, [data.sessions, activeFilter, appliedDates]); // Tambahkan activeFilter & appliedDates di sini
 
-  // Effects
-  useEffect(() => {
-    fetchDashboard();
-    if (activeFilter !== "Custom") {
-      const interval = setInterval(() => fetchDashboard(false), 30000);
-      return () => clearInterval(interval);
+  const fetchSocialStats = useCallback(async () => {
+    setLoadingSocial(true);
+    try {
+      const token = localStorage.getItem("token");
+      const params = new URLSearchParams();
+
+      // Sesuaikan filter tanggal jika diperlukan
+      if (activeFilter === "Custom") {
+        params.append("startDate", appliedDates.start);
+        params.append("endDate", appliedDates.end);
+      }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/stats/social/media?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const json = await res.json();
+      if (json.success) {
+        setSocialMediaData(json.data || []);
+      }
+    } catch (err) {
+      console.error("Fetch Social Error:", err);
+    } finally {
+      setLoadingSocial(false);
     }
-  }, [fetchDashboard, activeFilter]);
+  }, [activeFilter, appliedDates]);
 
-  useEffect(() => {
-    if (data.sessions.length > 0) fetchAllLabels();
-  }, [data.sessions, fetchAllLabels]);
+  // Hitung total closing berdasarkan label yang mengandung kata "closing"
+  const totalClosingFromLabels = useMemo(() => {
+    return allLabels
+      .filter((label) => label.name.toLowerCase().includes("closing"))
+      .reduce((acc, curr) => acc + (parseInt(curr.chat_count) || 0), 0);
+  }, [allLabels]);
+
+  const conversionRate = useMemo(() => {
+    // Hitung total leads dengan aman
+    const totalLeads =
+      socialMediaData?.reduce((acc, curr) => {
+        return acc + (Number(curr.totalLeads) || 0);
+      }, 0) || 0;
+
+    if (totalLeads === 0) return "0";
+
+    // Hitung rasio
+    const rate = (totalClosingFromLabels / totalLeads) * 100;
+    return rate.toFixed(1);
+  }, [socialMediaData, totalClosingFromLabels]);
+
+// Pastikan useEffect untuk Refreshing terlihat seperti ini
+useEffect(() => {
+  // Jalankan fetch awal
+  const loadData = async () => {
+    await Promise.all([
+      fetchDashboard(true),
+      fetchSocialStats(),
+      fetchOverallLeads()
+    ]);
+  };
+  loadData();
+
+  // Logika Interval yang aman
+  if (activeFilter !== "Custom") {
+    const interval = setInterval(() => {
+      // Panggil tanpa Loader agar tidak mengganggu UI (Silent Refresh)
+      fetchDashboard(false); 
+      fetchSocialStats();
+      fetchOverallLeads();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }
+}, [fetchDashboard, fetchSocialStats, fetchOverallLeads, activeFilter, appliedDates]);
+
+
+useEffect(() => {
+  if (data.sessions.length > 0) {
+    fetchAllLabels();
+  }
+}, [data.sessions, fetchAllLabels]);
 
   const handleApplyCustomFilter = () => {
     setRefreshing(true);
@@ -425,7 +602,10 @@ const StatDashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <ActivityChart data={data.chartData} dark={isDarkMode} />
           <SLAChart data={slaData} dark={isDarkMode} />
-          <DeviceBarChart data={data.deviceStats} dark={isDarkMode} />
+          <DeviceBarChart
+            data={deviceLeadsData} // Data ini harus berisi hasil fetch terbaru yang sudah difilter
+            dark={isDarkMode}
+          />
         </div>
 
         {/* --- KOMPONEN LABEL YANG DIPISAH --- */}
@@ -446,67 +626,22 @@ const StatDashboard: React.FC = () => {
             totalPesan={data.stats.pesanMasukAllTime}
             dark={isDarkMode}
           />
-
           {/* Stat Card Closing dengan Grafik Dinamis */}
-          <div
-            className={`p-5 rounded-2xl border transition-all flex flex-col min-h-[160px] ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-gray-100 shadow-sm"}`}
-          >
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#8696A0]">
-                  Total Closing
-                </p>
-                <h2
-                  className={`text-2xl font-black mt-1 ${isDarkMode ? "text-[#E9EDEF]" : "text-[#111B21]"}`}
-                >
-                  {data.stats.totalClosing || 0}
-                </h2>
-              </div>
-              <div className="p-2 bg-emerald-500/10 rounded-lg">
-                <TrendingUp className="text-emerald-500" size={20} />
-              </div>
-            </div>
-
-            {/* Area Chart Dinamis */}
-            <div className="h-16 w-full -ml-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient
-                      id="colorClosing"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorClosing)"
-                    animationDuration={1500}
-                  />
-                  {/* Tooltip agar saat di-hover muncul angka */}
-                  <Tooltip
-                    contentStyle={{ display: "none" }} // Hilangkan box hitam default agar tetap clean
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="flex items-center gap-1 mt-auto">
-              <span className="text-[10px] font-bold text-emerald-500">
-                +12.5%
-              </span>
-              <span className="text-[10px] text-[#8696A0]">vs bulan lalu</span>
-            </div>
-          </div>
+          <ClosingStatCard
+            isDarkMode={isDarkMode}
+            loading={loadingSocial}
+            totalClosing={overallSummary.totalClosing}
+            conversionRate={overallSummary.averageConversionRate}
+            totalLeads={overallSummary.totalLeads}
+            chartData={data?.chartData || []} // Pastikan data grafik tersedia di state utama
+          />
+          <OverallLeadsCard
+            isDarkMode={isDarkMode}
+            loading={loadingSocial}
+            totalLeads={overallSummary.totalLeads}
+            totalClosing={overallSummary.totalClosing}
+            conversionRate={overallSummary.averageConversionRate}
+          />
 
           <StatCard
             dark={isDarkMode}
@@ -522,13 +657,7 @@ const StatDashboard: React.FC = () => {
             icon={Send}
             color="text-orange-500"
           />
-          <StatCard
-            dark={isDarkMode}
-            title="Lead Masuk"
-            value={data.stats.leadMasuk}
-            icon={Users}
-            color="text-green-500"
-          />
+
           <StatCard
             dark={isDarkMode}
             title="Leads Aktif"

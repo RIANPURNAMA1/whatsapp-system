@@ -127,7 +127,7 @@ const AIAnalyticSection: React.FC<AIAnalyticSectionProps> = ({
 
   return (
     <div
-      className={`mb-8 rounded-2xl border transition-all duration-300 ${
+      className={`mb-8 rounded-md border transition-all duration-300 ${
         dark
           ? "bg-[#202C33] border-[#313D45] shadow-xl"
           : "bg-white border-[#E9EDEF] shadow-sm"

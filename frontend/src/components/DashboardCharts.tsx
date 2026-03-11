@@ -22,7 +22,7 @@ export const ActivityChart: React.FC<ChartProps> = ({ data, dark }) => {
   };
 
   return (
-    <div className={`lg:col-span-2 p-6 rounded-2xl h-[400px] shadow-md border transition-colors duration-300 ${
+    <div className={`lg:col-span-2 p-6 rounded-md h-[400px] shadow-md border transition-colors duration-300 ${
       dark ? 'bg-[#202C33] border-[#313D45]' : 'bg-white border-[#E9EDEF]'
     }`}>
       <h3 className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-6 ${colors.text}`}>
@@ -56,7 +56,7 @@ export const SLAChart: React.FC<ChartProps> = ({ data, dark }) => {
   const textColor = dark ? "#8696A0" : "#667781";
   
   return (
-    <div className={`p-6 rounded-2xl h-[400px] shadow-md flex flex-col border transition-colors duration-300 ${
+    <div className={`p-6 rounded-md h-[400px] shadow-md flex flex-col border transition-colors duration-300 ${
       dark ? 'bg-[#202C33] border-[#313D45]' : 'bg-white border-[#E9EDEF]'
     }`}>
       <h3 className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-4 ${textColor}`}>
@@ -97,7 +97,7 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
 
   return (
     <div
-      className={`lg:col-span-3 p-6 rounded-3xl h-[400px] shadow-md border transition-all duration-500 ${
+      className={`lg:col-span-3 p-6 rounded-md h-[400px] shadow-md border transition-all duration-500 ${
         dark ? "bg-[#111B21] border-[#222E35]" : "bg-white border-[#E9EDEF]"
       }`}
     >
