@@ -132,43 +132,43 @@ export const LinkRotatorSection: React.FC<{ isDarkMode: boolean }> = ({
     setWaList([{ number: "", weight: 1 }]);
   };
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  const validNumbers = waList.filter((n) => n.number.trim() !== "");
-  if (!formData.name || !formData.shortCode || validNumbers.length === 0)
-    return toast.error("Lengkapi data!");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const validNumbers = waList.filter((n) => n.number.trim() !== "");
+    if (!formData.name || !formData.shortCode || validNumbers.length === 0)
+      return toast.error("Lengkapi data!");
 
-  setSubmitting(true);
+    setSubmitting(true);
 
-  // PASTIKAN PAYLOAD SELALU MENGGUNAKAN SNAKE_CASE 
-  // Agar sesuai dengan req.body di backend POST & PUT
-  const payload = {
-    name: formData.name,
-    short_code: formData.shortCode, 
-    type: formData.type,
-    target_type: formData.targetType,
-    message: formData.message,
-    wa_numbers: JSON.stringify(
-      formData.targetType === "single" ? [waList[0]] : validNumbers
-    ),
-  };
+    // PASTIKAN PAYLOAD SELALU MENGGUNAKAN SNAKE_CASE
+    // Agar sesuai dengan req.body di backend POST & PUT
+    const payload = {
+      name: formData.name,
+      short_code: formData.shortCode,
+      type: formData.type,
+      target_type: formData.targetType,
+      message: formData.message,
+      wa_numbers: JSON.stringify(
+        formData.targetType === "single" ? [waList[0]] : validNumbers,
+      ),
+    };
 
-  try {
-    if (editingId) {
-      // Gunakan payload yang sama untuk PUT
-      await api.put(`/rotators/${editingId}`, payload);
-    } else {
-      await api.post("/rotators", payload);
+    try {
+      if (editingId) {
+        // Gunakan payload yang sama untuk PUT
+        await api.put(`/rotators/${editingId}`, payload);
+      } else {
+        await api.post("/rotators", payload);
+      }
+      toast.success("Berhasil disimpan");
+      resetForm();
+      fetchRotators();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Gagal menyimpan");
+    } finally {
+      setSubmitting(false);
     }
-    toast.success("Berhasil disimpan");
-    resetForm();
-    fetchRotators();
-  } catch (error: any) {
-    toast.error(error.response?.data?.message || "Gagal menyimpan");
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   const handleDelete = async (id: number) => {
     if (!confirm("Hapus link ini?")) return;

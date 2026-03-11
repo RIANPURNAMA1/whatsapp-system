@@ -1134,8 +1134,6 @@ router.get("/labels/all", async (req, res) => {
   }
 });
 
-
-
 router.get("/chats/leads-only", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1398,12 +1396,11 @@ router.get("/social/media", authenticateToken, async (req, res) => {
 
 router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
   try {
-    // Tambahkan jam (startTime & endTime) ke destructuring query
-    const { startDate, endDate, startTime, endTime, sessionId } = req.query;
+    const { startDate, endDate, startTime, endTime, sessionId, period } = req.query;
     const userId = req.user.id;
     const roleType = req.user.role_type?.toLowerCase().trim();
 
-    // 1. ACL: Filter Device yang diizinkan
+    // 1. ACL & Device Filtering
     let allowedSessions = [];
     if (roleType === "system" || roleType === "manager") {
       allowedSessions = await query("SELECT id, name FROM wa_sessions ORDER BY name ASC");
@@ -1418,82 +1415,129 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
     const allowedIds = allowedSessions.map(s => s.id);
     if (allowedIds.length === 0) return res.json({ success: true, summary: { totalLeads: 0, totalClosing: 0 }, deviceData: [] });
 
-    // 2. Tentukan Session mana yang akan diproses
-    // Jika user memilih device tertentu, pastikan device itu ada di allowedIds (Security)
     let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) 
       ? [sessionId] 
       : allowedIds;
 
     const inPlaceholder = targetSessionIds.map(() => '?').join(',');
 
-    // 3. Bangun Filter Waktu & Tanggal
-    // Default: Hari ini
-    let startFull = startDate ? `${startDate} ${startTime || '00:00:00'}` : null;
-    let endFull = endDate ? `${endDate} ${endTime || '23:59:59'}` : null;
-
-    let dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
-    let dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+    // 2. Logika Filter Waktu
+    let dateFilterMsg = "";
+    let dateFilterClosing = "";
     let queryParams = [...targetSessionIds];
 
-    if (startFull && endFull) {
+    if (period && period !== "Custom") {
+      switch (period) {
+        case "Hari ini":
+          dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+          dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+          break;
+        case "Kemarin":
+          dateFilterMsg = "AND DATE(m.timestamp) = SUBDATE(CURDATE(), 1)";
+          dateFilterClosing = "AND DATE(cl.assigned_at) = SUBDATE(CURDATE(), 1)";
+          break;
+        case "Minggu":
+          dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+          dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+          break;
+        case "Bulan":
+          dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+          dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+          break;
+        default:
+          dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+          dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+      }
+    } else if (startDate && endDate) {
+      const startFull = `${startDate} ${startTime || '00:00:00'}`;
+      const endFull = `${endDate} ${endTime || '23:59:59'}`;
       dateFilterMsg = "AND m.timestamp BETWEEN ? AND ?";
       dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ?";
       queryParams.push(startFull, endFull);
+    } else {
+      dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+      dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
     }
 
-    // 4. Query Paralel
-    const [keywords, closingData, messages] = await Promise.all([
-      query(`SELECT keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
-      query(`SELECT COUNT(DISTINCT cl.chat_jid) as total_closing 
+    // 3. Query Paralel
+    // Perhatikan: query closing menggunakan targetSessionIds sendiri untuk IN (?)
+    const [keywords, closingDataRaw, messages] = await Promise.all([
+      query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
+      
+      // Mengelompokkan closing per session agar bisa tampil di Bar Chart
+      query(`SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as total_closing 
              FROM wa_chat_labels cl 
              JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
              WHERE cl.session_id IN (${inPlaceholder}) 
-             AND LOWER(l.name) LIKE '%closing%' ${dateFilterClosing}`, queryParams),
+             AND LOWER(l.name) LIKE '%closing%' ${dateFilterClosing}
+             GROUP BY cl.session_id`, (startDate && endDate) ? [...targetSessionIds, queryParams[queryParams.length-2], queryParams[queryParams.length-1]] : targetSessionIds),
+
       query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
              FROM wa_messages m
              WHERE m.session_id IN (${inPlaceholder}) 
              AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams)
     ]);
 
-    // 5. Perhitungan Leads (Sama seperti sebelumnya)
-    const keywordMap = new Map();
-    targetSessionIds.forEach(id => keywordMap.set(id, []));
-    keywords.forEach(k => { if(keywordMap.has(k.session_id)) keywordMap.get(k.session_id).push(k.keyword_text.toLowerCase()); });
+    // 4. Mapping Closing per Device
+    const closingMap = new Map();
+    closingDataRaw.forEach(c => closingMap.set(c.session_id, parseInt(c.total_closing)));
 
-    let totalLeadsSet = new Set();
+    // 5. Perhitungan Leads
+    const keywordMap = new Map();
     const deviceLeadsMap = new Map();
-    targetSessionIds.forEach(id => deviceLeadsMap.set(id, new Set()));
+    const platformLeadsSet = new Map();
+    let totalLeadsSet = new Set();
+
+    targetSessionIds.forEach(id => {
+      deviceLeadsMap.set(id, new Set());
+      keywordMap.set(id, keywords.filter(k => k.session_id === id));
+    });
 
     messages.forEach((msg) => {
-      const sessionKeywords = keywordMap.get(msg.session_id) || [];
-      if (msg.content && sessionKeywords.some(kw => msg.content.includes(kw))) {
-        totalLeadsSet.add(`${msg.session_id}-${msg.chat_jid}`);
-        deviceLeadsMap.get(msg.session_id).add(msg.chat_jid);
-      }
+      const sId = msg.session_id;
+      const sender = msg.chat_jid;
+      const sessionKeywords = keywordMap.get(sId) || [];
+
+      sessionKeywords.forEach((k) => {
+        const platform = k.platform.toLowerCase().trim();
+        const kw = k.keyword_text.toLowerCase().trim();
+
+        if (msg.content && msg.content.includes(kw)) {
+          if (!platformLeadsSet.has(platform)) platformLeadsSet.set(platform, new Set());
+          platformLeadsSet.get(platform).add(`${sId}-${sender}`);
+          totalLeadsSet.add(`${sId}-${sender}`);
+          deviceLeadsMap.get(sId).add(sender);
+        }
+      });
     });
 
     const totalLeads = totalLeadsSet.size;
-    const totalClosing = parseInt(closingData[0]?.total_closing || 0);
+    const totalClosing = Array.from(closingMap.values()).reduce((a, b) => a + b, 0);
 
+    // 6. Response JSON
     res.json({
       success: true,
       summary: {
         totalLeads,
         totalClosing,
-        averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0
+        averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0,
+        platformBreakdown: Array.from(platformLeadsSet.keys()).map(p => ({
+          platform: p.toUpperCase(),
+          count: platformLeadsSet.get(p).size
+        }))
       },
-      // Kembalikan nama device sesuai yang difilter
       deviceData: allowedSessions
         .filter(s => targetSessionIds.includes(s.id))
         .map(s => ({
           name: s.name.toUpperCase(),
-          lead_count: deviceLeadsMap.get(s.id)?.size || 0
+          lead_count: deviceLeadsMap.get(s.id)?.size || 0,
+          closing_count: closingMap.get(s.id) || 0 // Data untuk bar kedua
         }))
     });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error("API Error at /social/media/all/leads:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
 
