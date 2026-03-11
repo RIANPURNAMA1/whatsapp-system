@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Eye, EyeOff, RefreshCw } from 'lucide-react';
 
 interface LoginPageProps {
   onLogin: (userData: any) => void;
@@ -11,10 +11,38 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // --- State Tambahan untuk Captcha ---
+  const [captchaCode, setCaptchaCode] = useState('');
+  const [captchaInput, setCaptchaInput] = useState('');
+
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+  // Fungsi untuk generate captcha acak
+  const generateCaptcha = useCallback(() => {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCaptchaCode(result);
+    setCaptchaInput(''); // Reset input saat captcha berubah
+  }, []);
+
+  // Generate captcha saat komponen pertama kali dimuat
+  useEffect(() => {
+    generateCaptcha();
+  }, [generateCaptcha]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // Verifikasi Captcha sebelum memanggil API
+    if (captchaInput !== captchaCode) {
+      setError('Kode captcha tidak sesuai!');
+      generateCaptcha(); // Reset captcha jika salah
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -33,9 +61,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         onLogin(result.user);
       } else {
         setError(result.message || 'Login gagal. Silakan coba lagi.');
+        generateCaptcha(); // Reset captcha jika login gagal
       }
     } catch (err) {
       setError('Tidak dapat terhubung ke server.');
+      generateCaptcha();
     } finally {
       setIsLoading(false);
     }
@@ -44,7 +74,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   return (
     <div className="min-h-screen bg-[#F4F7FF] flex items-center justify-center p-4 font-sans overflow-hidden relative">
       
-      {/* Loading Progress Bar (Top of Screen) */}
+      {/* Loading Progress Bar */}
       {isLoading && (
         <div className="absolute top-0 left-0 w-full h-1 z-[100] bg-emerald-100 overflow-hidden">
           <div className="h-full bg-emerald-500 animate-loading-bar shadow-[0_0_10px_#10b981]"></div>
@@ -55,21 +85,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       <div className="absolute top-20 left-10 w-32 h-32 bg-emerald-200/30 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-10 right-10 w-64 h-64 bg-emerald-100/40 rounded-full blur-[100px]"></div>
 
-      <div className="bg-white w-full max-w-[1100px] h-[650px] rounded-md shadow-[0_20px_80px_rgba(0,0,0,0.05)] flex overflow-hidden border border-white relative z-10">
+      <div className="bg-white w-full max-w-[1100px] h-[700px] rounded-md shadow-[0_20px_80px_rgba(0,0,0,0.05)] flex overflow-hidden border border-white relative z-10">
         
         {/* SISI KIRI: FORM LOGIN */}
-        <div className="w-full md:w-[40%] p-12 lg:p-16 flex flex-col justify-center relative">
+        <div className="w-full md:w-[45%] p-10 lg:p-14 flex flex-col justify-center relative">
           
-          <div className="mb-10">
-            <div className="flex items-center gap-3 mb-8">
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">S</div>
               <span className="font-bold text-slate-800 tracking-tighter text-lg uppercase">Satu Pintu</span>
             </div>
-            <h1 className="text-4xl font-bold text-slate-800 mb-2">Login</h1>
-            <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Background Management System</p>
+            <h1 className="text-3xl font-bold text-slate-800 mb-1">Login</h1>
+            <p className="text-slate-400 text-[10px] font-medium uppercase tracking-wider">Background Management System</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
               <div className="bg-red-50 text-red-500 text-[11px] p-3 rounded-lg border border-red-100 animate-shake flex items-center gap-2">
                 <span>⚠️</span> {error}
@@ -109,7 +139,41 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               </div>
             </div>
 
-            <div className="pt-6">
+            {/* --- SECTION CAPTCHA BARU --- */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-3 ml-1 tracking-widest">Verifikasi Keamanan</label>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                   <div className="relative flex items-center justify-center h-10 bg-white border border-slate-200 rounded-lg overflow-hidden select-none">
+                      {/* Background noise effect sederhana */}
+                      <div className="absolute inset-0 opacity-10 pointer-events-none italic text-[8px] flex flex-wrap gap-1 leading-none break-all overflow-hidden">
+                        {(captchaCode + "SYSTEM").repeat(10)}
+                      </div>
+                      <span className="relative z-10 font-mono text-lg font-bold tracking-[0.4em] italic text-emerald-600 line-through decoration-slate-300">
+                        {captchaCode}
+                      </span>
+                   </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={generateCaptcha}
+                  className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"
+                  title="Refresh Captcha"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+              <input
+                type="text"
+                required
+                placeholder="Masukkan kode di atas"
+                value={captchaInput}
+                onChange={(e) => setCaptchaInput(e.target.value)}
+                className="w-full mt-3 bg-white border border-slate-200 rounded-lg py-2 px-3 focus:border-emerald-500 transition-all outline-none text-xs text-slate-600"
+              />
+            </div>
+
+            <div className="pt-4">
               <button
                 type="submit"
                 disabled={isLoading}
@@ -133,12 +197,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         </div>
 
         {/* SISI KANAN: ILUSTRASI */}
-        <div className="hidden md:flex w-[60%] bg-[#F9FBFF] relative items-center justify-center p-10 overflow-hidden">
-          {/* Decorative Circles */}
+        <div className="hidden md:flex w-[55%] bg-[#F9FBFF] relative items-center justify-center p-10 overflow-hidden">
           <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-white rounded-full opacity-50"></div>
           
           <div className="relative w-full max-w-[500px]">
-             {/* Mockup Dashboard */}
              <div className="bg-white rounded-[2rem] shadow-[0_40px_100px_rgba(0,0,0,0.04)] border border-slate-100 p-8 transform rotate-[-2deg] hover:rotate-0 transition-transform duration-700 ease-out">
                 <div className="flex gap-4 mb-8">
                   <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
