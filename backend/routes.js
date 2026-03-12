@@ -1470,15 +1470,18 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
       // Ambil Keywords untuk identifikasi Lead
       query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
       
-      // Query Closing: Menggunakan Subquery agar 1 nomor = 1 closing (Mencegah Duplikasi)
+     // Query Closing: Mengambil data UNIK berdasarkan chat_jid
       query(`SELECT session_id, COUNT(chat_jid) as total_closing 
              FROM (
-               SELECT DISTINCT cl.session_id, cl.chat_jid
+               /* Subquery ini memastikan 1 nomor WA hanya dihitung 1x meskipun gonta-ganti label */
+               SELECT cl.session_id, cl.chat_jid
                FROM wa_chat_labels cl 
                JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
                WHERE cl.session_id IN (${inPlaceholder}) 
                AND (LOWER(l.name) = 'closing' OR LOWER(l.name) LIKE 'closing %' OR LOWER(l.name) LIKE '% closing')
                ${dateFilterClosing}
+               /* KUNCI PERBAIKAN: Group by chat_jid agar tidak double count di rentang waktu lama */
+               GROUP BY cl.session_id, cl.chat_jid
              ) as unique_closings
              GROUP BY session_id`, [...targetSessionIds, ...timeParams]),
 
