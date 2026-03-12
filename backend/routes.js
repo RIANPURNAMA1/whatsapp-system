@@ -1424,7 +1424,7 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
     // 2. Logika Filter Waktu
     let dateFilterMsg = "";
     let dateFilterClosing = "";
-    let queryParams = [...targetSessionIds];
+    let timeParams = []; // Parameter khusus untuk tanggal/waktu
 
     if (period && period !== "Custom") {
       switch (period) {
@@ -1453,29 +1453,30 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
       const endFull = `${endDate} ${endTime || '23:59:59'}`;
       dateFilterMsg = "AND m.timestamp BETWEEN ? AND ?";
       dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ?";
-      queryParams.push(startFull, endFull);
+      timeParams = [startFull, endFull];
     } else {
       dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
       dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
     }
 
     // 3. Query Paralel
-    // Perhatikan: query closing menggunakan targetSessionIds sendiri untuk IN (?)
+    // Perbaikan: Gabungkan targetSessionIds dengan timeParams secara benar
     const [keywords, closingDataRaw, messages] = await Promise.all([
       query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
       
-      // Mengelompokkan closing per session agar bisa tampil di Bar Chart
+      // Query Closing: Mengambil dari label yang mengandung kata 'closing'
       query(`SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as total_closing 
              FROM wa_chat_labels cl 
              JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
              WHERE cl.session_id IN (${inPlaceholder}) 
              AND LOWER(l.name) LIKE '%closing%' ${dateFilterClosing}
-             GROUP BY cl.session_id`, (startDate && endDate) ? [...targetSessionIds, queryParams[queryParams.length-2], queryParams[queryParams.length-1]] : targetSessionIds),
+             GROUP BY cl.session_id`, [...targetSessionIds, ...timeParams]),
 
+      // Query Leads: Berdasarkan pesan masuk yang mengandung keyword
       query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
              FROM wa_messages m
              WHERE m.session_id IN (${inPlaceholder}) 
-             AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams)
+             AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, [...targetSessionIds, ...timeParams])
     ]);
 
     // 4. Mapping Closing per Device
@@ -1531,7 +1532,7 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
         .map(s => ({
           name: s.name.toUpperCase(),
           lead_count: deviceLeadsMap.get(s.id)?.size || 0,
-          closing_count: closingMap.get(s.id) || 0 // Data untuk bar kedua
+          closing_count: closingMap.get(s.id) || 0 
         }))
     });
 
