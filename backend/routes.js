@@ -1413,10 +1413,16 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
     }
 
     const allowedIds = allowedSessions.map(s => s.id);
-    if (allowedIds.length === 0) return res.json({ success: true, summary: { totalLeads: 0, totalClosing: 0 }, deviceData: [] });
+    if (allowedIds.length === 0) {
+      return res.json({ 
+        success: true, 
+        summary: { totalLeads: 0, totalClosing: 0, averageConversionRate: 0, platformBreakdown: [] }, 
+        deviceData: [] 
+      });
+    }
 
-    let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) 
-      ? [sessionId] 
+    let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(Number(sessionId))) 
+      ? [Number(sessionId)] 
       : allowedIds;
 
     const inPlaceholder = targetSessionIds.map(() => '?').join(',');
@@ -1424,7 +1430,7 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
     // 2. Logika Filter Waktu
     let dateFilterMsg = "";
     let dateFilterClosing = "";
-    let timeParams = []; // Parameter khusus untuk tanggal/waktu
+    let timeParams = []; 
 
     if (period && period !== "Custom") {
       switch (period) {
@@ -1459,31 +1465,37 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
       dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
     }
 
-    // 3. Query Paralel
-    // Perbaikan: Gabungkan targetSessionIds dengan timeParams secara benar
+    // 3. Query Paralel dengan Perbaikan Subquery Closing
     const [keywords, closingDataRaw, messages] = await Promise.all([
+      // Ambil Keywords untuk identifikasi Lead
       query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
       
-      // Query Closing: Mengambil dari label yang mengandung kata 'closing'
-      query(`SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as total_closing 
-             FROM wa_chat_labels cl 
-             JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
-             WHERE cl.session_id IN (${inPlaceholder}) 
-             AND LOWER(l.name) LIKE '%closing%' ${dateFilterClosing}
-             GROUP BY cl.session_id`, [...targetSessionIds, ...timeParams]),
+      // Query Closing: Menggunakan Subquery agar 1 nomor = 1 closing (Mencegah Duplikasi)
+      query(`SELECT session_id, COUNT(chat_jid) as total_closing 
+             FROM (
+               SELECT DISTINCT cl.session_id, cl.chat_jid
+               FROM wa_chat_labels cl 
+               JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
+               WHERE cl.session_id IN (${inPlaceholder}) 
+               AND (LOWER(l.name) = 'closing' OR LOWER(l.name) LIKE 'closing %' OR LOWER(l.name) LIKE '% closing')
+               ${dateFilterClosing}
+             ) as unique_closings
+             GROUP BY session_id`, [...targetSessionIds, ...timeParams]),
 
-      // Query Leads: Berdasarkan pesan masuk yang mengandung keyword
+      // Query Messages: Ambil pesan masuk untuk dihitung sebagai Lead
       query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
              FROM wa_messages m
              WHERE m.session_id IN (${inPlaceholder}) 
-             AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, [...targetSessionIds, ...timeParams])
+             AND m.is_from_me = 0 
+             AND m.chat_jid NOT LIKE '%@g.us' 
+             ${dateFilterMsg}`, [...targetSessionIds, ...timeParams])
     ]);
 
     // 4. Mapping Closing per Device
     const closingMap = new Map();
     closingDataRaw.forEach(c => closingMap.set(c.session_id, parseInt(c.total_closing)));
 
-    // 5. Perhitungan Leads
+    // 5. Perhitungan Leads Berdasarkan Keyword
     const keywordMap = new Map();
     const deviceLeadsMap = new Map();
     const platformLeadsSet = new Map();
@@ -1505,6 +1517,8 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
 
         if (msg.content && msg.content.includes(kw)) {
           if (!platformLeadsSet.has(platform)) platformLeadsSet.set(platform, new Set());
+          
+          // Unik per platform dan total
           platformLeadsSet.get(platform).add(`${sId}-${sender}`);
           totalLeadsSet.add(`${sId}-${sender}`);
           deviceLeadsMap.get(sId).add(sender);
@@ -1521,6 +1535,7 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
       summary: {
         totalLeads,
         totalClosing,
+        // Konversi dibulatkan agar rapi
         averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0,
         platformBreakdown: Array.from(platformLeadsSet.keys()).map(p => ({
           platform: p.toUpperCase(),
