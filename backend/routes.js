@@ -1413,16 +1413,10 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
     }
 
     const allowedIds = allowedSessions.map(s => s.id);
-    if (allowedIds.length === 0) {
-      return res.json({ 
-        success: true, 
-        summary: { totalLeads: 0, totalClosing: 0, averageConversionRate: 0, platformBreakdown: [] }, 
-        deviceData: [] 
-      });
-    }
+    if (allowedIds.length === 0) return res.json({ success: true, summary: { totalLeads: 0, totalClosing: 0 }, deviceData: [] });
 
-    let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(Number(sessionId))) 
-      ? [Number(sessionId)] 
+    let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) 
+      ? [sessionId] 
       : allowedIds;
 
     const inPlaceholder = targetSessionIds.map(() => '?').join(',');
@@ -1430,7 +1424,7 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
     // 2. Logika Filter Waktu
     let dateFilterMsg = "";
     let dateFilterClosing = "";
-    let timeParams = []; 
+    let queryParams = [...targetSessionIds];
 
     if (period && period !== "Custom") {
       switch (period) {
@@ -1459,46 +1453,36 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
       const endFull = `${endDate} ${endTime || '23:59:59'}`;
       dateFilterMsg = "AND m.timestamp BETWEEN ? AND ?";
       dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ?";
-      timeParams = [startFull, endFull];
+      queryParams.push(startFull, endFull);
     } else {
       dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
       dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
     }
 
-    // 3. Query Paralel dengan Perbaikan Subquery Closing
+    // 3. Query Paralel
+    // Perhatikan: query closing menggunakan targetSessionIds sendiri untuk IN (?)
     const [keywords, closingDataRaw, messages] = await Promise.all([
-      // Ambil Keywords untuk identifikasi Lead
       query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
       
-     // Query Closing: Mengambil data UNIK berdasarkan chat_jid
-      query(`SELECT session_id, COUNT(chat_jid) as total_closing 
-             FROM (
-               /* Subquery ini memastikan 1 nomor WA hanya dihitung 1x meskipun gonta-ganti label */
-               SELECT cl.session_id, cl.chat_jid
-               FROM wa_chat_labels cl 
-               JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
-               WHERE cl.session_id IN (${inPlaceholder}) 
-               AND (LOWER(l.name) = 'closing' OR LOWER(l.name) LIKE 'closing %' OR LOWER(l.name) LIKE '% closing')
-               ${dateFilterClosing}
-               /* KUNCI PERBAIKAN: Group by chat_jid agar tidak double count di rentang waktu lama */
-               GROUP BY cl.session_id, cl.chat_jid
-             ) as unique_closings
-             GROUP BY session_id`, [...targetSessionIds, ...timeParams]),
+      // Mengelompokkan closing per session agar bisa tampil di Bar Chart
+      query(`SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as total_closing 
+             FROM wa_chat_labels cl 
+             JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
+             WHERE cl.session_id IN (${inPlaceholder}) 
+             AND LOWER(l.name) LIKE '%closing%' ${dateFilterClosing}
+             GROUP BY cl.session_id`, (startDate && endDate) ? [...targetSessionIds, queryParams[queryParams.length-2], queryParams[queryParams.length-1]] : targetSessionIds),
 
-      // Query Messages: Ambil pesan masuk untuk dihitung sebagai Lead
       query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
              FROM wa_messages m
              WHERE m.session_id IN (${inPlaceholder}) 
-             AND m.is_from_me = 0 
-             AND m.chat_jid NOT LIKE '%@g.us' 
-             ${dateFilterMsg}`, [...targetSessionIds, ...timeParams])
+             AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams)
     ]);
 
     // 4. Mapping Closing per Device
     const closingMap = new Map();
     closingDataRaw.forEach(c => closingMap.set(c.session_id, parseInt(c.total_closing)));
 
-    // 5. Perhitungan Leads Berdasarkan Keyword
+    // 5. Perhitungan Leads
     const keywordMap = new Map();
     const deviceLeadsMap = new Map();
     const platformLeadsSet = new Map();
@@ -1520,8 +1504,6 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
 
         if (msg.content && msg.content.includes(kw)) {
           if (!platformLeadsSet.has(platform)) platformLeadsSet.set(platform, new Set());
-          
-          // Unik per platform dan total
           platformLeadsSet.get(platform).add(`${sId}-${sender}`);
           totalLeadsSet.add(`${sId}-${sender}`);
           deviceLeadsMap.get(sId).add(sender);
@@ -1538,7 +1520,6 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
       summary: {
         totalLeads,
         totalClosing,
-        // Konversi dibulatkan agar rapi
         averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0,
         platformBreakdown: Array.from(platformLeadsSet.keys()).map(p => ({
           platform: p.toUpperCase(),
@@ -1550,7 +1531,7 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
         .map(s => ({
           name: s.name.toUpperCase(),
           lead_count: deviceLeadsMap.get(s.id)?.size || 0,
-          closing_count: closingMap.get(s.id) || 0 
+          closing_count: closingMap.get(s.id) || 0 // Data untuk bar kedua
         }))
     });
 
