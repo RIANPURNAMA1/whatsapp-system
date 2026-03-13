@@ -292,7 +292,21 @@ async function initDatabase() {
   wa_label_id VARCHAR(50) NOT NULL, -- Gunakan WA Label ID agar sinkronisasi lebih mudah
   assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY unique_chat_label (session_id, chat_jid, wa_label_id)
-)`,
+) 
+ `,
+
+    `CREATE TABLE IF NOT EXISTS wa_ai_settings (
+    session_id VARCHAR(50) PRIMARY KEY,
+    bot_name VARCHAR(100),
+    prompt TEXT,
+    knowledge_base TEXT,
+    min_delay INT DEFAULT 5,
+    max_delay INT DEFAULT 15,
+    max_messages_per_day INT DEFAULT 200,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)
+`,
+
   ];
 
   try {

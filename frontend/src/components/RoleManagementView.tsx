@@ -316,6 +316,7 @@ const RoleManagementView = ({ activeTab = "role-management" }: { activeTab?: str
               </div>
             </>
           )}
+      
 
           <div className="pt-4 flex flex-col md:flex-row gap-3">
             <button type="button" onClick={handleCloseModal} className="order-2 md:order-1 flex-1 py-4 md:py-3 rounded-xl text-sm font-semibold text-[#8696a0] hover:bg-[#2a3942]">Batal</button>

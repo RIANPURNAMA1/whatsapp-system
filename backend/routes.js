@@ -1847,6 +1847,145 @@ router.post("/ai/analyze-dashboard", async (req, res) => {
   }
 });
 
+
+// Route untuk membalas pesan otomatis (Auto-Reply)
+router.post("/ai/reply-message", async (req, res) => {
+  try {
+    const { sessionId, userMessage } = req.body;
+
+    if (!sessionId || !userMessage) {
+      return res.status(400).json({
+        success: false,
+        message: "Session ID dan Pesan User wajib diisi",
+      });
+    }
+
+    // 1. Ambil Materi Jawaban & Instruksi dari Database
+    const settings = await queryOne(
+      "SELECT bot_name, prompt, knowledge_base FROM wa_ai_settings WHERE session_id = ?",
+      [sessionId]
+    );
+
+    // Jika setting tidak ditemukan, gunakan default atau berikan error
+    const botName = settings?.bot_name || "Asisten Digital";
+    const instruction = settings?.prompt || "Jawab dengan ramah dan sopan.";
+    const knowledge = settings?.knowledge_base || "Hubungi admin untuk informasi lebih lanjut.";
+
+    // 2. Kirim ke Gemini dengan Model Terbaru (Gemini 3 Flash)
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash",
+      contents: `
+        Anda adalah ${botName}.
+        Instruksi Anda: ${instruction}
+        
+        Materi Pengetahuan (Hanya jawab berdasarkan informasi di bawah ini):
+        ---
+        ${knowledge}
+        ---
+
+        Pesan Masuk dari User: "${userMessage}"
+
+        Aturan:
+        - Jika jawaban ada di materi, jawab dengan detail dan bantu user.
+        - Jika jawaban TIDAK ADA di materi, katakan dengan sopan bahwa Anda tidak tahu dan arahkan untuk menunggu admin.
+        - Gunakan gaya bahasa yang sesuai dengan instruksi.
+      `,
+    });
+
+    // 3. Ambil teks jawaban
+    const aiReply = response.text;
+
+    res.json({
+      success: true,
+      reply: aiReply,
+    });
+
+  } catch (error) {
+    console.error("Auto-Reply Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Gagal memproses jawaban AI",
+      error: error.message,
+    });
+  }
+});
+
+
+// ===============================================
+// AI & ANTI-BAN SETTINGS ROUTES (SIMPLIFIED)
+// ===============================================
+
+// 1. Ambil Setting Berdasarkan Session ID
+router.get("/ai-settings/:sessionId", authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    // Menggunakan wa_ai_settings sesuai tabel Anda
+    const settings = await query(
+      "SELECT * FROM wa_ai_settings WHERE session_id = ?",
+      [sessionId]
+    );
+
+    if (settings.length === 0) {
+      return res.json({ success: true, data: null });
+    }
+
+    res.json({ success: true, data: settings[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Simpan atau Update Setting (Fokus: Materi & Anti-Ban)
+router.post("/ai-settings/save", authenticateToken, async (req, res) => {
+  try {
+    const {
+      sessionId,
+      botName,
+      prompt,
+      knowledgeBase,
+      minDelay,
+      maxDelay,
+      maxMessagesPerDay
+    } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: "Session ID wajib diisi" });
+    }
+
+    // SQL difokuskan hanya pada kolom yang ada di UI baru Anda
+    const sql = `
+      INSERT INTO wa_ai_settings 
+      (session_id, bot_name, prompt, knowledge_base, min_delay, max_delay, max_messages_per_day)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE 
+      bot_name=VALUES(bot_name), 
+      prompt=VALUES(prompt), 
+      knowledge_base=VALUES(knowledge_base), 
+      min_delay=VALUES(min_delay), 
+      max_delay=VALUES(max_delay), 
+      max_messages_per_day=VALUES(max_messages_per_day)
+    `;
+
+    const values = [
+      sessionId, 
+      botName, 
+      prompt, 
+      knowledgeBase, 
+      parseInt(minDelay) || 5, 
+      parseInt(maxDelay) || 15, 
+      parseInt(maxMessagesPerDay) || 200
+    ];
+
+    await query(sql, values);
+
+    res.json({ success: true, message: "Konfigurasi Materi & Anti-Ban berhasil disimpan" });
+  } catch (err) {
+    console.error("[ERROR SAVE AI]", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET: Statistik per sesi (endpoint lama, tetap dipertahankan)
 router.get("/sessions/:sessionId/stats", async (req, res) => {
   const { sessionId } = req.params;

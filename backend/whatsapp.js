@@ -16,6 +16,8 @@ import { downloadMediaMessage } from "@whiskeysockets/baileys";
 import fs from "fs";
 import path from "path";
 
+import { handleAIResponse } from "./services/aiService.js";
+
 const logger = pino({ level: "silent" });
 
 // Menyimpan instance WhatsApp aktif
@@ -422,14 +424,15 @@ export async function createSession(sessionId, io) {
     if (type !== "notify") return;
 
     for (const msg of messages) {
-      // 1. FILTER BROADCAST & STATUS
+      // 1. FILTER BROADCAST, STATUS, & PESAN DARI DIRI SENDIRI (Cegah Looping)
       if (
         msg.key.remoteJid === "status@broadcast" ||
-        isJidBroadcast(msg.key.remoteJid)
+        isJidBroadcast(msg.key.remoteJid) ||
+        msg.key.fromMe
       )
         continue;
 
-      // 2. PROSES DOWNLOAD MEDIA (Jika ada)
+      // 2. PROSES DOWNLOAD MEDIA
       let mediaUrl = null;
       const messageType = Object.keys(msg.message || {})[0];
       const isMedia = [
@@ -457,8 +460,7 @@ export async function createSession(sessionId, io) {
             fs.mkdirSync(uploadDir, { recursive: true });
           }
 
-          // --- PERBAIKAN LOGIKA EKSTENSI FILE ---
-          let extension = "bin"; // default
+          let extension = "bin";
           if (messageType === "imageMessage") {
             extension = "jpg";
           } else if (messageType === "videoMessage") {
@@ -468,7 +470,6 @@ export async function createSession(sessionId, io) {
             const fileNameOriginal = docMsg.fileName || "";
             const mimeType = docMsg.mimetype || "";
 
-            // Ambil ekstensi dari nama file asli, jika gagal gunakan mimetype
             if (fileNameOriginal.includes(".")) {
               extension = fileNameOriginal.split(".").pop().toLowerCase();
             } else if (mimeType === "application/pdf") {
@@ -505,6 +506,7 @@ export async function createSession(sessionId, io) {
         const caption =
           msg.message?.[messageType]?.caption ||
           msg.message?.extendedTextMessage?.text ||
+          msg.message?.conversation || // Tambahan untuk handle text biasa
           processed.content;
 
         processed.caption = caption;
@@ -516,7 +518,7 @@ export async function createSession(sessionId, io) {
         )
           continue;
 
-        // 5. SIMPAN KE DATABASE
+        // 5. SIMPAN KE DATABASE (History Chat)
         await saveMessage(sessionId, processed);
         await updateChat(sessionId, processed);
 
@@ -548,9 +550,22 @@ export async function createSession(sessionId, io) {
         }
 
         io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
+
+        // ===============================================
+        // 🚀 LOGIKA AUTO-REPLY AI (TARUH DI SINI)
+        // ===============================================
+        // Jalankan handleAIResponse setelah semua proses penyimpanan selesai
+        if (caption && !msg.key.fromMe) {
+          // Pastikan fungsi ini sudah di-import dari aiService.js di bagian atas file
+          handleAIResponse(sessionId, msg.key.remoteJid, caption, sock);
+        }
       }
     }
   });
+
+
+
+  
   // ---- Event: messages.update ----
   sock.ev.on("messages.update", async (updates) => {
     for (const { key, update } of updates) {

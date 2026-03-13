@@ -12,7 +12,8 @@ import {
   Settings,
   UserSearch,
   KeyRound,
-  Link2, // Ikon baru untuk Link Rotator
+  Link2,
+  Bot, // Ikon baru untuk AI
 } from "lucide-react";
 import NavButton from "./NavButton";
 
@@ -40,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const canSeeDashboard =
     user?.role_type === "system" || user?.role_type === "manager" || user?.role_type === "custom";
   
-  // Admin/Manager bisa kelola Keyword & Link Rotator
+  // Admin/Manager bisa kelola Marketing & AI
   const canManageMarketing = 
     user?.role_type === "system" || user?.role_type === "manager";
 
@@ -107,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </>
             )}
 
-            {/* GROUP 2: MONITORING & MARKETING */}
+            {/* GROUP 2: MONITORING, MARKETING & AI */}
             {canSeeDashboard && (
               <div className="flex flex-col gap-2 items-center">
                 <NavButton
@@ -126,12 +127,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                       title="Keyword Leads"
                     />
                     
-                    {/* MENU BARU: LINK ROTATOR */}
                     <NavButton
                       icon={<Link2 className="w-5 h-5 text-emerald-400" />}
                       active={activeTab === "link-rotator"}
                       onClick={() => handleNavClick("link-rotator")}
                       title="Link Rotator"
+                    />
+
+                    {/* MENU BARU: AI AUTO REPLY */}
+                    <NavButton
+                      icon={<Bot className="w-5 h-5 text-purple-400" />}
+                      active={activeTab === "ai-setting"}
+                      onClick={() => handleNavClick("ai-setting")}
+                      title="AI Knowledge & Auto Reply"
                     />
                   </>
                 )}
