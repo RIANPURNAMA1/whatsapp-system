@@ -25,53 +25,36 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => (
     </div>
 
     {/* Human-First Mode & Daily Limit */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Human-First Mode */}
-      <div className="flex justify-between mb-4">
-        <span className="text-xs text-[#8696A0]">Tunggu Manusia Selama:</span>
-        {/* Gunakan human_wait_time */}
-        <span className="text-emerald-400 font-bold">
-          {formData.human_wait_time || 0} Menit
-        </span>
-      </div>
-      <input
-        type="range"
-        min="0"
-        max="60"
-        value={formData.human_wait_time || 0}
-        // Ganti field name menjadi human_wait_time
-        onChange={(e) => onChange("human_wait_time", parseInt(e.target.value))}
-        className="w-full accent-emerald-500"
-      />
-
-      {/* Daily Message Limit (max_messages_per_day) */}
-      <div className="bg-[#202C33] p-6 rounded-2xl border border-[#313D45] shadow-xl">
-        <div className="flex items-center gap-3 mb-6">
-          <Zap className="text-emerald-500" size={20} />
-          <label className="text-sm font-bold text-white uppercase tracking-wider">
-            Limit Harian
-          </label>
-        </div>
-        <div className="bg-[#111B21] p-5 rounded-xl border border-[#313D45]">
-          <div className="flex justify-between mb-2">
-            <span className="text-xs text-[#8696A0]">Max Pesan/Hari:</span>
-            <MessageSquare size={14} className="text-[#8696A0]" />
-          </div>
-          <input
-            type="number"
-            value={formData.max_messages_per_day}
-            onChange={(e) =>
-              onChange("max_messages_per_day", Number(e.target.value))
-            }
-            className="w-full bg-transparent text-2xl font-bold text-white outline-none focus:text-emerald-400 transition-colors"
-            placeholder="200"
-          />
-          <p className="text-[10px] text-[#8696A0] mt-2 italic">
-            *Bot akan berhenti setelah mencapai limit ini.
-          </p>
-        </div>
-      </div>
+{/* Human-First Mode */}
+<div className="bg-[#202C33] p-6 rounded-2xl border border-[#313D45] shadow-xl">
+  <div className="flex items-center gap-3 mb-6">
+    <Clock className="text-emerald-500" size={20} />
+    <label className="text-sm font-bold text-white uppercase tracking-wider">
+      Human-First Mode
+    </label>
+  </div>
+  
+  <div className="bg-[#111B21] p-5 rounded-xl border border-[#313D45]">
+    <div className="flex justify-between mb-4">
+      <span className="text-xs text-[#8696A0]">Tunggu Manusia Selama:</span>
+      <span className="text-emerald-400 font-bold">
+        {formData.human_wait_time || 0} Menit
+      </span>
     </div>
+    <input
+      type="range"
+      min="0"
+      max="60"
+      step="1"
+      value={formData.human_wait_time || 0}
+      onChange={(e) => onChange("human_wait_time", parseInt(e.target.value))}
+      className="w-full accent-emerald-500 cursor-pointer"
+    />
+    <p className="text-[10px] text-[#8696A0] mt-2 italic">
+      *AI akan menunggu X menit sebelum merespon chat baru.
+    </p>
+  </div>
+</div>
 
     {/* Delay Inputs (min_delay & max_delay) */}
     <div className="grid grid-cols-2 gap-4">

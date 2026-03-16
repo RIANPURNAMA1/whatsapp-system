@@ -420,148 +420,143 @@ export async function createSession(sessionId, io) {
   });
 
   // ---- Event: messages.upsert ---- //
-  sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return;
+sock.ev.on("messages.upsert", async ({ messages, type }) => {
+  if (type !== "notify") return;
 
-    for (const msg of messages) {
-      // 1. FILTER BROADCAST, STATUS, & PESAN DARI DIRI SENDIRI (Cegah Looping)
-      if (
-        msg.key.remoteJid === "status@broadcast" ||
-        isJidBroadcast(msg.key.remoteJid) ||
-        msg.key.fromMe
-      )
-        continue;
+  for (const msg of messages) {
+    // 1. FILTER BROADCAST & STATUS SAJA
+    // Penting: msg.key.fromMe JANGAN di-continue di sini agar AI bisa mendeteksi balasan manual Admin
+    if (
+      msg.key.remoteJid === "status@broadcast" ||
+      isJidBroadcast(msg.key.remoteJid)
+    ) {
+      continue;
+    }
 
-      // 2. PROSES DOWNLOAD MEDIA
-      let mediaUrl = null;
-      const messageType = Object.keys(msg.message || {})[0];
-      const isMedia = [
-        "imageMessage",
-        "videoMessage",
-        "documentMessage",
-      ].includes(messageType);
+    // 2. PROSES DOWNLOAD MEDIA (Jika ada)
+    let mediaUrl = null;
+    const messageType = Object.keys(msg.message || {})[0];
+    const isMedia = [
+      "imageMessage",
+      "videoMessage",
+      "documentMessage",
+    ].includes(messageType);
 
-      if (isMedia) {
-        try {
-          console.log(`📩 Downloading media: ${messageType}...`);
-
-          const buffer = await downloadMediaMessage(
-            msg,
-            "buffer",
-            {},
-            {
-              logger: console,
-              reuploadRequest: sock.updateMediaMessage,
-            },
-          );
-
-          const uploadDir = path.join(process.cwd(), "public", "uploads");
-          if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
+    if (isMedia) {
+      try {
+        console.log(`📩 Downloading media: ${messageType}...`);
+        const buffer = await downloadMediaMessage(
+          msg,
+          "buffer",
+          {},
+          {
+            logger: console,
+            reuploadRequest: sock.updateMediaMessage,
           }
+        );
 
-          let extension = "bin";
-          if (messageType === "imageMessage") {
-            extension = "jpg";
-          } else if (messageType === "videoMessage") {
-            extension = "mp4";
-          } else if (messageType === "documentMessage") {
-            const docMsg = msg.message.documentMessage;
-            const fileNameOriginal = docMsg.fileName || "";
-            const mimeType = docMsg.mimetype || "";
-
-            if (fileNameOriginal.includes(".")) {
-              extension = fileNameOriginal.split(".").pop().toLowerCase();
-            } else if (mimeType === "application/pdf") {
-              extension = "pdf";
-            } else if (mimeType.includes("word")) {
-              extension = "docx";
-            }
-          }
-
-          const fileName = `${Date.now()}_${msg.key.id}.${extension}`;
-          const uploadPath = path.join(uploadDir, fileName);
-
-          fs.writeFileSync(uploadPath, buffer);
-
-          mediaUrl = `/uploads/${fileName}`;
-          console.log(`✅ Media saved: ${mediaUrl}`);
-        } catch (err) {
-          console.error("❌ Gagal download media:", err.message);
-        }
-      }
-
-      // 3. PROSES PESAN
-      const processed = await processMessage(sessionId, msg, sock);
-
-      if (processed) {
-        // Pastikan mediaUrl masuk ke objek
-        processed.mediaUrl = mediaUrl;
-
-        // Bersihkan nama type
-        processed.messageType =
-          messageType?.replace("Message", "") || processed.messageType;
-
-        // Ambil Caption asli jika ada (Penting untuk Gambar/Dokumen)
-        const caption =
-          msg.message?.[messageType]?.caption ||
-          msg.message?.extendedTextMessage?.text ||
-          msg.message?.conversation || // Tambahan untuk handle text biasa
-          processed.content;
-
-        processed.caption = caption;
-
-        // 4. FILTER PESAN PROTOKOL
-        if (
-          processed.messageType === "protocolMessage" ||
-          processed.messageType === "deleted"
-        )
-          continue;
-
-        // 5. SIMPAN KE DATABASE (History Chat)
-        await saveMessage(sessionId, processed);
-        await updateChat(sessionId, processed);
-
-        // 6. NOTIFIKASI REALTIME (Socket.io)
-        const isGroupMsg = msg.key.remoteJid?.endsWith("@g.us");
-        const payload = {
-          ...processed,
-          message_id: processed.messageId,
-          chat_jid: processed.chatJid,
-          is_from_me: processed.isFromMe ? 1 : 0,
-          media_url: processed.mediaUrl,
-          caption: processed.caption,
-          sender_name: processed.pushName,
-        };
-
-        // Emit untuk UI Chat Utama
-        io.emit(`message:new:${sessionId}`, payload);
-
-        if (!msg.key.fromMe) {
-          io.emit("new_incoming_message", payload);
+        const uploadDir = path.join(process.cwd(), "public", "uploads");
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
         }
 
-        if (isGroupMsg) {
-          io.emit(`group:message:${sessionId}`, payload);
-          try {
-            const metadata = await sock.groupMetadata(msg.key.remoteJid);
-            await syncGroupMetadata(sessionId, metadata, sock);
-          } catch (err) {}
+        let extension = "bin";
+        if (messageType === "imageMessage") extension = "jpg";
+        else if (messageType === "videoMessage") extension = "mp4";
+        else if (messageType === "documentMessage") {
+          const docMsg = msg.message.documentMessage;
+          extension = docMsg.fileName?.split(".").pop()?.toLowerCase() || "pdf";
         }
 
-        io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
-
-        // ===============================================
-        // 🚀 LOGIKA AUTO-REPLY AI (TARUH DI SINI)
-        // ===============================================
-        // Jalankan handleAIResponse setelah semua proses penyimpanan selesai
-        if (caption && !msg.key.fromMe) {
-          // Pastikan fungsi ini sudah di-import dari aiService.js di bagian atas file
-          handleAIResponse(sessionId, msg.key.remoteJid, caption, sock);
-        }
+        const fileName = `${Date.now()}_${msg.key.id}.${extension}`;
+        const uploadPath = path.join(uploadDir, fileName);
+        fs.writeFileSync(uploadPath, buffer);
+        mediaUrl = `/uploads/${fileName}`;
+      } catch (err) {
+        console.error("❌ Gagal download media:", err.message);
       }
     }
-  });
+
+    // 3. PROSES PESAN (Mapping Data)
+    const processed = await processMessage(sessionId, msg, sock);
+
+    if (processed) {
+      processed.mediaUrl = mediaUrl;
+      processed.messageType = messageType?.replace("Message", "") || processed.messageType;
+
+      // Ambil Teks/Caption asli
+      const caption =
+        msg.message?.[messageType]?.caption ||
+        msg.message?.extendedTextMessage?.text ||
+        msg.message?.conversation ||
+        processed.content;
+
+      processed.caption = caption;
+
+      // 4. FILTER PESAN PROTOKOL (Pesan hapus/edit)
+      if (
+        processed.messageType === "protocolMessage" ||
+        processed.messageType === "deleted"
+      ) {
+        continue;
+      }
+
+      // 5. SIMPAN KE DATABASE & UPDATE LIST CHAT
+      // Tetap simpan pesan dari Admin (isFromMe) agar dashboard sinkron
+      await saveMessage(sessionId, processed);
+      await updateChat(sessionId, processed);
+
+      // 6. NOTIFIKASI REALTIME (Socket.io)
+      const payload = {
+        ...processed,
+        message_id: processed.messageId,
+        chat_jid: processed.chatJid,
+        is_from_me: msg.key.fromMe ? 1 : 0,
+        media_url: processed.mediaUrl,
+        caption: processed.caption,
+        sender_name: processed.pushName,
+      };
+
+      // Update UI untuk device spesifik
+      io.emit(`message:new:${sessionId}`, payload);
+
+      // Notifikasi umum jika bukan dari Admin
+      if (!msg.key.fromMe) {
+        io.emit("new_incoming_message", payload);
+      }
+
+      // Update daftar percakapan (Sidebar)
+      io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
+
+      // Sinkronisasi Grup jika pesan dari grup
+      if (msg.key.remoteJid?.endsWith("@g.us")) {
+        try {
+          const metadata = await sock.groupMetadata(msg.key.remoteJid);
+          await syncGroupMetadata(sessionId, metadata, sock);
+        } catch (err) {}
+      }
+
+      // ===============================================
+      // 🚀 LOGIKA AUTO-REPLY AI (INTERACTIVE MODE)
+      // ===============================================
+      if (caption) {
+        /**
+         * PENTING: 
+         * Parameter terakhir 'msg.key.fromMe' dikirim ke handleAIResponse.
+         * Jika true (Admin balas), fungsi AI akan melakukan clearTimeout (Stop AI).
+         * Jika false (User tanya), fungsi AI akan mendaftarkan antrean baru.
+         */
+        handleAIResponse(
+          sessionId, 
+          msg.key.remoteJid, 
+          caption, 
+          sock, 
+          msg.key.fromMe
+        );
+      }
+    }
+  }
+});
 
 
 

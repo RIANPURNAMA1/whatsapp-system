@@ -54,12 +54,14 @@ export const InstructionSection: React.FC<Props> = ({ formData, setFormData }) =
       <div className="bg-[#202C33] p-6 rounded-2xl border border-[#313D45] shadow-sm">
         <label className="text-[10px] font-bold text-[#8696A0] uppercase tracking-widest block mb-3">Identitas Perangkat</label>
         <input 
-          type="text" 
-          value={formData.botName} 
-          onChange={(e) => setFormData({...formData, botName: e.target.value})} 
-          className="w-full bg-[#111B21] border border-[#313D45] rounded-xl p-3 text-white outline-none focus:border-emerald-500 transition-all placeholder:text-[#3b4a54]" 
-          placeholder="Nama Bot (Contoh: Admin CS)" 
-        />
+  type="text" 
+  // 1. Ambil nilai dari bot_name
+  value={formData.bot_name} 
+  // 2. Ubah juga ke bot_name (Gunakan underscore agar sinkron)
+  onChange={(e) => setFormData({...formData, bot_name: e.target.value})} 
+  className="w-full bg-[#111B21] border border-[#313D45] rounded-xl p-3 text-white outline-none focus:border-emerald-500 transition-all placeholder:text-[#3b4a54]" 
+  placeholder="Nama Bot (Contoh: Admin CS)" 
+/>
       </div>
 
       {/* SIFAT AI PRESETS */}
