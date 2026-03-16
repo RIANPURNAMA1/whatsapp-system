@@ -12,7 +12,7 @@ import {
   BrainCircuit,
   MessageSquareShare,
   Check,
-  FileDown, // Ikon baru untuk download
+  FileDown, 
 } from "lucide-react";
 
 interface AIAnalyticSectionProps {

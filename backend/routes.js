@@ -1,6 +1,9 @@
 // routes.js - Semua API Routes
 import express from "express";
 import multer from "multer";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { log } from "console";
 import { query, queryOne } from "./db.js";
 import {
   createSession,
@@ -10,25 +13,26 @@ import {
   deleteMessage,
   logoutSession,
   isSessionConnected,
-  getSessionInfo, // ⭐ TAMBAHKAN INI
-  sessions, // ⭐ TAMBAHKAN INI
+  getSessionInfo,
+  sessions,
 } from "./whatsapp.js";
 import { GoogleGenAI } from "@google/genai";
 
+// Di bagian atas file
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdf = require("pdf-parse-fork"); // Gunakan fork-nya
+
+// Konfigurasi Gemini
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
 const router = express.Router();
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { log } from "console";
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
-});
-
+// Konfigurasi Multer (Cukup satu kali di sini)
+const upload = multer({ storage: multer.memoryStorage() });
+// ... Lanjutkan ke Route API Anda ...
 // ===============================================
 // HELPER: Bangun filter WHERE berdasarkan period & sessionId
 // ===============================================
@@ -1915,77 +1919,140 @@ router.post("/ai/reply-message", async (req, res) => {
 // AI & ANTI-BAN SETTINGS ROUTES (SIMPLIFIED)
 // ===============================================
 
-// 1. Ambil Setting Berdasarkan Session ID
-router.get("/ai-settings/:sessionId", authenticateToken, async (req, res) => {
+// 1. Route Ambil List Konfigurasi
+router.get("/ai-settings", authenticateToken, async (req, res) => {
   try {
-    const { sessionId } = req.params;
-    
-    // Menggunakan wa_ai_settings sesuai tabel Anda
-    const settings = await query(
-      "SELECT * FROM wa_ai_settings WHERE session_id = ?",
-      [sessionId]
+    // Menambahkan human_wait_time ke dalam SELECT
+    const allSettings = await query(
+      `SELECT 
+        session_id, 
+        bot_name, 
+        prompt, 
+        knowledge_base, 
+        min_delay, 
+        max_delay, 
+        max_messages_per_day, 
+        human_wait_time, 
+        is_active, 
+        updated_at 
+      FROM wa_ai_settings 
+      ORDER BY updated_at DESC`
     );
 
-    if (settings.length === 0) {
-      return res.json({ success: true, data: null });
-    }
-
-    res.json({ success: true, data: settings[0] });
+    res.json({ success: true, data: allSettings });
   } catch (err) {
+    console.error("[ERROR GET AI SETTINGS]:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// 2. Simpan atau Update Setting (Fokus: Materi & Anti-Ban)
-router.post("/ai-settings/save", authenticateToken, async (req, res) => {
+// 2. Route Simpan atau Update Setting (Fokus: Materi, Anti-Ban & Human-First)
+router.post("/ai-settings/save", authenticateToken, upload.array('files'), async (req, res) => {
   try {
-    const {
-      sessionId,
-      botName,
-      prompt,
-      knowledgeBase,
-      minDelay,
-      maxDelay,
-      maxMessagesPerDay
+    // 1. Destructuring data body - Pastikan humanWaitTime diambil
+    const { 
+      sessionId, 
+      botName, 
+      prompt, 
+      knowledgeBase, 
+      minDelay, 
+      maxDelay, 
+      maxMessagesPerDay,
+      humanWaitTime // Diambil dari frontend
     } = req.body;
 
     if (!sessionId) {
       return res.status(400).json({ success: false, message: "Session ID wajib diisi" });
     }
 
-    // SQL difokuskan hanya pada kolom yang ada di UI baru Anda
+    // Variabel untuk menampung teks mentah + hasil ekstraksi PDF
+    let combinedKnowledge = knowledgeBase || "";
+
+    // 2. Ekstraksi PDF
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        try {
+          const options = { disableFontFace: true };
+          const data = await pdf(file.buffer, options);
+          
+          const cleanText = data.text
+            .replace(/\n\s*\n/g, '\n')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          combinedKnowledge += `\n\n[SUMBER PDF: ${file.originalname}]\n${cleanText}`;
+          console.log(`[SUCCESS] Ekstraksi PDF Berhasil: ${file.originalname}`);
+        } catch (pdfErr) {
+          console.error(`[ERROR PDF] Gagal scan ${file.originalname}:`, pdfErr.message);
+        }
+      }
+    }
+
+    // 3. Simpan ke Database - Menyertakan human_wait_time
     const sql = `
       INSERT INTO wa_ai_settings 
-      (session_id, bot_name, prompt, knowledge_base, min_delay, max_delay, max_messages_per_day)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      (session_id, bot_name, prompt, knowledge_base, min_delay, max_delay, max_messages_per_day, human_wait_time)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
       bot_name=VALUES(bot_name), 
       prompt=VALUES(prompt), 
       knowledge_base=VALUES(knowledge_base), 
       min_delay=VALUES(min_delay), 
       max_delay=VALUES(max_delay), 
-      max_messages_per_day=VALUES(max_messages_per_day)
+      max_messages_per_day=VALUES(max_messages_per_day),
+      human_wait_time=VALUES(human_wait_time)
     `;
 
     const values = [
       sessionId, 
-      botName, 
-      prompt, 
-      knowledgeBase, 
+      botName || "Bot WhatsApp", 
+      prompt || "Anda adalah asisten cerdas.", 
+      combinedKnowledge, 
       parseInt(minDelay) || 5, 
       parseInt(maxDelay) || 15, 
-      parseInt(maxMessagesPerDay) || 200
+      parseInt(maxMessagesPerDay) || 200,
+      parseInt(humanWaitTime) || 0 // Nilai menit tunggu
     ];
 
     await query(sql, values);
 
-    res.json({ success: true, message: "Konfigurasi Materi & Anti-Ban berhasil disimpan" });
+    res.json({ 
+      success: true, 
+      message: "Konfigurasi Berhasil Disimpan!" 
+    });
+
   } catch (err) {
-    console.error("[ERROR SAVE AI]", err);
+    console.error("[CRITICAL ERROR SAVE AI]:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Terjadi kesalahan sistem: " + err.message 
+    });
+  }
+});
+// 3. Route untuk Mengubah Status Aktif/Nonaktif AI (Toggle)
+router.post("/ai-settings/toggle", authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, is_active } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: "Session ID wajib diisi" });
+    }
+
+    // Update status is_active di database
+    // Pastikan kolom is_active sudah ada di tabel wa_ai_settings
+    await query(
+      "UPDATE wa_ai_settings SET is_active = ? WHERE session_id = ?",
+      [is_active ? 1 : 0, sessionId]
+    );
+
+    res.json({ 
+      success: true, 
+      message: `AI berhasil ${is_active ? 'diaktifkan' : 'dinonaktifkan'}` 
+    });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
 // GET: Statistik per sesi (endpoint lama, tetap dipertahankan)
 router.get("/sessions/:sessionId/stats", async (req, res) => {
   const { sessionId } = req.params;

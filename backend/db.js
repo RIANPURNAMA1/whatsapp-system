@@ -85,17 +85,6 @@ export const assignSessionToUser = async (userId, sessionId) => {
 // 4. LOGIKA AUTO-MIGRATE / INIT TABEL
 async function initDatabase() {
   const tables = [
-    `CREATE TABLE IF NOT EXISTS rotator_logs (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  rotator_id INT,
-  target_number VARCHAR(20),
-  user_agent TEXT,
-  referer TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (rotator_id) REFERENCES link_rotators(id) ON DELETE CASCADE
-);
-    `,
-
     `CREATE TABLE IF NOT EXISTS link_rotators (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -297,16 +286,17 @@ async function initDatabase() {
 
     `CREATE TABLE IF NOT EXISTS wa_ai_settings (
     session_id VARCHAR(50) PRIMARY KEY,
+    is_active TINYINT(1) DEFAULT 0, -- 0: Nonaktif, 1: Aktif
     bot_name VARCHAR(100),
     prompt TEXT,
     knowledge_base TEXT,
     min_delay INT DEFAULT 5,
     max_delay INT DEFAULT 15,
     max_messages_per_day INT DEFAULT 200,
+    human_wait_time INT DEFAULT 0, -- Tambahkan ini: Durasi tunggu dalam menit
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )
 `,
-
   ];
 
   try {
