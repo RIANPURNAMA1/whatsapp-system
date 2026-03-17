@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
+import axios from "axios"; // Gunakan axios untuk kemudahan upload file
 
 // Import Modular Components
 import { AiHeader } from "./Ai/AiHeader";
@@ -8,18 +9,23 @@ import { SessionSelector } from "./Ai/SessionSelector";
 import { InstructionSection } from "./Ai/InstructionSection";
 import { KnowledgeBaseSection } from "./Ai/KnowledgeBaseSection";
 import { AntiBanSection } from "./Ai/AntiBanSection";
+import { RulesSection } from "./Ai/RulesSection";
 
 const AISettingPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"materi" | "antiban">("materi");
+  const [activeTab, setActiveTab] = useState<"materi" | "rules" | "antiban">("materi");
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [savedConfigs, setSavedConfigs] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchSessions, setIsFetchSessions] = useState(false);
 
-  const [kbMode, setKbMode] = useState<"text" | "pdf">("text");
+  // --- STATE KNOWLEDGE BASE ---
+  const [kbMode, setKbMode] = useState<'text' | 'pdf' | 'media'>('text');
   const [pdfList, setPdfList] = useState<{ name: string; size: number }[]>([]);
   const [actualFiles, setActualFiles] = useState<File[]>([]);
+
+  // --- STATE MEDIA ASSETS ---
+  const [mediaAssets, setMediaAssets] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     bot_name: "",
@@ -28,21 +34,16 @@ const AISettingPage: React.FC = () => {
     min_delay: 5,
     max_delay: 15,
     max_messages_per_day: 200,
-    human_wait_time: 0, // Default 0
+    human_wait_time: 0,
   });
 
+  // --- FETCH DATA FUNCTIONS ---
   const fetchConfigs = async () => {
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/ai-settings`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
-      const result = await response.json();
-      if (result.success) {
-        setSavedConfigs(result.data || []);
-      }
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/ai-settings`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (response.data.success) setSavedConfigs(response.data.data || []);
     } catch (err) {
       console.error("Gagal mengambil list config");
     }
@@ -51,17 +52,25 @@ const AISettingPage: React.FC = () => {
   const fetchAvailableSessions = async () => {
     setIsFetchSessions(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/sessions`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/sessions`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-      const result = await response.json();
-      if (result.success) {
-        setActiveSessions(result.data || []);
-      }
+      if (response.data.success) setActiveSessions(response.data.data || []);
     } catch (err) {
       console.error("Gagal mengambil session");
     } finally {
       setIsFetchSessions(false);
+    }
+  };
+
+  const fetchMediaAssets = async (sid: string) => {
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/ai-settings/assets/${sid}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (response.data.success) setMediaAssets(response.data.data);
+    } catch (err) {
+      console.error("Gagal fetch media assets");
     }
   };
 
@@ -70,6 +79,14 @@ const AISettingPage: React.FC = () => {
     fetchConfigs();
   }, []);
 
+  // Fetch media assets saat session terpilih berubah
+  useEffect(() => {
+    if (selectedSessionId) {
+      fetchMediaAssets(selectedSessionId);
+    }
+  }, [selectedSessionId]);
+
+  // --- HANDLER FUNCTIONS ---
   const getSessionName = (sessionId: string) => {
     const session = activeSessions.find((s: any) => s.id === sessionId);
     return session ? session.name : "Unknown Device";
@@ -84,21 +101,19 @@ const AISettingPage: React.FC = () => {
       min_delay: cfg.min_delay || 5,
       max_delay: cfg.max_delay || 15,
       max_messages_per_day: cfg.max_messages_per_day || 200,
-      human_wait_time: cfg.human_wait_time || 0, // Pastikan terisi dari DB
+      human_wait_time: cfg.human_wait_time || 0,
     });
-    setKbMode(cfg.kb_mode || "text");
+    setKbMode("text"); // Reset ke text default saat edit
     toast.success(`Editing: ${getSessionName(cfg.session_id)}`);
-    window.scrollTo({ top: 800, behavior: "smooth" });
   };
 
   const handleSave = async () => {
     if (!selectedSessionId) return toast.error("Pilih device dulu");
     setIsSaving(true);
+    const loadToast = toast.loading("Menyimpan konfigurasi...");
 
     try {
       const data = new FormData();
-      
-      // Mengirimkan data dengan key yang sesuai dengan destructuring Backend
       data.append("sessionId", selectedSessionId); 
       data.append("botName", formData.bot_name);
       data.append("prompt", formData.prompt);
@@ -106,52 +121,65 @@ const AISettingPage: React.FC = () => {
       data.append("minDelay", formData.min_delay.toString());
       data.append("maxDelay", formData.max_delay.toString());
       data.append("maxMessagesPerDay", formData.max_messages_per_day.toString());
-      
-      // CRITICAL FIX: Pastikan dikirim sebagai angka mentah 
-      // Jika bot kamu pakai hitungan menit, kirim formData.human_wait_time
-      // Jika bot kamu pakai hitungan detik, kalikan 60 di sini
       data.append("humanWaitTime", formData.human_wait_time.toString());
       
-      actualFiles.forEach((file) => {
-        data.append("files", file);
+      actualFiles.forEach((file) => data.append("files", file));
+
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/ai-settings/save`, data, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
       });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/ai-settings/save`,
-        {
-          method: "POST",
-          headers: { 
-            Authorization: `Bearer ${localStorage.getItem("token")}` 
-          },
-          body: data,
-        }
-      );
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success("Konfigurasi Berhasil Disimpan!");
+      if (response.data.success) {
+        toast.success("Konfigurasi Berhasil Disimpan!", { id: loadToast });
         setActualFiles([]);
         setPdfList([]); 
         fetchConfigs(); 
-      } else {
-        toast.error(result.message || "Gagal menyimpan");
       }
-    } catch (err) {
-      console.error("Save Error:", err);
-      toast.error("Terjadi kesalahan koneksi ke server");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Gagal menyimpan", { id: loadToast });
     } finally {
       setIsSaving(false);
     }
   };
 
+  // --- MEDIA ASSET HANDLERS ---
+  const handleUploadMedia = async (file: File, assetName: string) => {
+    const loadToast = toast.loading("Mengunggah gambar...");
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      data.append("assetName", assetName);
+      data.append("sessionId", selectedSessionId);
+
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/ai-settings/upload-asset`, data, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+
+      if (response.data.success) {
+        toast.success("Aset media berhasil ditambahkan", { id: loadToast });
+        fetchMediaAssets(selectedSessionId);
+      }
+    } catch (err) {
+      toast.error("Gagal mengunggah aset", { id: loadToast });
+    }
+  };
+
+  const handleRemoveMedia = async (id: number) => {
+    if (!confirm("Hapus aset ini?")) return;
+    try {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/ai-assets/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      toast.success("Aset dihapus");
+      fetchMediaAssets(selectedSessionId);
+    } catch (err) {
+      toast.error("Gagal menghapus aset");
+    }
+  };
+
   return (
     <div className="p-6 bg-[#0B141A] min-h-screen text-[#E9EDEF]">
-      <AiHeader
-        onSave={handleSave}
-        isSaving={isSaving}
-        canSave={!!selectedSessionId}
-      />
+      <AiHeader onSave={handleSave} isSaving={isSaving} canSave={!!selectedSessionId} />
       
       <SessionSelector
         sessions={activeSessions}
@@ -173,68 +201,63 @@ const AISettingPage: React.FC = () => {
       />
 
       {selectedSessionId && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-700">
+        <div className="space-y-6 mt-10">
+          {/* TAB NAVIGATION */}
           <div className="flex gap-6 border-b border-[#313D45]">
-            <button
-              onClick={() => setActiveTab("materi")}
-              className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "materi" ? "text-white" : "text-[#8696A0]"}`}
-            >
-              Materi & Sifat AI
-              {activeTab === "materi" && (
-                <div className="absolute bottom-0 w-full h-1 bg-emerald-500 rounded-t-full" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab("antiban")}
-              className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "antiban" ? "text-white" : "text-[#8696A0]"}`}
-            >
-              Fitur Keamanan
-              {activeTab === "antiban" && (
-                <div className="absolute bottom-0 w-full h-1 bg-orange-500 rounded-t-full" />
-              )}
-            </button>
+            {[
+              { id: "materi", label: "Materi & Sifat AI", color: "bg-emerald-500" },
+              { id: "rules", label: "Auto Reply (Rules)", color: "bg-blue-500" },
+              { id: "antiban", label: "Fitur Keamanan", color: "bg-orange-500" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`pb-4 text-sm font-bold transition-all relative ${activeTab === tab.id ? "text-white" : "text-[#8696A0]"}`}
+              >
+                {tab.label}
+                {activeTab === tab.id && <div className={`absolute bottom-0 w-full h-1 ${tab.color} rounded-t-full`} />}
+              </button>
+            ))}
           </div>
 
-          {activeTab === "materi" ? (
+          {/* TAB CONTENT */}
+          {activeTab === "materi" && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-5">
-                <InstructionSection
-                  formData={formData}
-                  setFormData={setFormData}
-                />
+                <InstructionSection formData={formData} setFormData={setFormData} />
               </div>
               <div className="lg:col-span-7">
                 <KnowledgeBaseSection
                   mode={kbMode}
                   setMode={setKbMode}
                   textValue={formData.knowledge_base}
-                  onTextChange={(v) =>
-                    setFormData({ ...formData, knowledge_base: v })
-                  }
+                  onTextChange={(v) => setFormData({ ...formData, knowledge_base: v })}
                   pdfList={pdfList}
                   onUpload={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      setPdfList((prev) => [
-                        ...prev,
-                        { name: file.name, size: file.size },
-                      ]);
-                      setActualFiles((prev) => [...prev, file]);
+                      setPdfList(prev => [...prev, { name: file.name, size: file.size }]);
+                      setActualFiles(prev => [...prev, file]);
                     }
                   }}
                   onRemovePdf={(idx) => {
-                    setPdfList((prev) => prev.filter((_, i) => i !== idx));
-                    setActualFiles((prev) => prev.filter((_, i) => i !== idx));
+                    setPdfList(prev => prev.filter((_, i) => i !== idx));
+                    setActualFiles(prev => prev.filter((_, i) => i !== idx));
                   }}
+                  mediaAssets={mediaAssets}
+                  onUploadMedia={handleUploadMedia}
+                  onRemoveMedia={handleRemoveMedia}
                 />
               </div>
             </div>
-          ) : (
+          )}
+
+          {activeTab === "rules" && <RulesSection sessionId={selectedSessionId} />}
+
+          {activeTab === "antiban" && (
             <AntiBanSection
               formData={formData}
-              onChange={(field, value) =>
-                setFormData({ ...formData, [field]: value })
-              }
+              onChange={(field, value) => setFormData({ ...formData, [field]: value })}
             />
           )}
         </div>

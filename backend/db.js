@@ -285,18 +285,43 @@ async function initDatabase() {
  `,
 
     `CREATE TABLE IF NOT EXISTS wa_ai_settings (
-    session_id VARCHAR(50) PRIMARY KEY,
-    is_active TINYINT(1) DEFAULT 0, -- 0: Nonaktif, 1: Aktif
-    bot_name VARCHAR(100),
-    prompt TEXT,
-    knowledge_base TEXT,
-    min_delay INT DEFAULT 5,
-    max_delay INT DEFAULT 15,
-    max_messages_per_day INT DEFAULT 200,
-    human_wait_time INT DEFAULT 0, -- Tambahkan ini: Durasi tunggu dalam menit
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-)
+      session_id VARCHAR(50) PRIMARY KEY,
+      is_active TINYINT(1) DEFAULT 0,
+      is_rules_active TINYINT(1) DEFAULT 1, -- Pastikan baris ini ada
+      bot_name VARCHAR(100),
+      prompt TEXT,
+      knowledge_base TEXT,
+      min_delay INT DEFAULT 5,
+      max_delay INT DEFAULT 15,
+      max_messages_per_day INT DEFAULT 200,
+      human_wait_time INT DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
 `,
+
+
+`
+CREATE TABLE IF NOT EXISTS wa_ai_media_assets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id VARCHAR(50),
+    asset_name VARCHAR(100), -- Contoh: 'syarat_jepang', 'alur_proses'
+    file_path VARCHAR(255),  -- Path file di server
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES wa_ai_settings(session_id) ON DELETE CASCADE
+)`,
+
+`
+CREATE TABLE IF NOT EXISTS wa_rules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id VARCHAR(50) NOT NULL,
+    keyword VARCHAR(255) NOT NULL,
+    answer TEXT NOT NULL,
+    image_url VARCHAR(255) DEFAULT NULL, -- Kolom baru untuk gambar
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX (session_id),
+    INDEX (keyword)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
   ];
 
   try {

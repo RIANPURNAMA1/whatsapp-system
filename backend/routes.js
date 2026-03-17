@@ -21,6 +21,8 @@ import { GoogleGenAI } from "@google/genai";
 // Di bagian atas file
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
+import fs from "fs";
+import path from "path"; // Ini yang kurang
 const pdf = require("pdf-parse-fork"); // Gunakan fork-nya
 
 // Konfigurasi Gemini
@@ -30,8 +32,37 @@ const ai = new GoogleGenAI({
 
 const router = express.Router();
 
-// Konfigurasi Multer (Cukup satu kali di sini)
-const upload = multer({ storage: multer.memoryStorage() });
+
+import { fileURLToPath } from "url";
+// Konfigurasi untuk mendapatkan path di ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // 1. Tentukan subfolder secara dinamis berdasarkan URL request
+    // Jika URL mengandung 'upload-asset', arahkan ke folder 'media'
+    const subFolder = req.originalUrl.includes('/ai-settings/upload-asset') 
+      ? "media" 
+      : "rules";
+
+    // 2. Susun path absolutnya: /uploads/media atau /uploads/rules
+    const uploadDir = path.join(__dirname, "uploads", subFolder);
+    
+    // 3. Pastikan folder tujuan ada, jika tidak, buat secara otomatis
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    // Gunakan timestamp agar nama file tidak bentrok
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
+
 // ... Lanjutkan ke Route API Anda ...
 // ===============================================
 // HELPER: Bangun filter WHERE berdasarkan period & sessionId
@@ -2029,6 +2060,54 @@ router.post("/ai-settings/save", authenticateToken, upload.array('files'), async
     });
   }
 });
+
+// 3. Route Upload Media Asset (Gambar dengan Alias/Nama)
+router.post("/ai-settings/upload-asset", authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    const { sessionId, assetName } = req.body;
+    const file = req.file;
+
+    // Validasi input
+    if (!sessionId || !assetName || !file) {
+      return res.status(400).json({ success: false, message: "Data tidak lengkap" });
+    }
+
+    // 1. Buat URL Lengkap (Supaya frontend mudah menampilkan gambar)
+    // Hasilnya nanti seperti: http://localhost:5000/uploads/media/namafile.jpg
+    const imageUrl = `${req.protocol}://${req.get("host")}/uploads/media/${file.filename}`;
+
+    // 2. Simpan ke database
+    // Kita simpan URL lengkap di kolom file_path agar seragam dengan fitur Rules
+    const sql = `INSERT INTO wa_ai_media_assets (session_id, asset_name, file_path) VALUES (?, ?, ?)`;
+    await query(sql, [
+      sessionId, 
+      assetName.trim().toLowerCase(), 
+      imageUrl // Menyimpan URL Lengkap
+    ]);
+
+    res.json({ 
+      success: true, 
+      message: `Asset ${assetName} berhasil disimpan!`,
+      url: imageUrl 
+    });
+  } catch (err) {
+    console.error("Upload Asset Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 4. Route Ambil List Asset per Session
+router.get("/ai-settings/assets/:sessionId", authenticateToken, async (req, res) => {
+  try {
+    const assets = await query(
+      "SELECT id, asset_name, file_path FROM wa_ai_media_assets WHERE session_id = ?",
+      [req.params.sessionId]
+    );
+    res.json({ success: true, data: assets });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 // 3. Route untuk Mengubah Status Aktif/Nonaktif AI (Toggle)
 router.post("/ai-settings/toggle", authenticateToken, async (req, res) => {
   try {
@@ -2053,6 +2132,111 @@ router.post("/ai-settings/toggle", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+router.post("/ai-settings/toggle-rules", authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, is_rules_active } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: "Session ID wajib diisi" });
+    }
+
+    // Pastikan nilai dikonversi menjadi 1 atau 0 untuk MySQL TINYINT
+    const statusUpdate = is_rules_active ? 1 : 0;
+
+    const result = await query(
+      "UPDATE wa_ai_settings SET is_rules_active = ? WHERE session_id = ?",
+      [statusUpdate, sessionId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Data tidak ditemukan" });
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Auto Rules berhasil ${statusUpdate === 1 ? 'diaktifkan' : 'dinonaktifkan'}` 
+    });
+  } catch (err) {
+    console.error("Error toggle-rules:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// --- ROUTES UNTUK WA RULES (AUTO-REPLY KEYWORD) ---
+
+// 1. Ambil List Rules berdasarkan Session ID
+router.get("/ai-rules/:sessionId", authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    // Kolom image_url sekarang ikut diambil
+    const rules = await query(
+      "SELECT * FROM wa_rules WHERE session_id = ? ORDER BY created_at DESC",
+      [sessionId]
+    );
+    res.json({ success: true, data: rules });
+  } catch (err) {
+    console.error("[ERROR GET RULES]:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. Tambah atau Update Rule (Mendukung File Upload)
+router.post("/ai-rules/save", authenticateToken, upload.single("image"), async (req, res) => {
+  try {
+    const { id, sessionId, keyword, answer } = req.body;
+    let imageUrl = req.body.imageUrl; // Jika edit dan tidak ganti gambar
+
+    // Jika ada file baru yang diupload
+    if (req.file) {
+      // Dapatkan URL lengkap atau path relatif
+      imageUrl = `${req.protocol}://${req.get("host")}/uploads/rules/${req.file.filename}`;
+    }
+
+    if (!sessionId || !keyword || !answer) {
+      return res.status(400).json({ success: false, message: "Data tidak lengkap" });
+    }
+
+    const cleanKeyword = keyword.toLowerCase().trim();
+
+    if (id && id !== "undefined") {
+      await query(
+        "UPDATE wa_rules SET keyword = ?, answer = ?, image_url = ? WHERE id = ? AND session_id = ?",
+        [cleanKeyword, answer, imageUrl || null, id, sessionId]
+      );
+    } else {
+      await query(
+        "INSERT INTO wa_rules (session_id, keyword, answer, image_url) VALUES (?, ?, ?, ?)",
+        [sessionId, cleanKeyword, answer, imageUrl || null]
+      );
+    }
+
+    res.json({ success: true, message: "Rule berhasil disimpan!" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Hapus Rule
+router.post("/ai-rules/delete", authenticateToken, async (req, res) => {
+  try {
+    const { id, sessionId } = req.body;
+
+    if (!id || !sessionId) {
+      return res.status(400).json({ success: false, message: "ID dan Session ID diperlukan" });
+    }
+
+    await query("DELETE FROM wa_rules WHERE id = ? AND session_id = ?", [id, sessionId]);
+
+    res.json({ success: true, message: "Aturan berhasil dihapus" });
+  } catch (err) {
+    console.error("[ERROR DELETE RULE]:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+
 // GET: Statistik per sesi (endpoint lama, tetap dipertahankan)
 router.get("/sessions/:sessionId/stats", async (req, res) => {
   const { sessionId } = req.params;
