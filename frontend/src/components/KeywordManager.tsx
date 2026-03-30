@@ -173,7 +173,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-purple-500/20">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-purple-500/20">
                 <KeyRound className="w-8 h-8 text-white" />
               </div>
               <div>
@@ -188,7 +188,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
 
             <Button 
               onClick={() => setIsFormOpen(true)}
-              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 gap-2 px-6 h-12 text-base"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 gap-2 px-6 h-12 text-base"
             >
               <Plus className="w-5 h-5" />
               Tambah Keyword
@@ -214,7 +214,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                   onClick={() => setSelectedPlatform(p)}
                   className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                     selectedPlatform === p
-                      ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25"
+                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25"
                       : "bg-white/80 backdrop-blur-sm border border-gray-200/80 text-gray-600 hover:border-violet-300 hover:text-violet-600"
                   }`}
                 >
@@ -233,8 +233,8 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                 <p className="text-sm text-gray-500 mb-1">Total Keyword</p>
                 <p className="text-4xl font-bold text-gray-900">{keywords.length}</p>
               </div>
-              <div className="w-14 h-14 bg-gradient-to-br from-violet-100 to-purple-100 rounded-2xl flex items-center justify-center">
-                <Tag className="w-7 h-7 text-violet-600" />
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center">
+                <Tag className="w-7 h-7 text-blue-600" />
               </div>
             </div>
           </div>
@@ -265,13 +265,13 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
         {/* KEYWORD LIST */}
         {fetching ? (
           <div className="flex flex-col items-center justify-center py-24">
-            <div className="w-16 h-16 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
             <p className="text-gray-500 mt-6 text-lg">Memuat data...</p>
           </div>
         ) : filteredKeywords.length === 0 ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl border border-gray-100 p-16 text-center shadow-sm">
-            <div className="w-24 h-24 bg-gradient-to-br from-violet-100 to-indigo-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
-              <Sparkles className="w-12 h-12 text-violet-500" />
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <Sparkles className="w-12 h-12 text-blue-500" />
             </div>
             <h3 className="text-2xl font-bold text-gray-800 mb-2">
               {searchQuery || selectedPlatform !== "all" ? "Tidak ditemukan" : "Belum ada keyword"}
@@ -285,7 +285,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
             {!searchQuery && selectedPlatform === "all" && (
               <Button 
                 onClick={() => setIsFormOpen(true)}
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 gap-2 px-8 h-12 text-base shadow-lg shadow-purple-500/25"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 gap-2 px-8 h-12 text-base shadow-lg shadow-purple-500/25"
               >
                 <Plus className="w-5 h-5" />
                 Tambah Keyword Pertama
@@ -297,7 +297,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
             {filteredKeywords.map((k: any, index: number) => (
               <div
                 key={k.id}
-                className="group bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100 p-5 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-500/5 transition-all duration-300"
+                className="group bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100 p-5 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="flex items-center gap-5">
@@ -316,7 +316,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-violet-500 shrink-0" />
+                      <MessageSquare className="w-4 h-4 text-blue-500 shrink-0" />
                       <p className="text-gray-700 font-medium">
                         "{k.keyword_text}"
                       </p>
@@ -342,7 +342,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
                 <Plus className="w-5 h-5 text-white" />
               </div>
               <DialogTitle className="text-xl">Tambah Keyword Baru</DialogTitle>
@@ -359,7 +359,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
               <select
                 value={newKw.session_id}
                 onChange={(e) => setNewKw({ ...newKw, session_id: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 appearance-none cursor-pointer"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer"
                 required
               >
                 <option value="">Pilih Perangkat...</option>
@@ -415,7 +415,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
               <Button 
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 h-11"
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-11"
               >
                 {loading ? (
                   <RefreshCcw className="animate-spin mx-auto" size={18} />
