@@ -7,11 +7,7 @@ import {
   Users,
   Loader2,
   RefreshCw,
-  MessageSquare,
-  Crown,
-  ChevronRight,
 } from "lucide-react";
-import Avatar from "./Avatar";
 import { getAvatarColor, formatChatTime, truncate } from "../utils/helpers";
 import { groupApi } from "../services/Groupapi";
 import type { GroupChat } from "../types/Group";
@@ -50,24 +46,19 @@ const GroupList: React.FC<GroupListProps> = ({
     [sessionId, search],
   );
 
-  // Load saat pertama kali & saat search berubah
-  // Load saat pertama kali & saat search berubah
   useEffect(() => {
     const timer = setTimeout(() => loadGroups(), 300);
     return () => clearTimeout(timer);
   }, [loadGroups]);
 
-  // ✅ TAMBAHAN BARU: Real-time update list grup saat ada pesan baru
   useEffect(() => {
     const socket = getSocket();
 
     const handleGroupUpdate = (data: any) => {
-      // Update grup yang terkait dalam daftar
       setGroups((prevGroups) => {
         return (
           prevGroups
             .map((g) => {
-              // Jika ini grup yang menerima pesan
               if (g.jid === data.chat_jid || g.jid === data.chatJid) {
                 return {
                   ...g,
@@ -79,7 +70,6 @@ const GroupList: React.FC<GroupListProps> = ({
                     data.message_type ||
                     data.messageType ||
                     g.last_message_type,
-                  // Tambah unread jika bukan dari saya & grup tidak sedang terpilih
                   unread_count:
                     (data.is_from_me === 0 || data.isFromMe === false) &&
                     data.chat_jid !== selectedGroupJid
@@ -89,7 +79,6 @@ const GroupList: React.FC<GroupListProps> = ({
               }
               return g;
             })
-            // Sort ulang: grup dengan pesan terbaru di atas
             .sort((a, b) => {
               const timeA = a.last_message_time
                 ? new Date(a.last_message_time).getTime()
@@ -104,13 +93,11 @@ const GroupList: React.FC<GroupListProps> = ({
     };
 
     const handleChatUpdate = (data: { chatJid: string }) => {
-      // Refresh daftar jika ada update chat/grup
       if (data.chatJid && data.chatJid.endsWith("@g.us")) {
         loadGroups(false);
       }
     };
 
-    // Listen ke 3 event untuk update real-time
     socket.on(`message:new:${sessionId}`, handleGroupUpdate);
     socket.on(`group:message:${sessionId}`, handleGroupUpdate);
     socket.on(`chat:update:${sessionId}`, handleChatUpdate);
@@ -128,18 +115,18 @@ const GroupList: React.FC<GroupListProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#111B21]">
+    <div className="flex flex-col h-full bg-white">
       {/* Header */}
-      <div className="bg-[#202C33] px-4 py-3 flex items-center justify-between border-b border-[#1E2A30]">
+      <div className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#00a884]/20 rounded-full flex items-center justify-center">
-            <Users className="w-4 h-4 text-[#00a884]" />
+          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <Users className="w-4 h-4 text-blue-600" />
           </div>
           <div>
-            <p className="text-[#E9EDEF] text-sm font-semibold">
+            <p className="text-gray-900 text-sm font-semibold">
               Grup WhatsApp
             </p>
-            <p className="text-[#8696A0] text-[11px]">
+            <p className="text-gray-500 text-[11px]">
               {groups.length > 0 ? `${groups.length} grup` : "Memuat..."}
             </p>
           </div>
@@ -147,30 +134,30 @@ const GroupList: React.FC<GroupListProps> = ({
         <button
           onClick={() => loadGroups(true)}
           disabled={isRefreshing}
-          className="p-2 text-[#8696A0] hover:text-[#00a884] hover:bg-[#2A3942] rounded-full transition-all"
+          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-all"
           title="Perbarui daftar grup"
         >
           <RefreshCw
-            className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[#00a884]" : ""}`}
+            className={`w-4 h-4 ${isRefreshing ? "animate-spin text-blue-600" : ""}`}
           />
         </button>
       </div>
 
       {/* Search */}
-      <div className="px-3 py-2 bg-[#111B21]">
-        <div className="relative flex items-center bg-[#202C33] rounded-lg px-3 group focus-within:ring-1 focus-within:ring-[#00a884] transition-all">
-          <Search className="w-4 h-4 text-[#8696A0] group-focus-within:text-[#00a884] flex-shrink-0" />
+      <div className="px-3 py-2 bg-white">
+        <div className="relative flex items-center bg-gray-100 rounded-lg px-3 group focus-within:ring-1 focus-within:ring-blue-500 transition-all">
+          <Search className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 flex-shrink-0" />
           <input
             type="text"
             placeholder="Cari nama grup..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent text-[#E9EDEF] py-2 pl-3 text-sm outline-none placeholder:text-[#8696A0]"
+            className="w-full bg-transparent text-gray-900 py-2 pl-3 text-sm outline-none placeholder:text-gray-400"
           />
           {search && (
             <button
               onClick={() => setSearch("")}
-              className="text-[#8696A0] hover:text-white text-lg leading-none"
+              className="text-gray-400 hover:text-gray-600 text-lg leading-none"
             >
               ×
             </button>
@@ -179,27 +166,27 @@ const GroupList: React.FC<GroupListProps> = ({
       </div>
 
       {/* Daftar Grup */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-40 gap-3 opacity-60">
-            <Loader2 className="w-6 h-6 animate-spin text-[#00a884]" />
-            <span className="text-[10px] text-[#8696A0] uppercase tracking-widest font-bold">
+          <div className="flex flex-col items-center justify-center h-40 gap-3">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
               Memuat Grup...
             </span>
           </div>
         ) : groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 px-6 gap-3">
-            <div className="w-16 h-16 bg-[#202C33] rounded-full flex items-center justify-center">
-              <Users className="w-8 h-8 text-[#3b4a54]" />
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+              <Users className="w-8 h-8 text-gray-400" />
             </div>
-            <p className="text-[#8696A0] text-sm text-center">
+            <p className="text-gray-500 text-sm text-center">
               {search
                 ? "Grup tidak ditemukan."
                 : "Belum ada grup yang tertaut.\nSinkronisasi otomatis saat pesan grup masuk."}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#1E2A30]/40">
+          <div className="divide-y divide-gray-100">
             {groups.map((group) => (
               <GroupListItem
                 key={group.jid}
@@ -216,9 +203,6 @@ const GroupList: React.FC<GroupListProps> = ({
   );
 };
 
-// ─────────────────────────────────────────────
-// Item grup individual
-// ─────────────────────────────────────────────
 interface GroupListItemProps {
   group: GroupChat;
   isSelected: boolean;
@@ -240,12 +224,11 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
       onClick={onClick}
       className={`
         flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 relative
-        ${isSelected ? "bg-[#2A3942]" : "hover:bg-[#1E2A30]"}
+        ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}
       `}
     >
-      {/* Garis hijau tanda terpilih */}
       {isSelected && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#00a884] rounded-r" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r" />
       )}
 
       {/* Avatar grup */}
@@ -270,8 +253,8 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
 
         {/* Badge unread */}
         {group.unread_count > 0 && (
-          <div className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[#00a884] rounded-full flex items-center justify-center border-2 border-[#111B21] px-1">
-            <span className="text-[10px] text-[#111B21] font-bold">
+          <div className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] bg-blue-500 rounded-full flex items-center justify-center border-2 border-white px-1">
+            <span className="text-[10px] text-white font-bold">
               {group.unread_count > 99 ? "99+" : group.unread_count}
             </span>
           </div>
@@ -281,14 +264,14 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
       {/* Info grup */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
-          <h3 className="text-[#E9EDEF] text-[14px] font-normal truncate flex items-center gap-1.5 leading-tight">
+          <h3 className="text-gray-900 text-[14px] font-normal truncate flex items-center gap-1.5 leading-tight">
             {displayName}
           </h3>
           <span
             className={`text-[11px] flex-shrink-0 ml-1 ${
               group.unread_count > 0
-                ? "text-[#00a884] font-semibold"
-                : "text-[#8696A0]"
+                ? "text-blue-500 font-semibold"
+                : "text-gray-400"
             }`}
           >
             {formatChatTime(group.last_message_time)}
@@ -296,9 +279,8 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
         </div>
 
         <div className="flex items-center gap-1">
-          {/* Jumlah anggota kalau tersedia */}
           {(group.participant_count ?? 0) > 0 && (
-            <span className="text-[10px] text-[#00a884] bg-[#00a884]/10 rounded px-1 py-0.5 flex-shrink-0 flex items-center gap-0.5">
+            <span className="text-[10px] text-blue-600 bg-blue-50 rounded px-1 py-0.5 flex-shrink-0 flex items-center gap-0.5">
               <Users className="w-2.5 h-2.5" />
               {group.participant_count}
             </span>
@@ -306,8 +288,8 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
           <p
             className={`text-xs truncate leading-4 flex-1 ${
               group.unread_count > 0
-                ? "text-[#E9EDEF] font-medium"
-                : "text-[#8696A0] font-light"
+                ? "text-gray-700 font-medium"
+                : "text-gray-500 font-light"
             }`}
           >
             {preview}

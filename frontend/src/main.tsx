@@ -13,17 +13,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       toastOptions={{
         duration: 3000,
         style: {
-          background: '#202C33',
-          color: '#E9EDEF',
-          border: '1px solid #2A3942',
+          background: '#ffffff',
+          color: '#1f2937',
+          border: '1px solid #e5e7eb',
           borderRadius: '10px',
           fontSize: '13px',
         },
         success: {
-          iconTheme: { primary: '#25D366', secondary: '#fff' },
+          iconTheme: { primary: '#8b5cf6', secondary: '#fff' },
         },
         error: {
-          iconTheme: { primary: '#FF6B6B', secondary: '#fff' },
+          iconTheme: { primary: '#ef4444', secondary: '#fff' },
         },
       }}
     />

@@ -24,6 +24,8 @@ import {
 } from "../utils/helpers";
 import { messageApi, chatApi } from "../services/api";
 import toast from "react-hot-toast";
+import { Button } from "@/components/ui/button";
+import { getSocket } from "../services/socket";
 
 interface ChatWindowProps {
   sessionId: string;
@@ -61,16 +63,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewCaption, setPreviewCaption] = useState("");
 
-  // --- LOGIC: Polling & Fetching ---
   useEffect(() => {
     if (!sessionId || !selectedChat) return;
-    const pollInterval = setInterval(async () => {
+    
+    const fetchAndScroll = async () => {
       try {
         await fetchMessages(sessionId, selectedChat.jid);
+        setTimeout(() => scrollToBottom("smooth"), 100);
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 3000);
+    };
+    
+    fetchAndScroll();
+    
+    const pollInterval = setInterval(fetchAndScroll, 2000);
     return () => clearInterval(pollInterval);
   }, [sessionId, selectedChat?.jid, fetchMessages]);
 
@@ -82,7 +89,33 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [selectedChat?.jid, sessionId, fetchMessages, resetUnread]);
 
-  // --- LOGIC: Scrolling ---
+  // Socket listener for real-time messages (including AI replies)
+  useEffect(() => {
+    if (!sessionId || !selectedChat) return;
+
+    const socket = getSocket();
+    
+    const handleNewMessage = (msg: any) => {
+      const msgJid = msg.chat_jid?.toLowerCase()?.trim();
+      const currentJid = selectedChat.jid?.toLowerCase()?.trim();
+      
+      if (msgJid === currentJid) {
+        // Check for duplicates
+        const isDuplicate = messages.some(m => m.message_id === msg.message_id);
+        if (!isDuplicate) {
+          addMessage(msg);
+          setTimeout(() => scrollToBottom("smooth"), 100);
+        }
+      }
+    };
+
+    socket.on(`message:new:${sessionId}`, handleNewMessage);
+    
+    return () => {
+      socket.off(`message:new:${sessionId}`, handleNewMessage);
+    };
+  }, [sessionId, selectedChat?.jid, messages, addMessage]);
+
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior });
@@ -110,7 +143,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [hasMoreMessages, isLoadingMore, selectedChat, sessionId, fetchMessages]);
 
-  // --- LOGIC: Sending Messages ---
   const handleSend = async () => {
     if (!inputText.trim() || !selectedChat || isSending) return;
     const text = inputText.trim();
@@ -152,7 +184,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
-  // --- LOGIC: Media Handling ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -207,47 +238,49 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     return <WelcomeScreen />;
   }
 
-  // --- CLEAN DISPLAY NAME ---
   const rawDisplayName = getDisplayName(selectedChat);
   const displayName = rawDisplayName.includes('@') ? "Potential Lead" : rawDisplayName;
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0B141A] h-[100dvh] w-full relative overflow-hidden">
+    <div className="flex-1 flex flex-col bg-gray-50 h-full w-full relative overflow-hidden">
       {/* HEADER */}
-      <div className="flex-none h-[60px] md:h-[65px] bg-[#202C33] px-3 md:px-4 flex items-center gap-2 border-b border-[#111B21] z-20">
-        <button
+      <div className="flex-none h-[60px] md:h-[65px] bg-white px-4 flex items-center gap-3 border-b border-gray-200 z-20 shadow-sm">
+        <Button
           onClick={onBack}
-          className="md:hidden p-2 text-[#8696A0] hover:bg-[#2A3942] rounded-full mr-1"
+          variant="ghost"
+          size="sm"
+          className="md:hidden text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2"
         >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
 
         <Avatar
           name={displayName}
           imageUrl={selectedChat.profile_pic_url}
           size="md"
           isGroup={isGroupJid(selectedChat.jid)}
+          className="ring-2 ring-blue-200"
         />
 
-        <div className="flex-1 min-w-0 ml-2">
-          <p className="text-[#E9EDEF] font-bold text-[15px] truncate">
+        <div className="flex-1 min-w-0 ml-1">
+          <p className="text-gray-900 font-semibold text-sm truncate">
             {displayName}
           </p>
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse"></div>
-            <p className="text-[#00a884] text-[10px] font-black uppercase tracking-[0.1em]">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+            <p className="text-emerald-600 text-[10px] font-medium">
               Online
             </p>
           </div>
         </div>
 
-        <div className="flex items-center">
-          <button className="p-2 text-[#8696A0] hover:text-white">
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100">
             <Search className="w-5 h-5" />
-          </button>
-          <button className="p-2 text-[#8696A0] hover:text-white">
+          </Button>
+          <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100">
             <MoreVertical className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -255,15 +288,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-1 bg-[#0B141A] relative"
-        style={{
-          backgroundImage: `linear-gradient(rgba(11, 20, 26, 0.95), rgba(11, 20, 26, 0.95)), url('/bg-chat.png')`,
-          backgroundSize: "400px",
-        }}
+        className="flex-1 overflow-y-auto px-4 py-4 bg-gray-100 relative"
       >
         {isLoadingMessages && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="animate-spin text-[#00a884]" />
+            <Loader2 className="animate-spin text-blue-500 w-8 h-8" />
           </div>
         ) : (
           messages.map((msg, index) => (
@@ -274,7 +303,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   msg.timestamp,
                 )) && (
                 <div className="flex justify-center my-4">
-                  <span className="bg-[#182229] text-[#8696A0] text-[11px] px-3 py-1 rounded-md uppercase font-bold tracking-wider">
+                  <span className="bg-white text-gray-500 text-[11px] px-3 py-1 rounded-full shadow-sm font-medium">
                     {formatDateSeparator(msg.timestamp)}
                   </span>
                 </div>
@@ -292,45 +321,49 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* SCROLL TO BOTTOM BUTTON */}
       {showScrollBtn && (
-        <button
+        <Button
           onClick={() => scrollToBottom()}
-          className="absolute bottom-24 right-6 w-10 h-10 bg-[#202C33] rounded-full shadow-lg flex items-center justify-center text-[#8696A0] border border-[#2A3942] z-30"
+          variant="secondary"
+          size="icon"
+          className="absolute bottom-24 right-6 w-10 h-10 bg-white rounded-full shadow-lg border border-gray-200 z-30 text-gray-600 hover:text-gray-900 hover:bg-gray-50"
         >
-          <ChevronDown className="w-6 h-6" />
-        </button>
+          <ChevronDown className="w-5 h-5" />
+        </Button>
       )}
 
       {/* INPUT AREA */}
-      <div className="flex-none bg-[#202C33] flex flex-col border-t border-[#111B21] pb-safe">
+      <div className="flex-none bg-white flex flex-col border-t border-gray-200 shadow-lg">
         {replyTo && (
-          <div className="mx-2 mt-2 px-4 py-2 flex items-center gap-3 bg-[#1e272d] border-l-4 border-[#00a884] rounded-t-lg">
+          <div className="mx-3 mt-3 px-4 py-2 flex items-center gap-3 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
             <div className="flex-1 truncate">
-              <p className="text-[#00a884] text-xs font-bold">
+              <p className="text-blue-600 text-xs font-semibold">
                 {Number(replyTo.is_from_me) === 1
                   ? "Anda"
                   : (replyTo.sender_name?.includes('@') ? "Lead" : replyTo.sender_name)}
               </p>
-              <p className="text-[#8696A0] text-xs truncate italic">
+              <p className="text-gray-500 text-xs truncate italic">
                 {replyTo.content}
               </p>
             </div>
-            <button onClick={() => setReplyTo(null)} className="p-1">
-              <X className="w-4 h-4 text-[#8696A0]" />
-            </button>
+            <Button variant="ghost" size="sm" onClick={() => setReplyTo(null)} className="text-gray-400 hover:text-gray-600 p-1 h-auto">
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         )}
 
-        <div className="px-2 py-2 flex items-end gap-1 md:gap-2">
-          <button className="p-2.5 text-[#8696A0] hover:text-white mb-1">
-            <Smile className="w-6 h-6" />
-          </button>
+        <div className="px-3 py-3 flex items-end gap-2">
+          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2">
+            <Smile className="w-5 h-5" />
+          </Button>
 
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => fileInputRef.current?.click()}
-            className="p-2.5 text-[#8696A0] hover:text-white mb-1"
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2"
           >
-            <Paperclip className="w-6 h-6" />
-          </button>
+            <Paperclip className="w-5 h-5" />
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -339,74 +372,78 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             onChange={handleFileChange}
           />
 
-          <div className="flex-1 bg-[#2A3942] rounded-xl overflow-hidden mb-1">
+          <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-2">
             <textarea
               ref={inputRef}
               value={inputText}
-              onChange={(e) => {
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                 setInputText(e.target.value);
                 e.target.style.height = "auto";
                 e.target.style.height =
                   Math.min(e.target.scrollHeight, 120) + "px";
               }}
-              onKeyDown={(e) => {
+              onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              placeholder="Ketik pesan"
-              className="w-full bg-transparent text-[#E9EDEF] px-4 py-2.5 outline-none resize-none text-[15px] min-h-[42px] max-h-[120px]"
+              placeholder="Ketik pesan..."
+              className="w-full bg-transparent text-gray-900 outline-none resize-none text-sm min-h-[36px] max-h-[120px] placeholder:text-gray-400"
               rows={1}
             />
           </div>
 
-          <button
+          <Button
             onClick={handleSend}
             disabled={!inputText.trim() || isSending}
-            className="w-11 h-11 bg-[#00a884] rounded-full flex items-center justify-center text-[#111B21] hover:bg-[#00bd96] disabled:opacity-50 transition-all shrink-0 mb-1"
+            size="icon"
+            className="w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white rounded-full shrink-0 transition-all shadow-lg shadow-blue-500/25"
           >
             {isSending ? (
               <Loader2 className="animate-spin w-5 h-5" />
             ) : (
-              <Send className="w-5 h-5 ml-0.5" />
+              <Send className="w-5 h-5" />
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* PREVIEW MODAL */}
       {previewUrl && (
-        <div className="absolute inset-0 z-[100] bg-[#0B141A] flex flex-col animate-in fade-in zoom-in duration-200">
-          <div className="flex items-center p-4 gap-4 bg-[#202C33]">
-            <button
+        <div className="absolute inset-0 z-[100] bg-white flex flex-col animate-in fade-in zoom-in duration-200">
+          <div className="flex items-center p-4 gap-4 bg-gray-50 border-b border-gray-200">
+            <Button
               onClick={cancelPreview}
-              className="p-2 text-[#8696A0] hover:text-white"
+              variant="ghost"
+              size="sm"
+              className="text-gray-500 hover:text-gray-700"
             >
-              <X className="w-6 h-6" />
-            </button>
-            <span className="text-[#E9EDEF] font-bold">Preview Media</span>
+              <X className="w-5 h-5" />
+            </Button>
+            <span className="text-gray-900 font-semibold">Preview Media</span>
           </div>
-          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden bg-gray-100">
             <img
               src={previewUrl}
               alt="Preview"
-              className="max-w-full max-h-full object-contain shadow-2xl"
+              className="max-w-full max-h-full object-contain shadow-xl rounded-lg"
             />
           </div>
-          <div className="bg-[#111B21] p-4 flex items-center gap-3">
+          <div className="bg-white p-4 flex items-center gap-3 border-t border-gray-200">
             <input
-              className="flex-1 bg-[#2A3942] text-[#E9EDEF] rounded-xl px-4 py-3 outline-none border border-transparent focus:border-[#00a884]"
+              className="flex-1 bg-gray-100 text-gray-900 rounded-xl px-4 py-3 outline-none border border-transparent focus:border-blue-500"
               placeholder="Tambahkan keterangan..."
               value={previewCaption}
               onChange={(e) => setPreviewCaption(e.target.value)}
             />
-            <button
+            <Button
               onClick={handleSendPreview}
-              className="w-14 h-14 bg-[#00a884] rounded-full flex items-center justify-center text-[#111B21] shadow-lg"
+              size="icon"
+              className="w-12 h-12 bg-blue-500 hover:bg-blue-600 rounded-full text-white shadow-lg shadow-blue-500/25"
             >
-              <Send className="w-6 h-6 ml-1" />
-            </button>
+              <Send className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       )}
@@ -415,14 +452,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 };
 
 const WelcomeScreen = () => (
-  <div className="flex-1 flex flex-col items-center justify-center bg-[#0B141A] border-l border-[#222d34] h-full p-8 text-center">
-    <div className="w-32 h-32 bg-[#202C33] rounded-full flex items-center justify-center shadow-2xl mb-8 border border-[#2A3942]">
-      <ImageIcon className="w-16 h-16 text-[#00a884] opacity-40" />
+  <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-white h-full p-8 text-center">
+    <div className="w-24 h-24 bg-blue-100 rounded-3xl flex items-center justify-center shadow-xl mb-6">
+      <ImageIcon className="w-12 h-12 text-blue-500" />
     </div>
-    <h2 className="text-[#E9EDEF] text-3xl font-black tracking-tighter">
-      SATU <span className="text-[#00a884]">PINTU</span>
+    <h2 className="text-gray-900 text-2xl font-bold tracking-tight">
+      SATU <span className="text-blue-500">PINTU</span>
     </h2>
-    <p className="text-[#8696A0] text-xs mt-4 max-w-xs font-medium leading-relaxed uppercase tracking-widest">
+    <p className="text-gray-500 text-sm mt-4 max-w-xs font-medium leading-relaxed">
       Pilih pesan masuk untuk mulai berinteraksi dengan Leads Anda secara real-time.
     </p>
   </div>
@@ -439,28 +476,30 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
 
   return (
     <div
-      className={`flex items-end gap-2 mb-1 ${isFromMe ? "justify-end" : "justify-start"}`}
+      className={`flex items-end gap-2 mb-2 ${isFromMe ? "justify-end" : "justify-start"}`}
     >
       {!isFromMe && isGroup && <Avatar name={message.sender_name?.includes('@') ? "Lead" : message.sender_name} size="sm" />}
 
       <div
-        className={`group relative max-w-[85%] md:max-w-[70%] rounded-xl shadow-md ${
+        className={`group relative max-w-[85%] md:max-w-[70%] rounded-2xl shadow-sm ${
           isFromMe
-            ? "bg-[#005C4B] rounded-tr-none"
-            : "bg-[#202C33] rounded-tl-none border border-[#2A3942]/30"
-        } ${message.message_type === "image" ? "p-1.5" : "px-3 py-2"}`}
+            ? "bg-blue-500 rounded-tr-sm"
+            : "bg-white rounded-tl-sm border border-gray-200"
+        } ${message.message_type === "image" ? "p-1.5" : "px-4 py-2.5"}`}
       >
-        <button
+        <Button
           onClick={onReply}
-          className="absolute top-1 right-1 p-1 bg-[#202C33]/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-xl border border-[#313D45]"
+          variant="ghost"
+          size="sm"
+          className={`absolute top-1 right-1 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md ${isFromMe ? "bg-blue-400 text-white hover:bg-blue-300" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
         >
-          <Reply className="w-3 h-3 text-[#8696A0]" />
-        </button>
+          <Reply className="w-3 h-3" />
+        </Button>
 
         {message.message_type === "image" && (
           <img
             src={getMediaUrl(message.media_url)}
-            className="max-h-[350px] w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+            className="max-h-[300px] w-full object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
             onClick={() =>
               window.open(getMediaUrl(message.media_url), "_blank")
             }
@@ -469,34 +508,34 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
 
         {message.message_type === "document" && (
           <div
-            className="flex items-center gap-3 bg-black/30 p-3 rounded-lg cursor-pointer hover:bg-black/40"
+            className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors"
             onClick={() =>
               window.open(getMediaUrl(message.media_url), "_blank")
             }
           >
-            <div className="p-2 bg-white/10 rounded-lg">
-                <FileText className="w-5 h-5 text-[#E9EDEF]" />
+            <div className="p-2 bg-blue-100 rounded-lg">
+                <FileText className="w-5 h-5 text-blue-600" />
             </div>
-            <span className="text-[13px] font-medium truncate text-[#E9EDEF]">
+            <span className="text-sm font-medium truncate text-gray-700">
               {message.content || "Dokumen File"}
             </span>
           </div>
         )}
 
-        <div className="px-0.5 mt-1">
-          <p className="text-[#E9EDEF] text-[14.5px] leading-[1.4] break-words whitespace-pre-wrap font-medium">
+        <div className="mt-1">
+          <p className={`text-[14px] leading-[1.4] break-words whitespace-pre-wrap ${isFromMe ? "text-white" : "text-gray-700"}`}>
             {message.caption || message.content}
           </p>
           <div className="flex items-center justify-end gap-1.5 mt-1 h-3">
-            <span className="text-[#8696A0] text-[9.5px] font-bold">
+            <span className={`text-[9px] ${isFromMe ? "text-white/70" : "text-gray-400"} font-medium`}>
               {formatMessageTime(message.timestamp)}
             </span>
             {isFromMe && (
               <span
                 className={
                   message.status === "read"
-                    ? "text-[#53BDEB]"
-                    : "text-[#8696A0]"
+                    ? "text-white/90"
+                    : "text-white/60"
                 }
               >
                 {message.status === "read" ? "✓✓" : "✓"}

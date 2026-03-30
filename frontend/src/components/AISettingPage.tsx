@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import axios from "axios"; // Gunakan axios untuk kemudahan upload file
+import axios from "axios";
 
-// Import Modular Components
 import { AiHeader } from "./Ai/AiHeader";
 import { ConfigTable } from "./Ai/ConfigTable";
 import { SessionSelector } from "./Ai/SessionSelector";
@@ -19,12 +18,10 @@ const AISettingPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchSessions, setIsFetchSessions] = useState(false);
 
-  // --- STATE KNOWLEDGE BASE ---
   const [kbMode, setKbMode] = useState<'text' | 'pdf' | 'media'>('text');
   const [pdfList, setPdfList] = useState<{ name: string; size: number }[]>([]);
   const [actualFiles, setActualFiles] = useState<File[]>([]);
 
-  // --- STATE MEDIA ASSETS ---
   const [mediaAssets, setMediaAssets] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
@@ -37,7 +34,6 @@ const AISettingPage: React.FC = () => {
     human_wait_time: 0,
   });
 
-  // --- FETCH DATA FUNCTIONS ---
   const fetchConfigs = async () => {
     try {
       const response = await axios.get(`${import.meta.env.VITE_API_URL}/ai-settings`, {
@@ -79,14 +75,12 @@ const AISettingPage: React.FC = () => {
     fetchConfigs();
   }, []);
 
-  // Fetch media assets saat session terpilih berubah
   useEffect(() => {
     if (selectedSessionId) {
       fetchMediaAssets(selectedSessionId);
     }
   }, [selectedSessionId]);
 
-  // --- HANDLER FUNCTIONS ---
   const getSessionName = (sessionId: string) => {
     const session = activeSessions.find((s: any) => s.id === sessionId);
     return session ? session.name : "Unknown Device";
@@ -103,7 +97,7 @@ const AISettingPage: React.FC = () => {
       max_messages_per_day: cfg.max_messages_per_day || 200,
       human_wait_time: cfg.human_wait_time || 0,
     });
-    setKbMode("text"); // Reset ke text default saat edit
+    setKbMode("text");
     toast.success(`Editing: ${getSessionName(cfg.session_id)}`);
   };
 
@@ -142,7 +136,6 @@ const AISettingPage: React.FC = () => {
     }
   };
 
-  // --- MEDIA ASSET HANDLERS ---
   const handleUploadMedia = async (file: File, assetName: string) => {
     const loadToast = toast.loading("Mengunggah gambar...");
     try {
@@ -178,90 +171,94 @@ const AISettingPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 bg-[#0B141A] min-h-screen text-[#E9EDEF]">
-      <AiHeader onSave={handleSave} isSaving={isSaving} canSave={!!selectedSessionId} />
-      
-      <SessionSelector
-        sessions={activeSessions}
-        selectedId={selectedSessionId}
-        onSelect={setSelectedSessionId}
-        onRefresh={fetchAvailableSessions}
-        isFetching={isFetchSessions}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <AiHeader onSave={handleSave} isSaving={isSaving} canSave={!!selectedSessionId} />
+        
+        <SessionSelector
+          sessions={activeSessions}
+          selectedId={selectedSessionId}
+          onSelect={setSelectedSessionId}
+          onRefresh={fetchAvailableSessions}
+          isFetching={isFetchSessions}
+        />
 
-      <ConfigTable
-        configs={savedConfigs}
-        getSessionName={getSessionName}
-        onEdit={handleEdit}
-        onCopy={(id) => {
-          navigator.clipboard.writeText(id);
-          toast.success("ID Disalin");
-        }}
-        onRefresh={fetchConfigs}
-      />
+        <ConfigTable
+          configs={savedConfigs}
+          getSessionName={getSessionName}
+          onEdit={handleEdit}
+          onCopy={(id) => {
+            navigator.clipboard.writeText(id);
+            toast.success("ID Disalin");
+          }}
+          onRefresh={fetchConfigs}
+        />
 
-      {selectedSessionId && (
-        <div className="space-y-6 mt-10">
-          {/* TAB NAVIGATION */}
-          <div className="flex gap-6 border-b border-[#313D45]">
-            {[
-              { id: "materi", label: "Materi & Sifat AI", color: "bg-emerald-500" },
-              { id: "rules", label: "Auto Reply (Rules)", color: "bg-blue-500" },
-              { id: "antiban", label: "Fitur Keamanan", color: "bg-orange-500" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`pb-4 text-sm font-bold transition-all relative ${activeTab === tab.id ? "text-white" : "text-[#8696A0]"}`}
-              >
-                {tab.label}
-                {activeTab === tab.id && <div className={`absolute bottom-0 w-full h-1 ${tab.color} rounded-t-full`} />}
-              </button>
-            ))}
-          </div>
-
-          {/* TAB CONTENT */}
-          {activeTab === "materi" && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-5">
-                <InstructionSection formData={formData} setFormData={setFormData} />
-              </div>
-              <div className="lg:col-span-7">
-                <KnowledgeBaseSection
-                  mode={kbMode}
-                  setMode={setKbMode}
-                  textValue={formData.knowledge_base}
-                  onTextChange={(v) => setFormData({ ...formData, knowledge_base: v })}
-                  pdfList={pdfList}
-                  onUpload={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setPdfList(prev => [...prev, { name: file.name, size: file.size }]);
-                      setActualFiles(prev => [...prev, file]);
-                    }
-                  }}
-                  onRemovePdf={(idx) => {
-                    setPdfList(prev => prev.filter((_, i) => i !== idx));
-                    setActualFiles(prev => prev.filter((_, i) => i !== idx));
-                  }}
-                  mediaAssets={mediaAssets}
-                  onUploadMedia={handleUploadMedia}
-                  onRemoveMedia={handleRemoveMedia}
-                />
-              </div>
+        {selectedSessionId && (
+          <div className="space-y-6 mt-10">
+            <div className="flex gap-6 border-b border-gray-200 bg-white rounded-t-xl px-6 pt-4">
+              {[
+                { id: "materi", label: "Materi & Sifat AI", color: "bg-blue-500" },
+                { id: "rules", label: "Auto Reply (Rules)", color: "bg-blue-500" },
+                { id: "antiban", label: "Fitur Keamanan", color: "bg-orange-500" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`pb-4 text-sm font-semibold transition-all relative ${
+                    activeTab === tab.id ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {tab.label}
+                  {activeTab === tab.id && (
+                    <div className={`absolute bottom-0 w-full h-1 ${tab.color} rounded-t-full`} />
+                  )}
+                </button>
+              ))}
             </div>
-          )}
 
-          {activeTab === "rules" && <RulesSection sessionId={selectedSessionId} />}
+            {activeTab === "materi" && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-5">
+                  <InstructionSection formData={formData} setFormData={setFormData} />
+                </div>
+                <div className="lg:col-span-7">
+                  <KnowledgeBaseSection
+                    mode={kbMode}
+                    setMode={setKbMode}
+                    textValue={formData.knowledge_base}
+                    onTextChange={(v) => setFormData({ ...formData, knowledge_base: v })}
+                    pdfList={pdfList}
+                    onUpload={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setPdfList(prev => [...prev, { name: file.name, size: file.size }]);
+                        setActualFiles(prev => [...prev, file]);
+                      }
+                    }}
+                    onRemovePdf={(idx) => {
+                      setPdfList(prev => prev.filter((_, i) => i !== idx));
+                      setActualFiles(prev => prev.filter((_, i) => i !== idx));
+                    }}
+                    mediaAssets={mediaAssets}
+                    onUploadMedia={handleUploadMedia}
+                    onRemoveMedia={handleRemoveMedia}
+                  />
+                </div>
+              </div>
+            )}
 
-          {activeTab === "antiban" && (
-            <AntiBanSection
-              formData={formData}
-              onChange={(field, value) => setFormData({ ...formData, [field]: value })}
-            />
-          )}
-        </div>
-      )}
+            {activeTab === "rules" && <RulesSection sessionId={selectedSessionId} />}
+
+            {activeTab === "antiban" && (
+              <AntiBanSection
+                formData={formData}
+                onChange={(field, value) => setFormData({ ...formData, [field]: value })}
+              />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

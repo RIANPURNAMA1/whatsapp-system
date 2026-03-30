@@ -1,6 +1,6 @@
 import React from "react";
-import { Users, MessageCircle, ShieldCheck } from "lucide-react";
-import useStore from "../store/useStore"; // Import store Anda
+import { Users, MessageCircle, Radio, ArrowRight, Phone } from "lucide-react";
+import useStore from "../store/useStore";
 
 interface LiveFeedProps {
   messages: any[];
@@ -8,176 +8,130 @@ interface LiveFeedProps {
   dark?: boolean;
 }
 
-const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan, dark }) => {
-  // Ambil fungsi selectChat dan daftar chats dari store
+const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan }) => {
   const { selectChat, chats } = useStore();
 
-  const theme = {
-    container: dark
-      ? "bg-[#202C33] border-[#313D45]"
-      : "bg-white border-[#E9EDEF]",
-    header: dark
-      ? "from-[#2A3942]/50 border-[#313D45]/50"
-      : "from-[#F0F2F5] border-[#E9EDEF]",
-    trafficBg: dark
-      ? "bg-[#0B141A] border-[#313D45]"
-      : "bg-[#F0F2F5] border-[#E9EDEF]",
-    trafficText: dark ? "text-white" : "text-[#3B4A54]",
-    listBg: dark ? "bg-[#111B21]/10" : "bg-[#F8F9FA]",
-    itemBg: dark
-      ? "bg-[#111B21]/30 hover:bg-[#2A3942] border-[#313D45]/30"
-      : "bg-white hover:bg-[#F0F2F5] border-[#E9EDEF]",
-    itemTitle: dark ? "text-[#E9EDEF]" : "text-[#3B4A54]",
-    itemDesc: dark ? "text-[#8696A0]" : "text-[#667781]",
-    avatarBg: dark ? "bg-[#202C33]" : "bg-[#F0F2F5]",
-    footer: dark
-      ? "bg-[#111B21]/40 border-[#313D45]/30"
-      : "bg-[#F8F9FA] border-[#E9EDEF]",
-    scrollbar: dark ? "custom-scrollbar" : "custom-scrollbar-light",
+  const handleItemClick = (sender: string) => {
+    const cleanSender = sender.replace(/\D/g, "");
+    const target = chats.find((c) => c.jid === sender || c.jid.includes(cleanSender));
+    if (target) selectChat(target);
   };
 
- const handleItemClick = (sender: string) => {
-  // 1. Bersihkan input sender (ambil angkanya saja jika perlu)
-  const cleanSender = sender.replace(/\D/g, "");
-
-  const targetChat = chats.find((c) => {
-    // 2. Bandingkan JID asli atau cari apakah JID mengandung nomor tersebut
-    return c.jid === sender || c.jid.includes(cleanSender);
-  });
-  
-  if (targetChat) {
-    selectChat(targetChat);
-  } else {
-    console.log("Chat tidak ditemukan untuk sender:", sender);
-    console.log("Daftar chats saat ini:", chats);
-  }
-};
+  const formatTime = (timeStr: string | undefined) => {
+    if (!timeStr) return "--:--";
+    const parts = timeStr.split(" ");
+    return parts[1]?.substring(0, 5) || "--:--";
+  };
 
   return (
-    <div
-      className={`md:col-span-2 md:row-span-2 ${theme.container} rounded-md h-[600px] flex flex-col shadow-md overflow-hidden transition-all duration-300 border`}
-    >
-      {/* --- HEADER --- */}
-      <div
-        className={`p-6 bg-gradient-to-b ${theme.header} border-b flex justify-between items-center shrink-0`}
-      >
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <div className="relative flex">
-              <div className="w-2 h-2 rounded-full bg-[#00a884]"></div>
-              <div className="absolute w-2 h-2 rounded-full bg-[#00a884] animate-ping"></div>
-            </div>
-            <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-[#00a884]">
-              Live Analytics
-            </h3>
+    <div className="flex flex-col h-[520px] bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="px-5 pt-5 pb-4 flex items-center justify-between flex-shrink-0 bg-white border-b border-gray-100">
+        {/* Left: title + live dot */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex items-center justify-center w-10 h-10">
+            <span className="absolute w-10 h-10 rounded-xl bg-emerald-50" />
+            <span className="absolute w-10 h-10 rounded-xl bg-emerald-500/10 animate-pulse" />
+            <MessageCircle size={18} className="text-emerald-600 relative z-10" />
           </div>
-          <div className="flex items-center gap-1.5 mt-1">
-            <ShieldCheck size={10} className="text-[#8696A0]" />
-            <p className="text-[9px] text-[#8696A0] uppercase font-bold tracking-widest">
-              Secured Feed
+          <div>
+            <p className="text-[13px] font-bold text-gray-900 tracking-wide">
+              Live Chat Feed
+            </p>
+            <p className="text-[10px] text-gray-400 font-medium">
+              Real-time Messages
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col items-end">
-          <span className="text-[9px] text-[#8696A0] uppercase font-black tracking-widest mb-1">
-            Total Traffic
-          </span>
-          <div
-            className={`${theme.trafficBg} px-4 py-1.5 rounded-full border transition-colors`}
-          >
-            <span
-              className={`text-2xl font-black ${theme.trafficText} leading-none tracking-tighter`}
-            >
-              {(totalPesan || 0).toLocaleString("id-ID")}
-            </span>
-          </div>
+        {/* Right: total traffic badge */}
+        <div className="text-right">
+          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">
+            Total Pesan
+          </p>
+          <p className="text-3xl font-bold text-gray-900 tracking-tight mt-0.5">
+            {(totalPesan || 0).toLocaleString("id-ID")}
+          </p>
         </div>
       </div>
 
-      {/* --- MESSAGE LIST --- */}
-      <div
-        className={`flex-grow overflow-y-auto p-5 space-y-3 ${theme.scrollbar} ${theme.listBg} transition-colors`}
-      >
+      {/* ── List ───────────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 custom-scrollbar">
         {messages.length > 0 ? (
           messages.map((chat, idx) => (
-            <div
+            <button
               key={idx}
-              // Tambahkan onClick di sini
               onClick={() => handleItemClick(chat.sender_jid || chat.sender)}
-              className={`group flex gap-4 p-4 rounded-2xl transition-all duration-300 border ${theme.itemBg} relative overflow-hidden shadow-sm cursor-pointer active:scale-[0.98]`}
+              className="group w-full text-left flex items-center gap-3 p-3.5 rounded-xl bg-gray-50/60 hover:bg-white border border-transparent hover:border-gray-200 hover:shadow-md transition-all duration-200 active:scale-[0.99]"
             >
               {/* Avatar */}
-              <div
-                className={`flex-shrink-0 w-11 h-11 rounded-full ${theme.avatarBg} flex items-center justify-center text-[#8696A0] group-hover:text-white group-hover:bg-[#00a884] transition-all duration-500 border ${dark ? "border-[#313D45]" : "border-[#E9EDEF]"} group-hover:border-transparent`}
-              >
-                <Users size={20} />
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center group-hover:bg-emerald-500 group-hover:border-emerald-500 transition-all duration-300 shadow-sm">
+                <Users size={16} className="text-gray-400 group-hover:text-white transition-colors" />
               </div>
 
-              <div className="flex-grow min-w-0 flex flex-col justify-center">
-                <div className="flex items-center justify-between mb-1">
-                  <span
-                    className={`text-[14px] font-black ${theme.itemTitle} truncate tracking-tight group-hover:text-[#00a884] transition-colors`}
-                  >
-                    {chat.sender || "Unknown Sender"}
-                  </span>
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`w-1 h-1 rounded-full ${dark ? "bg-[#313D45]" : "bg-[#E9EDEF]"}`}
-                    ></span>
-                    <span className="text-[10px] font-bold text-[#8696A0]">
-                      {chat.received_at?.split(" ")[1]?.substring(0, 5) ||
-                        "--:--"}
+                    <span className="text-[12px] font-bold text-gray-800 group-hover:text-emerald-600 transition-colors">
+                      {chat.sender || "Unknown"}
                     </span>
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="text-[9px] text-emerald-600 font-semibold">Online</span>
+                    </div>
                   </div>
+                  <span className="text-[10px] text-gray-400 font-medium">
+                    {formatTime(chat.received_at)}
+                  </span>
                 </div>
-                <p
-                  className={`text-[13px] ${theme.itemDesc} line-clamp-2 leading-snug group-hover:text-opacity-80 transition-colors`}
-                >
-                  {chat.message_text}
+                <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-1">
+                  {chat.message_text || "Pesan baru masuk..."}
                 </p>
               </div>
 
-              {/* Hover Indicator */}
-              <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#00a884]"></div>
+              {/* Right arrow */}
+              <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <ArrowRight size={14} className="text-emerald-500" />
+                </div>
               </div>
-            </div>
+            </button>
           ))
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-[#8696A0] gap-4">
-            <div
-              className={`p-6 rounded-full ${dark ? "bg-[#111B21]" : "bg-[#F0F2F5]"} border ${dark ? "border-[#313D45]" : "border-[#E9EDEF]"} animate-pulse`}
-            >
-              <MessageCircle
-                size={32}
-                strokeWidth={1.5}
-                className="opacity-30"
-              />
+          /* Empty state */
+          <div className="h-full flex flex-col items-center justify-center gap-4 py-12">
+            <div className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center">
+              <MessageCircle size={28} className="text-gray-300" />
             </div>
-            <p className="text-[11px] uppercase font-black tracking-[0.2em] opacity-40">
-              Listening for incoming data...
-            </p>
+            <div className="text-center">
+              <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
+                Menunggu Pesan
+              </p>
+              <p className="text-[11px] text-gray-300 mt-1.5">
+                Pesan akan muncul di sini secara real-time
+              </p>
+            </div>
           </div>
         )}
       </div>
 
-      {/* --- FOOTER --- */}
-      <div
-        className={`px-6 py-4 ${theme.footer} flex justify-between items-center border-t shrink-0`}
-      >
-        <div className="flex gap-1">
-          <div className="w-1 h-1 rounded-full bg-[#00a884] opacity-50"></div>
-          <div
-            className={`w-1 h-1 rounded-full ${dark ? "bg-[#313D45]" : "bg-[#E9EDEF]"}`}
-          ></div>
-          <div
-            className={`w-1 h-1 rounded-full ${dark ? "bg-[#313D45]" : "bg-[#E9EDEF]"}`}
-          ></div>
+      {/* ── Footer ─────────────────────────────────────────────────────────── */}
+      <div className="px-5 py-3.5 flex items-center justify-between flex-shrink-0 bg-gray-50/50 border-t border-gray-100">
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Radio size={14} className="text-emerald-500" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+          </div>
+          <span className="text-[11px] font-semibold text-gray-500">
+            Live Feed Aktif
+          </span>
         </div>
-        <span className="text-[8px] font-bold text-[#8696A0] uppercase tracking-[0.3em]">
-          Live Feed Active
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="w-2 h-2 rounded-full bg-emerald-300" />
+        </div>
       </div>
     </div>
   );

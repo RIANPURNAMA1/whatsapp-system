@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { TrendingUp, Loader2, AlertCircle, Users, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, Loader2, Users, CheckCircle2, Target, Zap } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, Tooltip } from 'recharts';
 
 interface ClosingStatCardProps {
@@ -19,12 +19,13 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
   totalLeads,
   chartData,
 }) => {
-  // Hitung rate asli untuk validasi anomali
-  const rawRate = totalLeads > 0 ? (totalClosing / totalLeads) * 100 : 0;
+  const rawRate = Number(conversionRate) || 0;
+  const circumference = 2 * Math.PI * 36;
+  const strokeDashoffset = circumference - (rawRate / 100) * circumference;
 
   const processedChartData = useMemo(() => {
     if (!chartData || chartData.length === 0) {
-      return Array(5).fill({ leads: 0, closing: 0 });
+      return Array(7).fill({ leads: 0, closing: 0 });
     }
     return chartData.map(item => ({
       leads: Number(item.lead_count || item.leads || 0),
@@ -33,97 +34,170 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
   }, [chartData]);
 
   return (
-    <div className={`p-6 rounded-md border transition-all duration-500 flex flex-col min-h-[280px] relative overflow-hidden ${
+    <div className={`relative overflow-hidden rounded-3xl border transition-all duration-500 ${
       isDarkMode 
-        ? "bg-[#111B21] border-white/5 shadow-2xl" 
-        : "bg-white border-gray-100 shadow-sm"
+        ? "bg-[#111B21] border-white/10 shadow-2xl" 
+        : "bg-gradient-to-br from-white to-emerald-50/30 border-gray-100 shadow-xl shadow-emerald-500/5"
     }`}>
       
-      {/* Background Glow */}
-      <div className={`absolute -top-20 -right-20 w-40 h-40 blur-[80px] rounded-full opacity-20 ${isDarkMode ? 'bg-emerald-500' : 'bg-emerald-400'}`} />
+      {/* Background Decorations */}
+      <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-emerald-400/20 to-teal-400/10 blur-3xl rounded-full" />
+      <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-gradient-to-tr from-emerald-500/10 to-transparent blur-2xl rounded-full" />
+      
+      {/* Top Gradient Bar */}
+      <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
 
-      {/* Header */}
-      <div className="flex justify-between items-start mb-4 relative z-10">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`p-1.5 rounded-lg ${isDarkMode ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-              <CheckCircle2 size={14} className="text-emerald-500" />
+      <div className="p-6 relative z-10">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-emerald-500/20' : 'bg-gradient-to-br from-emerald-100 to-teal-100'}`}>
+                <CheckCircle2 size={16} className="text-emerald-600" />
+              </div>
+              <span className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Closing Performance
+              </span>
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Closing</span>
+            
+            <div className="flex items-end gap-4">
+              <h2 className={`text-6xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {loading ? (
+                  <Loader2 className="animate-spin text-emerald-400" size={36} />
+                ) : (
+                  <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                    {totalClosing}
+                  </span>
+                )}
+              </h2>
+            </div>
           </div>
+
+          {/* Circular Progress - Conversion Rate */}
+          <div className="relative">
+            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+              <circle
+                cx="40"
+                cy="40"
+                r="36"
+                fill="none"
+                stroke={isDarkMode ? "#313D45" : "#e5e7eb"}
+                strokeWidth="6"
+              />
+              <circle
+                cx="40"
+                cy="40"
+                r="36"
+                fill="none"
+                stroke="url(#emeraldGradient)"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                className="transition-all duration-1000 ease-out"
+              />
+              <defs>
+                <linearGradient id="emeraldGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#14b8a6" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <p className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {loading ? "..." : `${Math.round(rawRate)}%`}
+                </p>
+                <p className={`text-[8px] font-semibold uppercase ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Rate
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Area Chart */}
+        <div className="h-28 w-full -ml-3 relative">
+          <ResponsiveContainer width="106%" height="100%">
+            <AreaChart data={processedChartData}>
+              <defs>
+                <linearGradient id="closingGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                  <stop offset="50%" stopColor="#10b981" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="leadsGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Tooltip contentStyle={{ display: "none" }} />
+              <Area
+                type="monotone"
+                dataKey="leads"
+                stroke="#818cf8"
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                fill="url(#leadsGradient)"
+                dot={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="closing"
+                stroke="#10b981"
+                strokeWidth={3}
+                strokeLinecap="round"
+                fill="url(#closingGradient)"
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
           
-          <div className="flex items-baseline gap-3">
-            <h2 className="text-5xl font-black tracking-tighter italic">
-              {loading ? <Loader2 className="animate-spin opacity-20" size={24} /> : totalClosing}
-            </h2>
-            <div className={`px-2 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-tighter ${
-              rawRate > 100 ? "bg-orange-500/10 text-orange-500 border-orange-500/20" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-            }`}>
-              {conversionRate}% Rate
+          {/* Chart Legend */}
+          <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-6">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 bg-indigo-400 rounded" />
+              <span className={`text-[9px] font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Leads</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 bg-emerald-500 rounded" />
+              <span className={`text-[9px] font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Closing</span>
             </div>
           </div>
         </div>
 
-        <div className={`p-3 rounded-2xl ${isDarkMode ? "bg-[#202C33]" : "bg-gray-50 border border-gray-100"}`}>
-          <TrendingUp className="text-emerald-500" size={20} strokeWidth={3} />
-        </div>
-      </div>
-
-      {/* Mini Area Chart */}
-      <div className="flex-1 h-24 w-full -ml-2 relative">
-        <ResponsiveContainer width="110%" height="100%">
-          <AreaChart data={processedChartData}>
-            <defs>
-              <linearGradient id="colorClosing" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <Tooltip contentStyle={{ display: "none" }} />
-            <Area
-              type="monotone"
-              dataKey="leads"
-              stroke="#3b82f6"
-              strokeWidth={1}
-              strokeDasharray="4 4"
-              fill="transparent"
-              dot={false}
-            />
-            <Area
-              type="monotone"
-              dataKey="closing"
-              stroke="#10b981"
-              strokeWidth={3}
-              fill="url(#colorClosing)"
-              dot={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Stats Bottom */}
-      <div className={`mt-4 p-4 rounded-2xl flex justify-between items-center ${
-        isDarkMode ? "bg-black/20 border border-white/5" : "bg-gray-50 border border-gray-100"
-      }`}>
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 opacity-40 mb-1">
-            <Users size={10} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Total Leads</span>
+        {/* Stats Footer */}
+        <div className={`mt-5 p-4 rounded-2xl flex justify-between items-center ${
+          isDarkMode ? "bg-black/30 border border-white/5" : "bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm"
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-indigo-500/20' : 'bg-gradient-to-br from-indigo-100 to-purple-100'}`}>
+              <Users size={18} className={isDarkMode ? "text-indigo-400" : "text-indigo-600"} />
+            </div>
+            <div>
+              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                Total Leads
+              </p>
+              <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {loading ? "..." : totalLeads.toLocaleString()}
+              </p>
+            </div>
           </div>
-          <span className="text-sm font-black">{totalLeads}</span>
-        </div>
 
-        <div className="h-6 w-[1px] bg-gray-500/10" />
+          <div className={`h-10 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`} />
 
-        <div className="text-right">
-          <div className="flex items-center gap-1.5 opacity-40 mb-1 justify-end">
-            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Efficiency</span>
-          </div>
-          <div className="flex flex-col items-end leading-none">
-            <span className={`text-sm font-black ${rawRate > 100 ? "text-orange-500" : "text-emerald-500"}`}>
-              {conversionRate}%
-            </span>
-           
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-emerald-500/20' : 'bg-gradient-to-br from-emerald-100 to-teal-100'}`}>
+              <Zap size={18} className={isDarkMode ? "text-emerald-400" : "text-emerald-600"} />
+            </div>
+            <div className="text-right">
+              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                Conv. Rate
+              </p>
+              <p className={`text-lg font-bold ${rawRate > 100 ? "text-orange-500" : isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>
+                {loading ? "..." : `${conversionRate}%`}
+              </p>
+            </div>
           </div>
         </div>
       </div>

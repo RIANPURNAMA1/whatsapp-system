@@ -18,6 +18,8 @@ import useStore from "../store/useStore";
 import Avatar from "./Avatar";
 import { isGroupJid, formatChatTime, truncate } from "../utils/helpers";
 import { getSocket } from "../services/socket";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export const GlobalInboxView: React.FC = () => {
   const [messages, setMessages] = useState<any[]>([]);
@@ -34,18 +36,11 @@ export const GlobalInboxView: React.FC = () => {
     user,
   } = useStore();
 
-  /**
-   * Cek Role User secara Memoized
-   */
   const isAdminOrManager = useMemo(() => {
     const role = user?.role_type?.toLowerCase().trim();
     return role === "manager" || role === "system";
   }, [user]);
 
-  /**
-   * Fetch data dibungkus useCallback agar referensi fungsi stabil
-   * dan tidak menyebabkan infinite loop atau warning di useEffect
-   */
   const fetchGlobalMessages = useCallback(async () => {
     try {
       setLoading(true);
@@ -63,10 +58,6 @@ export const GlobalInboxView: React.FC = () => {
     }
   }, []);
 
-  /**
-   * Side Effect untuk Fetch Data & Socket Listener
-   * Masalah "Merah" (Dependency Warning) diperbaiki di sini
-   */
   useEffect(() => {
     fetchGlobalMessages();
 
@@ -84,11 +75,8 @@ export const GlobalInboxView: React.FC = () => {
     return () => {
       socket.offAny(handleSocketUpdate);
     };
-  }, [fetchGlobalMessages]); // Dependensi hanya fungsi yang stabil
+  }, [fetchGlobalMessages]);
 
-  /**
-   * Handle Klik Chat
-   */
   const handleChatClick = useCallback(
     (msg: any) => {
       const targetSession = sessions.find((s) => s.id === msg.session_id);
@@ -109,9 +97,6 @@ export const GlobalInboxView: React.FC = () => {
     [sessions, setActiveSession, selectChat, resetUnread, setActiveTab],
   );
 
-  /**
-   * Filter Pesan secara Memoized
-   */
   const filteredMessages = useMemo(() => {
     return messages.filter((m) => {
       const matchesSearch =
@@ -130,60 +115,59 @@ export const GlobalInboxView: React.FC = () => {
   }, [messages, searchTerm, selectedSessionId, isAdminOrManager]);
 
   return (
-    <div className="flex flex-col h-full bg-[#111B21] border-r border-[#222d34]">
+    <div className="flex flex-col h-full bg-white border-r border-gray-200">
       {/* Header */}
-      <div className="bg-[#202C33] px-4 h-[60px] flex-none flex items-center justify-between shadow-sm">
+      <div className="px-4 h-[60px] flex-none flex items-center justify-between bg-white border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#00a884]/20 flex items-center justify-center text-[#00a884] ring-1 ring-[#00a884]/30">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25">
             <Inbox size={20} />
           </div>
           <div>
-            <h2 className="text-[#E9EDEF] text-[16px] font-semibold leading-tight">
+            <h2 className="text-gray-900 text-base font-semibold leading-tight">
               Global Inbox
             </h2>
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse" />
-              <p className="text-[11px] text-[#8696A0] uppercase tracking-wider font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">
                 {isAdminOrManager ? "Full Access" : "Real-time"}
               </p>
             </div>
           </div>
         </div>
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={fetchGlobalMessages}
-          className="p-2 text-[#8696A0] hover:bg-[#374248] hover:text-[#00a884] rounded-full transition-all duration-200"
+          className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
         >
-          <RefreshCw
-            size={19}
-            className={loading ? "animate-spin text-[#00a884]" : ""}
-          />
-        </button>
+          <RefreshCw size={19} className={loading ? "animate-spin" : ""} />
+        </Button>
       </div>
 
       {/* Filter Section */}
-      <div className="px-3 py-3 flex-none bg-[#111B21] space-y-3 border-b border-[#222d34]/50 shadow-inner">
+      <div className="px-4 py-3 flex-none bg-white space-y-3 border-b border-gray-100">
         {/* Search Input */}
-        <div className="relative flex items-center bg-[#202C33] rounded-lg px-3 transition-all border-b-2 border-transparent focus-within:border-[#00a884] focus-within:bg-[#2A3942]">
-          <Search className="w-4 h-4 text-[#8696A0]" />
-          <input
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
             type="text"
             placeholder="Cari kontak atau pesan..."
-            className="w-full bg-transparent text-[#E9EDEF] py-2 pl-3 text-sm outline-none placeholder:text-[#8696A0]"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-gray-100 border-transparent focus:bg-white focus:border-blue-300 rounded-xl"
           />
         </div>
 
         {/* Device Selector */}
         {!isAdminOrManager && (
-          <div className="relative group">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8696A0] pointer-events-none group-focus-within:text-[#00a884]">
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
               <Smartphone size={14} />
             </div>
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="w-full bg-[#202C33] text-[#E9EDEF] text-[13px] pl-9 pr-8 py-2 rounded-lg outline-none appearance-none cursor-pointer border border-[#313D45] hover:border-[#3b4a54] transition-colors focus:ring-1 focus:ring-[#00a884]"
+              className="w-full bg-gray-100 text-gray-900 text-[13px] pl-9 pr-8 py-2 rounded-xl outline-none appearance-none cursor-pointer border border-transparent focus:border-blue-300 transition-colors"
             >
               <option value="all">Semua Perangkat</option>
               {sessions.map((s) => (
@@ -192,7 +176,7 @@ export const GlobalInboxView: React.FC = () => {
                 </option>
               ))}
             </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8696A0] pointer-events-none">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
               <ChevronDown size={14} />
             </div>
           </div>
@@ -200,18 +184,20 @@ export const GlobalInboxView: React.FC = () => {
       </div>
 
       {/* List Content */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#374248]">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading && messages.length === 0 ? (
           <div className="flex flex-col items-center pt-32 gap-4">
-            <Loader2 className="w-10 h-10 animate-spin text-[#00a884] opacity-80" />
-            <p className="text-[#8696A0] text-xs font-medium uppercase tracking-widest">
+            <Loader2 className="w-10 h-10 animate-spin text-blue-500 opacity-80" />
+            <p className="text-gray-400 text-xs font-medium uppercase tracking-widest">
               Memuat Pesan...
             </p>
           </div>
         ) : filteredMessages.length === 0 ? (
           <div className="text-center pt-32 px-10">
-            <MessageSquare className="w-12 h-12 text-[#3b4a54] mx-auto mb-4" />
-            <p className="text-[#8696A0] text-sm italic">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <MessageSquare className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-gray-500 text-sm">
               {searchTerm || selectedSessionId !== "all"
                 ? "Pencarian tidak ditemukan"
                 : "Kotak masuk kosong"}
@@ -288,9 +274,9 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
   return (
     <div
       onClick={onClick}
-      className="flex items-center gap-3 px-4 cursor-pointer hover:bg-[#202C33] active:bg-[#111B21] transition-all group border-b border-[#222d34]/30"
+      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-all group border-b border-gray-100"
     >
-      <div className="py-3 relative flex-shrink-0">
+      <div className="relative flex-shrink-0">
         <Avatar
           name={name}
           imageUrl={msg.profile_pic_url}
@@ -299,20 +285,20 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
         />
       </div>
 
-      <div className="flex-1 min-w-0 self-stretch flex flex-col justify-center py-3 pr-1">
+      <div className="flex-1 min-w-0 self-stretch flex flex-col justify-center">
         <div className="flex items-center justify-between mb-0.5">
           <h3
-            className={`text-[16px] truncate leading-tight ${
+            className={`text-[15px] truncate leading-tight ${
               hasUnread
-                ? "text-[#E9EDEF] font-bold"
-                : "text-[#E9EDEF] font-normal"
+                ? "text-gray-900 font-semibold"
+                : "text-gray-700 font-normal"
             }`}
           >
             {name}
           </h3>
           <span
             className={`text-[11px] flex-shrink-0 ml-2 ${
-              hasUnread ? "text-[#00a884] font-bold" : "text-[#8696A0]"
+              hasUnread ? "text-blue-500 font-semibold" : "text-gray-400"
             }`}
           >
             {formatChatTime(msg.timestamp)}
@@ -324,17 +310,17 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
             {isMe && (
               <div className="mr-1.5 flex-shrink-0">
                 {msg.status === "read" ? (
-                  <CheckCheck size={15} className="text-[#53bdeb]" />
+                  <CheckCheck size={15} className="text-blue-500" />
                 ) : (
-                  <Check size={15} className="text-[#8696A0]" />
+                  <Check size={15} className="text-gray-400" />
                 )}
               </div>
             )}
             <div
-              className={`text-[14px] truncate leading-5 ${
+              className={`text-[13px] truncate leading-5 ${
                 hasUnread
-                  ? "text-[#E9EDEF] font-medium"
-                  : "text-[#8696A0] font-light"
+                  ? "text-gray-700 font-medium"
+                  : "text-gray-500"
               }`}
             >
               {renderMessagePreview()}
@@ -342,13 +328,13 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-[9px] text-[#00a884] bg-[#00a884]/10 px-1.5 py-0.5 rounded border border-[#00a884]/20 uppercase font-bold tracking-tighter">
+            <span className="text-[9px] text-blue-600 bg-blue-50 px-2 py-1 rounded-full font-medium">
               {msg.session_name || "Device"}
             </span>
 
             {hasUnread && (
-              <div className="min-w-[20px] h-[20px] bg-[#00a884] rounded-full flex items-center justify-center px-1">
-                <span className="text-[#111B21] text-[11px] font-bold">
+              <div className="min-w-[20px] h-[20px] bg-blue-500 rounded-full flex items-center justify-center px-1">
+                <span className="text-white text-[11px] font-bold">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               </div>

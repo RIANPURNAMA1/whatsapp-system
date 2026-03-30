@@ -1,28 +1,16 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   MessageSquare,
-  Users,
   CheckCircle,
-  AlertCircle,
   Smartphone,
   Send,
-  Clock,
   Moon,
   Sun,
   Loader2,
   Search,
   MailCheck,
-  TrendingUp,
-  Palette,
+  Activity,
 } from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-  YAxis,
-  XAxis,
-  Tooltip,
-} from "recharts";
 import useStore from "../store/useStore";
 import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
 import LiveFeed from "./LiveChatFeed";
@@ -32,6 +20,8 @@ import LabelSection from "./LabelSection";
 import SocialLeadsSection from "./SocialLeadsSection";
 import OverallLeadsCard from "./stats/OverallLeadsCard";
 import ClosingStatCard from "./stats/ClosingStatCard";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 const FILTER_MAP: Record<string, string> = {
   "Hari ini": "Hari ini",
@@ -44,7 +34,6 @@ const FILTER_MAP: Record<string, string> = {
 const StatDashboard: React.FC = () => {
   const { isDarkMode, toggleDarkMode } = useStore();
 
-  // Waktu Default
   const now = new Date();
   const todayStart = new Date(new Date(now).setHours(0, 0, 0, 0))
     .toISOString()
@@ -59,7 +48,6 @@ const StatDashboard: React.FC = () => {
     averageConversionRate: 0,
   });
 
-  // States
   const [activeFilter, setActiveFilter] = useState("Hari ini");
   const [selectedDevice, setSelectedDevice] = useState("all");
   const [tempDates, setTempDates] = useState({
@@ -76,7 +64,6 @@ const StatDashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [deviceLeadsData, setDeviceLeadsData] = useState([]);
 
-  // Label States
   const [allLabels, setAllLabels] = useState<any[]>([]);
   const [loadingLabels, setLoadingLabels] = useState(false);
   const [labelDeviceFilter, setLabelDeviceFilter] = useState("all");
@@ -99,81 +86,6 @@ const StatDashboard: React.FC = () => {
     deviceStats: [],
   });
 
-  // --- FITUR BACKGROUND IMAGE ---
-  const themes = useMemo(
-    () => [
-      {
-        name: "Deep Black",
-        darkImg:
-          "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop",
-        lightImg:
-          "https://images.unsplash.com/photo-1554034483-04fda0d3507b?q=80&w=2070&auto=format&fit=crop",
-        cardDark: "bg-black/60",
-        cardLight: "bg-white/80",
-      },
-      {
-        name: "Cyber Punk",
-        darkImg:
-          "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop",
-        lightImg:
-          "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2029&auto=format&fit=crop",
-        cardDark: "bg-[#0B141A]/70",
-        cardLight: "bg-white/90",
-      },
-      {
-        name: "Abstract Blue",
-        darkImg:
-          "https://images.unsplash.com/photo-1550684376-efcbd6e3f031?q=80&w=2070&auto=format&fit=crop",
-        lightImg:
-          "https://images.unsplash.com/photo-1519750783826-e2420f4d687f?q=80&w=1974&auto=format&fit=crop",
-        cardDark: "bg-slate-900/60",
-        cardLight: "bg-white/85",
-      },
-      {
-        name: "Emerald Nature",
-        darkImg:
-          "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=2070&auto=format&fit=crop",
-        lightImg:
-          "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?q=80&w=2074&auto=format&fit=crop",
-        cardDark: "bg-emerald-950/60",
-        cardLight: "bg-white/80",
-      },
-      {
-        name: "Midnight Purple",
-        darkImg:
-          "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?q=80&w=2071&auto=format&fit=crop",
-        lightImg:
-          "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964&auto=format&fit=crop",
-        cardDark: "bg-purple-950/60",
-        cardLight: "bg-white/85",
-      },
-    ],
-    [],
-  );
-
-  // Ambil data dari localStorage saat pertama kali render (Inisialisasi)
-  const [themeIndex, setThemeIndex] = useState(() => {
-    const saved = localStorage.getItem("dashboard-theme-index");
-    return saved ? parseInt(saved, 10) : 0;
-  });
-
-  // Fungsi cycle yang otomatis menyimpan ke localStorage
-  const cycleTheme = () => {
-    setThemeIndex((prev) => {
-      const next = (prev + 1) % themes.length;
-      localStorage.setItem("dashboard-theme-index", next.toString());
-      return next;
-    });
-  };
-
-  const currentBgImg = isDarkMode
-    ? themes[themeIndex].darkImg
-    : themes[themeIndex].lightImg;
-  const currentCardClass = isDarkMode
-    ? themes[themeIndex].cardDark
-    : themes[themeIndex].cardLight;
-
-  // --- LOGIC FETCHING DASHBOARD ---
   const fetchDashboard = useCallback(
     async (showLoader = true) => {
       try {
@@ -220,80 +132,72 @@ const StatDashboard: React.FC = () => {
     [activeFilter, selectedDevice, appliedDates],
   );
 
-const fetchOverallLeads = useCallback(async () => {
-  setLoadingSocial(true);
-  try {
-    const token = localStorage.getItem("token");
-    const baseApi = import.meta.env.VITE_API_URL.replace(/\/$/, "");
-    const params = new URLSearchParams();
+  const fetchOverallLeads = useCallback(async () => {
+    setLoadingSocial(true);
+    try {
+      const token = localStorage.getItem("token");
+      const baseApi = import.meta.env.VITE_API_URL.replace(/\/$/, "");
+      const params = new URLSearchParams();
 
-    // 1. Filter Device
-    if (selectedDevice !== "all") {
-      params.append("sessionId", selectedDevice);
-    }
+      if (selectedDevice !== "all") {
+        params.append("sessionId", selectedDevice);
+      }
 
-    // 2. Logika Tanggal & Waktu
-    if (activeFilter === "Custom" && appliedDates.start && appliedDates.end) {
-      // split('T') memisahkan "2023-10-27T15:30" menjadi ["2023-10-27", "15:30"]
-      const [startDate, startTime] = appliedDates.start.split("T");
-      const [endDate, endTime] = appliedDates.end.split("T");
+      if (activeFilter === "Custom" && appliedDates.start && appliedDates.end) {
+        const [startDate, startTime] = appliedDates.start.split("T");
+        const [endDate, endTime] = appliedDates.end.split("T");
 
-      params.append("startDate", startDate);
-      params.append("startTime", startTime + ":00");
-      params.append("endDate", endDate);
-      params.append("endTime", endTime + ":59");
-    } else {
-      // Jika bukan custom, kirim period (Backend akan handle CURDATE)
-      params.append("period", FILTER_MAP[activeFilter]);
-    }
+        params.append("startDate", startDate);
+        params.append("startTime", startTime + ":00");
+        params.append("endDate", endDate);
+        params.append("endTime", endTime + ":59");
+      } else {
+        params.append("period", FILTER_MAP[activeFilter]);
+      }
 
-    const url = `${baseApi}/social/media/all/leads?${params.toString()}`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    const json = await res.json();
-
-    if (json.success) {
-      setOverallSummary({
-        totalLeads: Number(json.summary?.totalLeads || 0),
-        totalClosing: Number(json.summary?.totalClosing || 0),
-        averageConversionRate: Number(json.summary?.averageConversionRate || 0),
+      const url = `${baseApi}/social/media/all/leads?${params.toString()}`;
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
 
-      const mappedDeviceData = (json.deviceData || []).map((device: any) => ({
-        name: (device.name || "Unknown").toUpperCase(),
-        lead_count: Number(device.lead_count || 0),
-        closing_count: Number(device.closing_count || 0),
-      }));
+      const json = await res.json();
 
-      setDeviceLeadsData(mappedDeviceData);
+      if (json.success) {
+        setOverallSummary({
+          totalLeads: Number(json.summary?.totalLeads || 0),
+          totalClosing: Number(json.summary?.totalClosing || 0),
+          averageConversionRate: Number(json.summary?.averageConversionRate || 0),
+        });
+
+        const mappedDeviceData = (json.deviceData || []).map((device: any) => ({
+          name: (device.name || "Unknown").toUpperCase(),
+          lead_count: Number(device.lead_count || 0),
+          closing_count: Number(device.closing_count || 0),
+        }));
+
+        setDeviceLeadsData(mappedDeviceData);
+      }
+    } catch (err) {
+      console.error("Fetch Overall Leads Error:", err);
+    } finally {
+      setLoadingSocial(false);
     }
-  } catch (err) {
-    console.error("Fetch Overall Leads Error:", err);
-  } finally {
-    setLoadingSocial(false);
-  }
-}, [activeFilter, appliedDates, selectedDevice]); // selectedDevice ditambahkan di sini
+  }, [activeFilter, appliedDates, selectedDevice]);
 
-  // --- LOGIC FETCHING LABELS ---
   const fetchAllLabels = useCallback(async () => {
     setLoadingLabels(true);
     try {
       const token = localStorage.getItem("token");
       const baseApi = import.meta.env.VITE_API_URL.replace(/\/$/, "");
 
-      // 1. Siapkan Parameter Filter
       const params = new URLSearchParams();
 
-      // Gunakan FILTER_MAP yang sama dengan fetchDashboard
       if (activeFilter !== "Custom") {
         params.append("period", FILTER_MAP[activeFilter]);
       } else {
-        // Jika Custom, kirim rentang waktu lengkap (tanggal + jam)
         params.append(
           "startDate",
           appliedDates.start.replace("T", " ") + ":00",
@@ -301,7 +205,6 @@ const fetchOverallLeads = useCallback(async () => {
         params.append("endDate", appliedDates.end.replace("T", " ") + ":59");
       }
 
-      // 2. Mencoba endpoint global terlebih dahulu
       const res = await fetch(`${baseApi}/labels/all?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -314,7 +217,6 @@ const fetchOverallLeads = useCallback(async () => {
         }
       }
 
-      // 3. Fallback: Jika endpoint global tidak ada, fetch per session yang aktif
       if (data.sessions.length > 0) {
         const allFetched: any[] = [];
         for (const session of data.sessions) {
@@ -346,7 +248,7 @@ const fetchOverallLeads = useCallback(async () => {
     } finally {
       setLoadingLabels(false);
     }
-  }, [data.sessions, activeFilter, appliedDates]); // Tambahkan activeFilter & appliedDates di sini
+  }, [data.sessions, activeFilter, appliedDates]);
 
   const fetchSocialStats = useCallback(async () => {
     setLoadingSocial(true);
@@ -354,7 +256,6 @@ const fetchOverallLeads = useCallback(async () => {
       const token = localStorage.getItem("token");
       const params = new URLSearchParams();
 
-      // Sesuaikan filter tanggal jika diperlukan
       if (activeFilter === "Custom") {
         params.append("startDate", appliedDates.start);
         params.append("endDate", appliedDates.end);
@@ -377,56 +278,37 @@ const fetchOverallLeads = useCallback(async () => {
     }
   }, [activeFilter, appliedDates]);
 
-  // Hitung total closing berdasarkan label yang mengandung kata "closing"
   const totalClosingFromLabels = useMemo(() => {
     return allLabels
       .filter((label) => label.name.toLowerCase().includes("closing"))
       .reduce((acc, curr) => acc + (parseInt(curr.chat_count) || 0), 0);
   }, [allLabels]);
 
-  const conversionRate = useMemo(() => {
-    // Hitung total leads dengan aman
-    const totalLeads =
-      socialMediaData?.reduce((acc, curr) => {
-        return acc + (Number(curr.totalLeads) || 0);
-      }, 0) || 0;
+  useEffect(() => {
+    const loadData = async () => {
+      await Promise.all([
+        fetchDashboard(true),
+        fetchSocialStats(),
+        fetchOverallLeads()
+      ]);
+    };
+    loadData();
 
-    if (totalLeads === 0) return "0";
+    if (activeFilter !== "Custom") {
+      const interval = setInterval(() => {
+        fetchDashboard(false); 
+        fetchSocialStats();
+        fetchOverallLeads();
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [fetchDashboard, fetchSocialStats, fetchOverallLeads, activeFilter, appliedDates, selectedDevice]);
 
-    // Hitung rasio
-    const rate = (totalClosingFromLabels / totalLeads) * 100;
-    return rate.toFixed(1);
-  }, [socialMediaData, totalClosingFromLabels]);
-
-// Pastikan useEffect untuk Refreshing terlihat seperti ini
-useEffect(() => {
-  const loadData = async () => {
-    // Jalankan secara paralel agar cepat
-    await Promise.all([
-      fetchDashboard(true),
-      fetchSocialStats(),
-      fetchOverallLeads()
-    ]);
-  };
-  loadData();
-
-  // Interval refresh otomatis (setiap 30 detik)
-  if (activeFilter !== "Custom") {
-    const interval = setInterval(() => {
-      fetchDashboard(false); 
-      fetchSocialStats();
-      fetchOverallLeads();
-    }, 30000);
-    return () => clearInterval(interval);
-  }
-}, [fetchDashboard, fetchSocialStats, fetchOverallLeads, activeFilter, appliedDates, selectedDevice]); 
-// Tambahkan selectedDevice di atas agar dropdown device langsung men-trigger refresh data
-
-useEffect(() => {
-  if (data.sessions.length > 0) {
-    fetchAllLabels();
-  }
-}, [data.sessions, fetchAllLabels]);
+  useEffect(() => {
+    if (data.sessions.length > 0) {
+      fetchAllLabels();
+    }
+  }, [data.sessions, fetchAllLabels]);
 
   const handleApplyCustomFilter = () => {
     setRefreshing(true);
@@ -459,59 +341,43 @@ useEffect(() => {
 
   if (loading && !data.stats.pesanMasukAllTime) {
     return (
-      <div
-        className={`flex-1 flex items-center justify-center min-h-screen ${isDarkMode ? "bg-[#0B141A]" : "bg-[#F0F2F5]"}`}
-      >
-        <Loader2 className="text-[#00a884] animate-spin" size={40} />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-14 h-14 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+          <p className="text-gray-700 text-sm font-medium">Memuat data...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      className="flex-1 p-4 md:p-8 overflow-y-auto transition-all duration-700 bg-cover bg-center bg-no-repeat bg-fixed"
-      style={{
-        backgroundImage: `linear-gradient(rgba(0,0,0,${isDarkMode ? 0.7 : 0.2}), rgba(0,0,0,${isDarkMode ? 0.7 : 0.2})), url(${currentBgImg})`,
-      }}
-    >
-      <div className="max-w-7xl mx-auto mb-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
         {/* Header Section */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
-          <div>
-            <h1
-              className={`text-2xl font-black uppercase flex items-center gap-3 ${isDarkMode ? "text-white" : "text-[#3B4A54]"}`}
-            >
-              SATU PINTU{" "}
-              {refreshing && (
-                <Loader2 size={18} className="animate-spin text-[#00a884]" />
-              )}
-            </h1>
-            <p
-              className={`text-[9px] font-bold tracking-widest uppercase mt-1 ${isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
-            >
-              Monitoring Dashboard
-            </p>
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+              <Activity className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-3">
+                Dashboard Monitoring
+                {refreshing && (
+                  <Loader2 size={18} className="animate-spin text-blue-500" />
+                )}
+              </h1>
+              <p className="text-gray-600 text-sm mt-0.5 font-medium">
+                Satu Pintu - Monitoring Dashboard
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-fit">
-            {/* Tombol Ganti Background */}
-            <button
-              onClick={cycleTheme}
-              className={`p-2.5 rounded-xl border transition-all ${isDarkMode ? "bg-black/40 border-white/10 text-emerald-400" : "bg-white border-gray-200 text-emerald-600"}`}
-            >
-              <Palette size={16} />
-            </button>
-            <button
-              onClick={toggleDarkMode}
-              className={`p-2.5 rounded-xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-yellow-400" : "bg-white border-[#E9EDEF] text-gray-600"}`}
-            >
-              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
+          <div className="flex flex-wrap items-center gap-3">
             <select
               value={selectedDevice}
               onChange={(e) => setSelectedDevice(e.target.value)}
-              className={`pl-4 pr-10 py-2.5 border rounded-xl text-[11px] font-bold outline-none ${isDarkMode ? "bg-[#202C33] border-[#313D45] text-white" : "bg-white border-[#E9EDEF] text-[#3B4A54]"}`}
+              className="pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-blue-500 text-slate-700"
             >
               <option value="all">SEMUA DEVICE</option>
               {data.sessions.map((s: any) => (
@@ -521,9 +387,7 @@ useEffect(() => {
               ))}
             </select>
 
-            <div
-              className={`flex items-center p-1 rounded-xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-[#E9EDEF]"}`}
-            >
+            <div className="flex items-center p-1 bg-white border border-slate-200 rounded-xl">
               {Object.keys(FILTER_MAP).map((item) => (
                 <button
                   key={item}
@@ -531,152 +395,187 @@ useEffect(() => {
                     setActiveFilter(item);
                     setRefreshing(true);
                   }}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === item ? "bg-[#00a884] text-white shadow-md" : isDarkMode ? "text-[#8696A0]" : "text-[#667781]"}`}
+                  className={`px-4 py-2 rounded-lg text-[11px] font-bold uppercase transition-all ${
+                    activeFilter === item
+                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
                 >
                   {item}
                 </button>
               ))}
             </div>
+
+            <button
+              onClick={toggleDarkMode}
+              className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-all"
+            >
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
           </div>
         </div>
 
         {/* Custom Date Filter */}
         {activeFilter === "Custom" && (
-          <div className="flex justify-end mb-6 animate-in fade-in slide-in-from-top-2">
-            <div
-              className={`flex flex-col md:flex-row items-center gap-4 p-4 rounded-2xl border ${isDarkMode ? "bg-[#202C33] border-[#313D45]" : "bg-white border-[#E9EDEF] shadow-sm"}`}
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="datetime-local"
-                  value={tempDates.start}
-                  onChange={(e) =>
-                    setTempDates({ ...tempDates, start: e.target.value })
-                  }
-                  className={`bg-transparent text-xs font-bold outline-none ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
-                />
-                <input
-                  type="datetime-local"
-                  value={tempDates.end}
-                  onChange={(e) =>
-                    setTempDates({ ...tempDates, end: e.target.value })
-                  }
-                  className={`bg-transparent text-xs font-bold outline-none ${isDarkMode ? "text-white [color-scheme:dark]" : "text-[#3B4A54]"}`}
-                />
+          <div className="mb-8 animate-in fade-in slide-in-from-top-2">
+            <div className="flex flex-col md:flex-row items-center gap-4 p-5 bg-white rounded-2xl border border-slate-200/60 shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-700">Tanggal Mulai</label>
+                  <input
+                    type="datetime-local"
+                    value={tempDates.start}
+                    onChange={(e) =>
+                      setTempDates({ ...tempDates, start: e.target.value })
+                    }
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-medium outline-none focus:border-blue-500 text-slate-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-700">Tanggal Akhir</label>
+                  <input
+                    type="datetime-local"
+                    value={tempDates.end}
+                    onChange={(e) =>
+                      setTempDates({ ...tempDates, end: e.target.value })
+                    }
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm font-medium outline-none focus:border-blue-500 text-slate-700"
+                  />
+                </div>
               </div>
-              <button
+              <Button
                 onClick={handleApplyCustomFilter}
-                className="bg-[#00a884] hover:bg-[#008f6f] text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-all shadow-lg"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg gap-2"
               >
-                <Search size={14} /> Terapkan
-              </button>
+                <Search size={14} />
+                Terapkan Filter
+              </Button>
             </div>
           </div>
         )}
-      </div>
 
-      <div className="max-w-7xl mx-auto">
-        <AIAnalyticSection stats={data.stats} dark={isDarkMode} />
+        {/* AI Analytic Section */}
+        <AIAnalyticSection stats={data.stats} dark={false} />
+
+        {/* Stats Overview Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <MessageSquare className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{data.stats.pesanMasukToday || 0}</p>
+                <p className="text-xs text-gray-600 font-medium">Pesan Masuk {activeFilter}</p>
+              </div>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-1.5">
+              <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '100%' }} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                <Send className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{data.stats.pesanKeluar || 0}</p>
+                <p className="text-xs text-gray-600 font-medium">Pesan Terkirim</p>
+              </div>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-1.5">
+              <div className="bg-orange-500 h-1.5 rounded-full" style={{ width: '100%' }} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <MailCheck className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{data.stats.leadAktif || 0}</p>
+                <p className="text-xs text-gray-600 font-medium">Leads Aktif</p>
+              </div>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-1.5">
+              <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: '100%' }} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                <Smartphone className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{data.stats.deviceConnected || 0}</p>
+                <p className="text-xs text-gray-600 font-medium">Device Online</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-500">dari {data.stats.totalDevice || 0} device</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${data.stats.deviceConnected > 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                <CheckCircle className={`w-5 h-5 ${data.stats.deviceConnected > 0 ? 'text-emerald-600' : 'text-red-600'}`} />
+              </div>
+              <div>
+                <p className={`text-lg font-bold ${data.stats.deviceConnected > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {data.stats.deviceConnected > 0 ? 'STABIL' : 'OFFLINE'}
+                </p>
+                <p className="text-xs text-gray-600 font-medium">Status Sistem</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <ActivityChart data={data.chartData} dark={isDarkMode} />
-          <SLAChart data={slaData} dark={isDarkMode} />
+          <ActivityChart data={data.chartData} dark={false} />
+          <SLAChart data={slaData} dark={false} />
           <DeviceBarChart
-            data={deviceLeadsData} // Data ini harus berisi hasil fetch terbaru yang sudah difilter
-            dark={isDarkMode}
+            data={deviceLeadsData}
+            dark={false}
           />
         </div>
 
-        {/* --- KOMPONEN LABEL YANG DIPISAH --- */}
+        {/* Bottom Cards Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <LiveFeed
+            messages={data.messages}
+            totalPesan={data.stats.pesanMasukAllTime}
+            dark={false}
+          />
+          <ClosingStatCard
+            isDarkMode={false}
+            loading={loadingSocial}
+            totalClosing={overallSummary.totalClosing}
+            conversionRate={overallSummary.averageConversionRate}
+            totalLeads={overallSummary.totalLeads}
+            chartData={data?.chartData || []}
+          />
+          <OverallLeadsCard
+            isDarkMode={false}
+            loading={loadingSocial}
+            totalLeads={overallSummary.totalLeads}
+            totalClosing={overallSummary.totalClosing}
+            conversionRate={overallSummary.averageConversionRate}
+          />
+        </div>
+
+        {/* Label & Social Sections */}
         <LabelSection
-          isDarkMode={isDarkMode}
+          isDarkMode={false}
           loadingLabels={loadingLabels}
           allLabels={allLabels}
           sessions={data.sessions}
           labelDeviceFilter={labelDeviceFilter}
           setLabelDeviceFilter={setLabelDeviceFilter}
         />
-        <SocialLeadsSection isDarkMode={isDarkMode} sessions={data.sessions} />
-
-        {/* Stats Grid Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5 pb-6">
-          <LiveFeed
-            messages={data.messages}
-            totalPesan={data.stats.pesanMasukAllTime}
-            dark={isDarkMode}
-          />
-          {/* Stat Card Closing dengan Grafik Dinamis */}
-          <ClosingStatCard
-            isDarkMode={isDarkMode}
-            loading={loadingSocial}
-            totalClosing={overallSummary.totalClosing}
-            conversionRate={overallSummary.averageConversionRate}
-            totalLeads={overallSummary.totalLeads}
-            chartData={data?.chartData || []} // Pastikan data grafik tersedia di state utama
-          />
-          <OverallLeadsCard
-            isDarkMode={isDarkMode}
-            loading={loadingSocial}
-            totalLeads={overallSummary.totalLeads}
-            totalClosing={overallSummary.totalClosing}
-            conversionRate={overallSummary.averageConversionRate}
-          />
-
-          <StatCard
-            dark={isDarkMode}
-            title={`Masuk ${activeFilter}`}
-            value={data.stats.pesanMasukToday}
-            icon={MessageSquare}
-            color="text-[#00a884]"
-          />
-          <StatCard
-            dark={isDarkMode}
-            title="Pesan Terkirim"
-            value={data.stats.pesanKeluar}
-            icon={Send}
-            color="text-orange-500"
-          />
-
-          <StatCard
-            dark={isDarkMode}
-            title="Leads Aktif"
-            value={data.stats.leadAktif}
-            icon={MailCheck}
-            color="text-blue-500"
-          />
-          <StatCard
-            dark={isDarkMode}
-            title="Slow Response"
-            value={data.stats.slowResponse}
-            icon={Clock}
-            color="text-red-500"
-          />
-          <StatCard
-            dark={isDarkMode}
-            title="Tak Terjawab"
-            value={data.stats.unanswered}
-            icon={AlertCircle}
-            color="text-gray-400"
-          />
-          <StatCard
-            dark={isDarkMode}
-            title="Device Online"
-            value={data.stats.deviceConnected}
-            subValue={`Dari ${data.stats.totalDevice} Device`}
-            icon={Smartphone}
-            color="text-indigo-400"
-          />
-          <StatCard
-            dark={isDarkMode}
-            title="Status"
-            value={data.stats.deviceConnected > 0 ? "STABIL" : "OFFLINE"}
-            icon={CheckCircle}
-            color={
-              data.stats.deviceConnected > 0 ? "text-[#00a884]" : "text-red-500"
-            }
-          />
-        </div>
+        <SocialLeadsSection isDarkMode={false} sessions={data.sessions} />
       </div>
     </div>
   );

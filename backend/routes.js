@@ -1052,6 +1052,138 @@ router.delete("/rotators/:id", authenticateToken, async (req, res) => {
   }
 });
 
+// ===============================================
+// TRACKED LINKS - Lacak klik URL eksternal
+// ===============================================
+
+// GET: Ambil semua tracked links
+router.get("/tracked-links", authenticateToken, async (req, res) => {
+  try {
+    const data = await query(`
+      SELECT 
+        id, name, original_url, short_code, clicks, clicks_today, clicks_week, clicks_month, created_at
+      FROM tracked_links 
+      ORDER BY id DESC
+    `);
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST: Tambah tracked link baru
+router.post("/tracked-links", authenticateToken, async (req, res) => {
+  const { name, original_url } = req.body;
+  
+  if (!name || !original_url) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Nama dan URL harus diisi" 
+    });
+  }
+
+  try {
+    // Validasi URL
+    try {
+      new URL(original_url);
+    } catch {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Format URL tidak valid" 
+      });
+    }
+
+    const generateShortCode = () => {
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    };
+
+    let shortCode = generateShortCode();
+    let existing = await queryOne("SELECT id FROM tracked_links WHERE short_code = ?", [shortCode]);
+    while (existing) {
+      shortCode = generateShortCode();
+      existing = await queryOne("SELECT id FROM tracked_links WHERE short_code = ?", [shortCode]);
+    }
+
+    const result = await query(
+      `INSERT INTO tracked_links (name, original_url, short_code, clicks, clicks_today, clicks_week, clicks_month, created_at) 
+       VALUES (?, ?, ?, 0, 0, 0, 0, NOW())`,
+      [name, original_url, shortCode]
+    );
+
+    const newLink = await queryOne(
+      `SELECT id, name, original_url, short_code, clicks, clicks_today, clicks_week, clicks_month, created_at 
+       FROM tracked_links WHERE id = ?`,
+      [result.insertId]
+    );
+
+    res.json({ success: true, data: newLink, message: "Link berhasil ditambahkan" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE: Hapus tracked link
+router.delete("/tracked-links/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    await query("DELETE FROM tracked_links WHERE id = ?", [id]);
+    res.json({ success: true, message: "Link berhasil dihapus" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PUT: Update tracked link
+router.put("/tracked-links/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { name, original_url } = req.body;
+  
+  try {
+    const updates = [];
+    const values = [];
+    
+    if (name) {
+      updates.push("name = ?");
+      values.push(name);
+    }
+    if (original_url) {
+      try {
+        new URL(original_url);
+        updates.push("original_url = ?");
+        values.push(original_url);
+      } catch {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Format URL tidak valid" 
+        });
+      }
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Tidak ada data yang diupdate" 
+      });
+    }
+    
+    values.push(id);
+    await query(
+      `UPDATE tracked_links SET ${updates.join(", ")} WHERE id = ?`,
+      values
+    );
+    
+    res.json({ success: true, message: "Link berhasil diupdate" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // PUT: Update keyword berdasarkan platform
 router.put("/keywords/:platform", authenticateToken, async (req, res) => {
   const { platform } = req.params;

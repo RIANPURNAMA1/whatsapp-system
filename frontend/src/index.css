@@ -1,22 +1,14 @@
 /* index.css - Global Styles */
 @import "tailwindcss";
-/* globals.css */
-/* globals.css */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,200;1,300;1,400;1,500;1,600;1,700;1,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
 body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  /* Smoothing agar font terlihat tajam di layar manapun */
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ================================================================
-   TAMBAHKAN ke index.css (di bagian bawah @layer utilities)
-   ================================================================ */
-
 @layer utilities {
-  /* Slide-in dari kanan untuk panel info grup */
   .animate-slide-in-right {
     animation: slideInRight 0.22s ease-out;
   }
@@ -44,33 +36,36 @@ body {
   }
 
   body {
-    background-color: #111B21;
-    color: #E9EDEF;
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    background-color: #ffffff;
+    color: #1f2937;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow: hidden;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
   }
 
   /* Custom Scrollbar */
   ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #374045;
+    background: #e5e7eb;
     border-radius: 10px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #4A5568;
+    background: #d1d5db;
   }
 
   /* Selection */
   ::selection {
-    background-color: #25D366;
+    background-color: #1e40af;
     color: white;
   }
 }
@@ -83,8 +78,8 @@ body {
     bottom: 0;
     right: -8px;
     border: 8px solid transparent;
-    border-left-color: #005C4B;
-    border-bottom-color: #005C4B;
+    border-left-color: #1e40af;
+    border-bottom-color: #1e40af;
   }
 
   .bubble-tail-left::after {
@@ -93,16 +88,15 @@ body {
     bottom: 0;
     left: -8px;
     border: 8px solid transparent;
-    border-right-color: #202C33;
-    border-bottom-color: #202C33;
+    border-right-color: #ffffff;
+    border-bottom-color: #ffffff;
   }
 }
 
 @layer utilities {
-  /* Hide scrollbar tapi tetap bisa scroll */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #374045 transparent;
+    scrollbar-color: #d1d5db transparent;
   }
 
   .scrollbar-none {
@@ -113,7 +107,6 @@ body {
     display: none;
   }
 
-  /* Animation utilities */
   .animate-fade-in {
     animation: fadeIn 0.15s ease-in-out;
   }
@@ -125,4 +118,15 @@ body {
   .animate-bounce-in {
     animation: bounceIn 0.3s ease-out;
   }
+}
+
+/* Improved text rendering */
+* {
+  text-rendering: optimizeLegibility;
+}
+
+/* Chat-specific typography */
+.chat-message {
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  font-optical-sizing: auto;
 }

@@ -85,22 +85,6 @@ export const assignSessionToUser = async (userId, sessionId) => {
 // 4. LOGIKA AUTO-MIGRATE / INIT TABEL
 async function initDatabase() {
   const tables = [
-    `CREATE TABLE IF NOT EXISTS link_rotators (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    short_code VARCHAR(100) UNIQUE NOT NULL,
-    type ENUM('direct', 'lander') DEFAULT 'direct',
-    target_type ENUM('single', 'rotator') DEFAULT 'single',
-    wa_numbers TEXT NOT NULL,
-    message TEXT,
-    clicks INT DEFAULT 0,
-    -- PERBAIKAN DI SINI:
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES wa_users(id) ON DELETE CASCADE
-)`,
-
     `CREATE TABLE IF NOT EXISTS lead_keywords (
   id INT AUTO_INCREMENT PRIMARY KEY,
   platform VARCHAR(50),
@@ -299,7 +283,35 @@ async function initDatabase() {
     )
 `,
 
+    `CREATE TABLE IF NOT EXISTS link_rotators (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    short_code VARCHAR(100) UNIQUE NOT NULL,
+    type ENUM('direct', 'lander') DEFAULT 'direct',
+    target_type ENUM('single', 'rotator') DEFAULT 'single',
+    wa_numbers TEXT NOT NULL,
+    message TEXT,
+    clicks INT DEFAULT 0,
+    -- PERBAIKAN DI SINI:
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES wa_users(id) ON DELETE CASCADE
+)`,
 
+    `CREATE TABLE IF NOT EXISTS tracked_links (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    original_url TEXT NOT NULL,
+    short_code VARCHAR(50) UNIQUE,
+    clicks INT DEFAULT 0,
+    clicks_today INT DEFAULT 0,
+    clicks_week INT DEFAULT 0,
+    clicks_month INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_click_date DATE DEFAULT NULL
+)`,
 `
 CREATE TABLE IF NOT EXISTS wa_ai_media_assets (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -352,6 +364,48 @@ CREATE TABLE IF NOT EXISTS wa_rules (
           `INSERT IGNORE INTO wa_lead_sources (keyword, source_name, color_code) VALUES (?, ?, ?)`,
           source,
         );
+    }
+
+    // Migrate tracked_links: add short_code if not exists
+    try {
+      await db.promise().query(`
+        ALTER TABLE tracked_links ADD COLUMN short_code VARCHAR(50) UNIQUE AFTER original_url
+      `);
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for tracked_links:", err.message);
+      }
+    }
+
+    // Generate short_code for existing tracked_links without short_code
+    const existingLinks = await db.promise().query(
+      "SELECT id FROM tracked_links WHERE short_code IS NULL OR short_code = ''"
+    );
+    if (existingLinks[0].length > 0) {
+      console.log(`🔄 Generating short_codes for ${existingLinks[0].length} existing tracked links...`);
+      for (const link of existingLinks[0]) {
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let shortCode = '';
+        for (let i = 0; i < 6; i++) {
+          shortCode += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        try {
+          await db.promise().query(
+            "UPDATE tracked_links SET short_code = ? WHERE id = ? AND (short_code IS NULL OR short_code = '')",
+            [shortCode, link.id]
+          );
+        } catch (e) {
+          // Handle duplicate short_code
+          let retryCode = '';
+          for (let i = 0; i < 6; i++) {
+            retryCode += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          await db.promise().query(
+            "UPDATE tracked_links SET short_code = ? WHERE id = ?",
+            [retryCode, link.id]
+          );
+        }
+      }
     }
 
     console.log("✅ Semua tabel dan data awal WhatsApp System siap digunakan");

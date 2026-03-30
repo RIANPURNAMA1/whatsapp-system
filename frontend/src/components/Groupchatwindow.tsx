@@ -25,7 +25,6 @@ import {
   Crown,
   ShieldCheck,
 } from "lucide-react";
-import Avatar from "./Avatar";
 import {
   formatMessageTime,
   formatDateSeparator,
@@ -41,6 +40,7 @@ import toast from "react-hot-toast";
 interface GroupChatWindowProps {
   sessionId: string;
   group: GroupChat;
+  onBack?: () => void;
 }
 
 const GroupChatWindow: React.FC<GroupChatWindowProps> = ({
@@ -299,9 +299,9 @@ useEffect(() => {
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* ────── Panel Chat ────── */}
-      <div className="flex flex-col flex-1 bg-[#0B141A] min-w-0 overflow-hidden relative">
+      <div className="flex-1 flex flex-col bg-white h-full w-full relative overflow-hidden">
         {/* Header grup */}
-        <div className="bg-[#202C33] px-4 py-2.5 flex items-center gap-3 border-b border-[#111B21] flex-shrink-0 z-10">
+        <div className="bg-white px-4 py-2.5 flex items-center gap-3 border-b border-gray-200 flex-shrink-0 z-10 shadow-sm">
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: getAvatarColor(group.jid) }}
@@ -318,10 +318,10 @@ useEffect(() => {
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-[#E9EDEF] font-medium text-[15px] truncate">
+            <p className="text-gray-900 font-medium text-[15px] truncate">
               {displayName}
             </p>
-            <p className="text-[#8696A0] text-[11px] truncate">
+            <p className="text-gray-500 text-[11px] truncate">
               {group.participant_count
                 ? `${group.participant_count} anggota`
                 : "Grup WhatsApp"}
@@ -333,7 +333,7 @@ useEffect(() => {
             className={`p-2 rounded-full transition-all ${
               showInfo
                 ? "bg-[#00a884] text-white"
-                : "text-[#8696A0] hover:text-white hover:bg-[#2A3942]"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             }`}
             title="Info grup & anggota"
           >
@@ -346,7 +346,7 @@ useEffect(() => {
           ref={containerRef}
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto px-4 py-4 space-y-1 custom-scrollbar"
-          style={{ backgroundColor: "#0B141A" }}
+          style={{ backgroundColor: "#FFFFFF" }}
         >
           {isLoadingMore && (
             <div className="flex justify-center py-2">
@@ -357,12 +357,12 @@ useEffect(() => {
           {isLoading ? (
             <div className="flex items-center justify-center h-full gap-3">
               <Loader2 className="w-6 h-6 text-[#00a884] animate-spin" />
-              <span className="text-[#8696A0] text-sm">Memuat pesan grup...</span>
+              <span className="text-gray-500 text-sm">Memuat pesan grup...</span>
             </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
-              <AlertCircle className="w-10 h-10 text-[#3b4a54]" />
-              <p className="text-[#8696A0] text-sm">
+              <AlertCircle className="w-10 h-10 text-gray-400" />
+              <p className="text-gray-500 text-sm">
                 Belum ada pesan di grup ini.
               </p>
             </div>
@@ -382,7 +382,7 @@ useEffect(() => {
                 <React.Fragment key={msg.message_id || idx}>
                   {showDate && (
                     <div className="flex justify-center my-3">
-                      <span className="bg-[#182229] text-[#8696A0] text-[11px] px-3 py-1 rounded-full">
+                      <span className="bg-gray-100 text-gray-500 text-[11px] px-3 py-1 rounded-full">
                         {formatDateSeparator(msg.timestamp)}
                       </span>
                     </div>
@@ -403,7 +403,7 @@ useEffect(() => {
         {showScrollBtn && (
           <button
             onClick={() => scrollToBottom("smooth")}
-            className="absolute bottom-24 right-5 w-9 h-9 bg-[#202C33] hover:bg-[#2A3942] border border-[#3b4a54] rounded-full flex items-center justify-center text-[#8696A0] hover:text-white shadow-lg transition-all z-10"
+            className="absolute bottom-24 right-5 w-9 h-9 bg-white hover:bg-gray-100 border border-gray-300 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-700 shadow-lg transition-all z-10"
           >
             <ChevronDown className="w-5 h-5" />
           </button>
@@ -411,7 +411,7 @@ useEffect(() => {
 
         {/* Preview reply */}
         {replyTo && (
-          <div className="bg-[#202C33] px-4 py-2 flex items-center gap-3 border-t border-[#2A3942] flex-shrink-0">
+          <div className="bg-gray-50 px-4 py-2 flex items-center gap-3 border-t border-gray-200 flex-shrink-0">
             <Reply className="w-4 h-4 text-[#00a884] flex-shrink-0" />
             <div className="flex-1 min-w-0 border-l-2 border-[#00a884] pl-2">
               <p className="text-[#00a884] text-[11px] font-semibold truncate">
@@ -419,14 +419,14 @@ useEffect(() => {
                   ? "Anda"
                   : replyTo.sender_name || replyTo.from_jid?.split("@")[0]}
               </p>
-              <p className="text-[#8696A0] text-xs truncate">
+              <p className="text-gray-500 text-xs truncate">
                 {replyTo.content ||
                   formatMessagePreview(replyTo.message_type, replyTo.content)}
               </p>
             </div>
             <button
               onClick={() => setReplyTo(null)}
-              className="text-[#8696A0] hover:text-white p-1 flex-shrink-0"
+              className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -434,9 +434,9 @@ useEffect(() => {
         )}
 
         {/* Input area */}
-        <div className="bg-[#202C33] px-3 py-2.5 flex items-end gap-2 flex-shrink-0 border-t border-[#111B21]">
+        <div className="bg-white px-3 py-2.5 flex items-end gap-2 flex-shrink-0 border-t border-gray-200">
           <button
-            className="p-2 text-[#8696A0] hover:text-white transition-colors flex-shrink-0 mb-0.5"
+            className="p-2 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mb-0.5"
             title="Emoji"
           >
             <Smile className="w-5 h-5" />
@@ -444,7 +444,7 @@ useEffect(() => {
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-[#8696A0] hover:text-white transition-colors flex-shrink-0 mb-0.5"
+            className="p-2 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mb-0.5"
             title="Lampirkan file"
           >
             <Paperclip className="w-5 h-5" />
@@ -457,7 +457,7 @@ useEffect(() => {
             onChange={handleFileSelect}
           />
 
-          <div className="flex-1 bg-[#2A3942] rounded-xl overflow-hidden">
+          <div className="flex-1 bg-gray-100 rounded-xl overflow-hidden">
             <textarea
               ref={inputRef}
               value={inputText}
@@ -465,7 +465,7 @@ useEffect(() => {
               onKeyDown={handleKeyDown}
               placeholder={`Pesan ke ${displayName}...`}
               rows={1}
-              className="w-full bg-transparent text-[#E9EDEF] placeholder-[#8696A0] px-4 py-3 outline-none resize-none text-sm leading-relaxed"
+              className="w-full bg-transparent text-gray-900 placeholder-gray-400 px-4 py-3 outline-none resize-none text-sm leading-relaxed"
               style={{ maxHeight: "120px" }}
             />
           </div>
@@ -492,15 +492,15 @@ useEffect(() => {
 
       {/* ────── Panel Info Grup (slide dari kanan) ────── */}
       {showInfo && (
-        <div className="w-72 flex-shrink-0 flex flex-col bg-[#111B21] border-l border-[#1E2A30] overflow-hidden animate-slide-in-right">
+        <div className="w-72 flex-shrink-0 flex flex-col bg-white border-l border-gray-200 overflow-hidden animate-slide-in-right shadow-lg">
           {/* Header panel info */}
-          <div className="bg-[#202C33] px-4 py-3 flex items-center justify-between border-b border-[#1E2A30]">
-            <span className="text-[#E9EDEF] text-sm font-semibold">
+          <div className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-200">
+            <span className="text-gray-900 text-sm font-semibold">
               Info Grup
             </span>
             <button
               onClick={() => setShowInfo(false)}
-              className="p-1 text-[#8696A0] hover:text-white"
+              className="p-1 text-gray-400 hover:text-gray-600"
             >
               <X className="w-4 h-4" />
             </button>
@@ -524,11 +524,11 @@ useEffect(() => {
                 )}
               </div>
               <div className="text-center">
-                <p className="text-[#E9EDEF] font-semibold text-base">
+                <p className="text-gray-900 font-semibold text-base">
                   {displayName}
                 </p>
                 {group.participant_count ? (
-                  <p className="text-[#8696A0] text-xs mt-0.5">
+                  <p className="text-gray-500 text-xs mt-0.5">
                     {group.participant_count} anggota
                   </p>
                 ) : null}
@@ -537,11 +537,11 @@ useEffect(() => {
 
             {/* Deskripsi Grup */}
             {group.group_description && (
-              <div className="bg-[#202C33] rounded-xl p-3">
-                <p className="text-[#8696A0] text-[10px] uppercase tracking-wider font-semibold mb-1">
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold mb-1">
                   Deskripsi
                 </p>
-                <p className="text-[#E9EDEF] text-xs leading-relaxed">
+                <p className="text-gray-700 text-xs leading-relaxed">
                   {group.group_description}
                 </p>
               </div>
@@ -549,7 +549,7 @@ useEffect(() => {
 
             {/* Daftar Anggota */}
             <div>
-              <p className="text-[#8696A0] text-[10px] uppercase tracking-wider font-semibold mb-2 px-1">
+              <p className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold mb-2 px-1">
                 Anggota Grup
               </p>
 
@@ -558,7 +558,7 @@ useEffect(() => {
                   <Loader2 className="w-5 h-5 text-[#00a884] animate-spin" />
                 </div>
               ) : participants.length === 0 ? (
-                <p className="text-[#8696A0] text-xs text-center py-4">
+                <p className="text-gray-500 text-xs text-center py-4">
                   Data anggota belum tersedia
                 </p>
               ) : (
@@ -611,7 +611,7 @@ const GroupMessageBubble: React.FC<BubbleProps> = ({
   const renderContent = () => {
     if (message.is_deleted) {
       return (
-        <span className="italic text-[#8696A0] text-sm flex items-center gap-1.5">
+        <span className={`italic text-sm flex items-center gap-1.5 ${isFromMe ? 'text-white/70' : 'text-gray-400'}`}>
           <AlertCircle className="w-3.5 h-3.5" />
           Pesan telah dihapus
         </span>
@@ -620,29 +620,29 @@ const GroupMessageBubble: React.FC<BubbleProps> = ({
     switch (message.message_type) {
       case "text":
         return (
-          <p className="text-[#E9EDEF] text-sm leading-relaxed whitespace-pre-wrap break-words">
+          <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap break-words">
             {message.content}
           </p>
         );
       case "image":
         return (
           <div>
-            <div className="bg-[#1E2A30] rounded-lg h-28 flex items-center justify-center w-44">
+            <div className="bg-gray-200 rounded-lg h-28 flex items-center justify-center w-44">
               <span className="text-3xl">🖼️</span>
             </div>
             {message.caption && (
-              <p className="text-[#E9EDEF] text-xs mt-1">{message.caption}</p>
+              <p className="text-gray-700 text-xs mt-1">{message.caption}</p>
             )}
           </div>
         );
       case "video":
         return (
           <div>
-            <div className="bg-[#1E2A30] rounded-lg h-28 flex items-center justify-center w-44">
+            <div className="bg-gray-200 rounded-lg h-28 flex items-center justify-center w-44">
               <span className="text-3xl">🎥</span>
             </div>
             {message.caption && (
-              <p className="text-[#E9EDEF] text-xs mt-1">{message.caption}</p>
+              <p className="text-gray-700 text-xs mt-1">{message.caption}</p>
             )}
           </div>
         );
@@ -650,28 +650,28 @@ const GroupMessageBubble: React.FC<BubbleProps> = ({
         return (
           <div className="flex items-center gap-2 min-w-[180px]">
             <Mic className="w-4 h-4 text-[#00a884]" />
-            <div className="flex-1 h-6 bg-[#1E2A30] rounded-full overflow-hidden">
+            <div className="flex-1 h-6 bg-gray-200 rounded-full overflow-hidden">
               <div className="h-full w-1/3 bg-[#00a884]/40 rounded-full" />
             </div>
-            <span className="text-[#8696A0] text-[11px]">🎵</span>
+            <span className="text-gray-500 text-[11px]">🎵</span>
           </div>
         );
       case "document":
         return (
-          <div className="flex items-center gap-2 bg-[#1E2A30] rounded-lg p-2.5 min-w-[180px]">
+          <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-2.5 min-w-[180px]">
             <FileText className="w-7 h-7 text-[#00a884] flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[#E9EDEF] text-xs font-medium truncate">
+              <p className="text-gray-800 text-xs font-medium truncate">
                 {message.content}
               </p>
-              <p className="text-[#8696A0] text-[10px]">Dokumen</p>
+              <p className="text-gray-500 text-[10px]">Dokumen</p>
             </div>
-            <Download className="w-3.5 h-3.5 text-[#8696A0]" />
+            <Download className="w-3.5 h-3.5 text-gray-400" />
           </div>
         );
       case "location":
         return (
-          <div className="flex items-center gap-1.5 text-[#E9EDEF] text-sm">
+          <div className="flex items-center gap-1.5 text-gray-800 text-sm">
             <MapPin className="w-4 h-4 text-[#00a884]" />
             <span>{message.content}</span>
           </div>
@@ -680,7 +680,7 @@ const GroupMessageBubble: React.FC<BubbleProps> = ({
         return <span className="text-4xl">😄</span>;
       default:
         return (
-          <p className="text-[#8696A0] text-sm italic">
+          <p className="text-gray-500 text-sm italic">
             {formatMessagePreview(message.message_type, message.content)}
           </p>
         );
@@ -716,23 +716,23 @@ const GroupMessageBubble: React.FC<BubbleProps> = ({
         <div
           className={`flex items-center mb-1 ${isFromMe ? "order-first" : "order-last"}`}
         >
-          <button
-            onClick={onReply}
-            className="p-1 text-[#8696A0] hover:text-white bg-[#202C33] rounded-full hover:bg-[#2A3942] transition-all"
-            title="Balas pesan ini"
-          >
+        <button
+          onClick={onReply}
+          className="p-1 text-gray-400 hover:text-gray-600 bg-white rounded-full hover:bg-gray-100 transition-all shadow-sm"
+          title="Balas pesan ini"
+        >
             <Reply className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Bubble */}
+          {/* Bubble */}
       <div
         className={`
           max-w-[68%] lg:max-w-[58%] rounded-xl px-3 py-2 shadow-sm relative
           ${isFromMe
-            ? "bg-[#005C4B] rounded-br-none"
-            : "bg-[#202C33] rounded-bl-none"
+            ? "bg-[#00a884] text-white rounded-br-none"
+            : "bg-gray-100 text-gray-800 rounded-bl-none"
           }
         `}
       >
@@ -748,9 +748,9 @@ const GroupMessageBubble: React.FC<BubbleProps> = ({
 
         {/* Quoted message */}
         {message.quoted_content && (
-          <div className="mb-2 pl-2 border-l-2 border-[#00a884] bg-black/20 rounded-r py-1 pr-2">
+          <div className="mb-2 pl-2 border-l-2 border-[#00a884] bg-black/10 rounded-r py-1 pr-2">
             <p className="text-[#00a884] text-[11px] font-medium">Dikutip</p>
-            <p className="text-[#8696A0] text-[11px] truncate">
+            <p className="text-gray-500 text-[11px] truncate">
               {message.quoted_content}
             </p>
           </div>
@@ -761,15 +761,15 @@ const GroupMessageBubble: React.FC<BubbleProps> = ({
 
         {/* Waktu & status */}
         <div className="flex items-center justify-end gap-1 mt-1">
-          <span className="text-[#8696A0] text-[10px]">
+          <span className={`text-[10px] ${isFromMe ? 'text-white/70' : 'text-gray-500'}`}>
             {formatMessageTime(message.timestamp)}
           </span>
           {isFromMe && (
             <span
               className={`text-[10px] font-bold ${
                 message.status === "read"
-                  ? "text-[#53BDEB]"
-                  : "text-[#8696A0]"
+                  ? "text-blue-200"
+                  : "text-white/70"
               }`}
             >
               {message.status === "pending"
@@ -801,7 +801,7 @@ const ParticipantItem: React.FC<{ participant: GroupParticipant }> = ({
     "Anggota";
 
   return (
-    <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[#202C33] transition-colors">
+    <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors">
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
         style={{ backgroundColor: getAvatarColor(participant.jid) }}
@@ -817,8 +817,8 @@ const ParticipantItem: React.FC<{ participant: GroupParticipant }> = ({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[#E9EDEF] text-xs font-medium truncate">{name}</p>
-        <p className="text-[#8696A0] text-[10px] truncate">
+        <p className="text-gray-800 text-xs font-medium truncate">{name}</p>
+        <p className="text-gray-500 text-[10px] truncate">
           +{participant.jid?.split("@")[0]}
         </p>
       </div>

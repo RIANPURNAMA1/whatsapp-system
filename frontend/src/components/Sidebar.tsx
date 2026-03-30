@@ -63,8 +63,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         className={`
-          fixed md:relative z-50 flex flex-col w-[68px] h-full bg-[#202C33] border-r border-[#313D45] py-5 items-center justify-between 
-          transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none
+          fixed md:relative z-50 flex flex-col w-[68px] min-h-screen md:min-h-0 md:h-full bg-white border-r border-gray-200 py-5 items-center justify-between 
+          transition-transform duration-300 ease-in-out shadow-lg md:shadow-none overflow-y-auto
           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}
       >
@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               window.location.reload();
               setIsSidebarOpen(false);
             }}
-            className="w-10 h-10 bg-[#00a884] rounded-xl flex items-center justify-center shadow-lg shadow-[#00a884]/20 mb-4 hover:bg-[#00c99d] transition-all active:scale-95"
+            className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 hover:shadow-blue-500/30 transition-all active:scale-95"
             title="Satu Pintu Home"
           >
             <MessageSquare className="w-6 h-6 text-white" />
@@ -86,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {(isSystemAdmin || user?.role_type === "manager") && (
               <>
                 <div className="flex flex-col items-center w-full gap-1">
-                  <span className="text-[9px] font-bold text-[#54656f] mb-1 uppercase tracking-widest text-center">
+                  <span className="text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-widest text-center">
                     Staff
                   </span>
                   {isSystemAdmin && (
@@ -104,7 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     title="Kelola User/Admin"
                   />
                 </div>
-                <div className="w-8 h-[1px] bg-[#313D45] my-1" />
+                <div className="w-8 h-[1px] bg-gray-200 my-1" />
               </>
             )}
 
@@ -146,7 +146,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
 
-            <div className="w-8 h-[1px] bg-[#313D45] my-1" />
+            <div className="w-8 h-[1px] bg-gray-200 my-1" />
 
             {/* GROUP 3: CHAT & MESSAGING */}
             <div className="flex flex-col gap-2 items-center">
@@ -181,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               />
             </div>
 
-            <div className="w-8 h-[1px] bg-[#313D45] my-1" />
+            <div className="w-8 h-[1px] bg-gray-200 my-1" />
 
             {/* GROUP 4: DEVICES */}
             <NavButton
@@ -199,12 +199,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div
               onClick={() => handleNavClick("settings")}
               className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-colors group ${
-                activeTab === "settings" ? "bg-[#00a884]/20" : "hover:bg-[#313D45]"
+                activeTab === "settings" ? "bg-blue-100" : "hover:bg-gray-100"
               }`}
             >
               <Settings
                 className={`w-5 h-5 transition-colors ${
-                  activeTab === "settings" ? "text-[#00a884]" : "text-[#8696A0] group-hover:text-white"
+                  activeTab === "settings" ? "text-blue-600" : "text-gray-400 group-hover:text-gray-700"
                 }`}
               />
             </div>
@@ -215,10 +215,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               onLogout();
               setIsSidebarOpen(false);
             }}
-            className="w-10 h-10 rounded-xl hover:bg-red-500/10 flex items-center justify-center cursor-pointer transition-colors group"
+            className="w-10 h-10 rounded-xl hover:bg-red-50 flex items-center justify-center cursor-pointer transition-colors group"
             title="Keluar Aplikasi"
           >
-            <LogOut className="w-5 h-5 text-[#8696A0] group-hover:text-red-500 transition-colors" />
+            <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" />
           </button>
         </div>
       </aside>

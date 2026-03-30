@@ -79,7 +79,7 @@ export const handleAIResponse = async (
   remoteJid,
   userMessage,
   sock,
-  isFromMe
+  isFromMe,
 ) => {
   try {
     // 1. Stop AI jika admin balas manual
@@ -97,14 +97,17 @@ export const handleAIResponse = async (
       `SELECT is_active, is_rules_active, bot_name, prompt, knowledge_base, 
               min_delay, max_delay, human_wait_time 
        FROM wa_ai_settings WHERE session_id = ?`,
-      [sessionId]
+      [sessionId],
     );
     if (!settings) return;
 
     // 3. Cek & kirim Rules lebih dulu (tidak terhalang is_active)
     if (Number(settings.is_rules_active) === 1) {
       const isRuleSent = await checkAndSendRules(
-        sessionId, remoteJid, userMessage, sock
+        sessionId,
+        remoteJid,
+        userMessage,
+        sock,
       );
       if (isRuleSent) {
         if (aiQueues[remoteJid]) {
@@ -126,82 +129,123 @@ export const handleAIResponse = async (
     }
 
     // 6. Eksekusi AI
+    // 6. Eksekusi AI (Ganti bagian ini saja)
     const executeAIProcess = async (currentSettings) => {
       try {
         if (!aiQueues[remoteJid]) return;
         aiQueues[remoteJid].isProcessing = true;
 
         await sock.sendPresenceUpdate("composing", remoteJid);
-
         const fullUserContent = aiQueues[remoteJid].messages.join(" ");
 
-        // Ambil daftar aset media
+        // Ambil daftar aset media untuk prompt AI
         const availableAssets = await query(
           "SELECT asset_name FROM wa_ai_media_assets WHERE session_id = ?",
-          [sessionId]
+          [sessionId],
         );
         const assetListString = availableAssets
           .map((a) => `[[${a.asset_name}]]`)
           .join(", ");
 
         const systemPrompt = `
-Nama Bot: ${currentSettings.bot_name}
-Instruksi: ${currentSettings.prompt}
-Materi Pengetahuan: ${currentSettings.knowledge_base}
-Aset Gambar Tersedia: ${assetListString}
-Jika user bertanya tentang hal yang berkaitan dengan aset di atas, kirimkan tag-nya dalam jawabanmu.
-Aturan: Jawab hanya berdasarkan materi. Jika tidak ada, arahkan ke admin.
+          Nama Bot: ${currentSettings.bot_name}
+          Instruksi: ${currentSettings.prompt}
+          Materi: ${currentSettings.knowledge_base}
+          Aset Gambar: ${assetListString}
+          Gunakan tag [[nama_aset]] jika relevan dengan pertanyaan user.
+          Jawab singkat, padat, dan ramah. Jika tidak ada di materi, arahkan ke admin.
         `.trim();
 
-        // ✅ Panggil AI dengan fallback
+        // Panggil AI dengan Fallback (Groq -> Gemini)
         const { reply: aiReply, provider } = await callAIWithFallback(
           systemPrompt,
-          fullUserContent
+          fullUserContent,
         );
 
         if (!aiReply || !aiQueues[remoteJid]) return;
 
-        console.log(`[AI] Provider yang digunakan: ${provider}`);
-
-        const minDelay = (currentSettings.min_delay || 5) * 1000;
-        const maxDelay = (currentSettings.max_delay || 15) * 1000;
+        // Delay simulasi mengetik (random antara min_delay & max_delay)
+        const minD = (currentSettings.min_delay || 3) * 1000;
+        const maxD = (currentSettings.max_delay || 7) * 1000;
         const randomDelay = Math.floor(
-          Math.random() * (maxDelay - minDelay + 1) + minDelay
+          Math.random() * (maxD - minD + 1) + minD,
         );
 
         aiQueues[remoteJid].typingTimeoutId = setTimeout(async () => {
           if (!aiQueues[remoteJid]) return;
 
-          // Cek apakah ada tag aset gambar dalam reply
+          let sentMsg;
           const tagRegex = /\[\[(.*?)\]\]/g;
           const match = tagRegex.exec(aiReply);
 
+          // --- 1. PROSES KIRIM KE WHATSAPP ---
           if (match) {
             const assetName = match[1].trim().toLowerCase();
             const cleanText = aiReply.replace(match[0], "").trim();
-
             const asset = await queryOne(
               "SELECT file_path FROM wa_ai_media_assets WHERE session_id = ? AND asset_name = ?",
-              [sessionId, assetName]
+              [sessionId, assetName],
             );
 
             if (asset) {
-              await sock.sendMessage(remoteJid, {
+              sentMsg = await sock.sendMessage(remoteJid, {
                 image: { url: asset.file_path },
                 caption: cleanText,
               });
             } else {
-              await sock.sendMessage(remoteJid, { text: cleanText });
+              sentMsg = await sock.sendMessage(remoteJid, { text: cleanText });
             }
           } else {
-            await sock.sendMessage(remoteJid, { text: aiReply });
+            sentMsg = await sock.sendMessage(remoteJid, { text: aiReply });
+          }
+
+          // --- 2. PROSES SIMPAN KE DATABASE (Agar muncul di Dashboard) ---
+          // --- PROSES SIMPAN KE DATABASE (wa_messages) ---
+          try {
+            // Gunakan format YYYY-MM-DD HH:mm:ss sesuai waktu lokal server
+            const sekarang = new Date();
+            const offset = sekarang.getTimezoneOffset() * 60000;
+            const localISOTime = new Date(sekarang - offset)
+              .toISOString()
+              .slice(0, 19)
+              .replace("T", " ");
+
+            await query(
+              `INSERT INTO wa_messages (
+      session_id, 
+      message_id, 
+      chat_jid, 
+      from_jid, 
+      is_from_me, 
+      message_type, 
+      content, 
+      status, 
+      timestamp
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                sessionId,
+                sentMsg.key.id,
+                remoteJid,
+                sessionId,
+                1,
+                "conversation",
+                aiReply,
+                "delivered",
+                localISOTime, // Gunakan variabel localISOTime di sini
+              ],
+            );
+            console.log(
+              `[AI] ✅ Berhasil membalas & mencatat waktu: ${localISOTime}`,
+            );
+          } catch (dbErr) {
+            console.error("❌ Gagal simpan record AI ke DB:", dbErr.message);
           }
 
           await sock.sendPresenceUpdate("paused", remoteJid);
           delete aiQueues[remoteJid];
         }, randomDelay);
       } catch (err) {
-        console.error("❌ AI Error (semua provider gagal):", err.message);
+        console.error("❌ Error Eksekusi AI:", err.message);
         delete aiQueues[remoteJid];
       }
     };

@@ -16,10 +16,8 @@ type QRState = 'idle' | 'loading' | 'waiting' | 'connected' | 'error';
 export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
   const { updateSession, sessions } = useStore();
   
-  // Ambil data sesi yang sudah ada di store jika ini proses reconnect
   const existingSession = sessions.find(s => s.id === sessionId);
 
-  // State Management
   const [deviceName, setDeviceName] = useState(existingSession?.name || '');
   const [isNameConfirmed, setIsNameConfirmed] = useState(!!existingSession?.name);
   const [qrImage, setQrImage] = useState<string | null>(null);
@@ -28,9 +26,6 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
   const [countdown, setCountdown] = useState(0);
   const [connectedNumber, setConnectedNumber] = useState<string | null>(null);
 
-  /**
-   * Fungsi untuk Inisialisasi Sesi Baru (Hanya untuk Tambah Device Baru)
-   */
   const initSession = useCallback(async () => {
     if (!deviceName.trim()) return;
 
@@ -40,7 +35,6 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
 
     try {
       await sessionApi.create(sessionId, deviceName.trim());
-      // Setelah create, backend otomatis akan memancarkan event qr:${sessionId}
       setQrState('waiting');
     } catch (err: any) {
       setQrState('error');
@@ -48,11 +42,7 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
     }
   }, [sessionId, deviceName]);
 
-  /**
-   * Socket Logic: Mendengarkan QR dan Status Koneksi
-   */
   useEffect(() => {
-    // Jangan aktifkan socket jika user belum mengisi nama (kecuali reconnect)
     if (!isNameConfirmed) return;
 
     const socket = getSocket();
@@ -61,7 +51,7 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
       console.log(`[SOCKET] QR Received for ${sessionId}`);
       setQrImage(data.qr);
       setQrState('waiting');
-      setCountdown(60); // Reset timer setiap dapat QR baru
+      setCountdown(60);
     };
 
     const handleConnected = (data: { phoneNumber: string }) => {
@@ -76,11 +66,9 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
         qr_code: null,
       });
 
-      // Tutup modal otomatis setelah berhasil
       setTimeout(() => onClose(), 3000);
     };
 
-    // Listeners
     socket.on(`qr:${sessionId}`, handleQR);
     socket.on(`session:connected:${sessionId}`, handleConnected);
 
@@ -90,7 +78,6 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
     };
   }, [sessionId, isNameConfirmed, updateSession, onClose]);
 
-  // Timer QR logic
   useEffect(() => {
     if (countdown <= 0) return;
     const timer = setInterval(() => setCountdown(c => c - 1), 1000);
@@ -98,23 +85,23 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
   }, [countdown]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-[#202C33] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-[#313D45]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-gray-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2A3942]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#00a884] rounded-full flex items-center justify-center">
-              <PlusCircle className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <PlusCircle className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-white font-semibold text-sm">
+              <h2 className="text-gray-900 font-semibold text-sm">
                 {existingSession?.name ? 'Hubungkan Kembali' : 'Tambah Perangkat'}
               </h2>
-              <p className="text-[#8696A0] text-[10px] uppercase font-mono">{sessionId}</p>
+              <p className="text-gray-400 text-[10px] uppercase font-mono">{sessionId}</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-[#8696A0] hover:text-white p-1">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -122,15 +109,15 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
         {/* Body Content */}
         <div className="px-6 py-8">
           
-          {/* STEP 1: INPUT NAMA (Hanya untuk sesi baru) */}
+          {/* STEP 1: INPUT NAMA */}
           {!isNameConfirmed ? (
             <div className="space-y-6">
               <div className="text-center">
-                <div className="w-16 h-16 bg-[#2A3942] rounded-full flex items-center justify-center mx-auto mb-4 text-[#00a884]">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-500">
                   <Smartphone size={32} />
                 </div>
-                <h3 className="text-white font-medium mb-1">Beri Nama Perangkat</h3>
-                <p className="text-[#8696A0] text-xs">Contoh: CS Admin, WhatsApp Marketing</p>
+                <h3 className="text-gray-900 font-medium mb-1">Beri Nama Perangkat</h3>
+                <p className="text-gray-500 text-xs">Contoh: CS Admin, WhatsApp Marketing</p>
               </div>
 
               <div className="space-y-3">
@@ -141,12 +128,12 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
                   value={deviceName}
                   onChange={(e) => setDeviceName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && initSession()}
-                  className="w-full bg-[#2A3942] text-[#E9EDEF] border border-[#3b4a54] rounded-xl px-4 py-3 outline-none focus:border-[#00a884]"
+                  className="w-full bg-gray-50 text-gray-900 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:bg-white"
                 />
                 <button
                   onClick={initSession}
                   disabled={!deviceName.trim()}
-                  className="w-full bg-[#00a884] hover:bg-[#00c99d] disabled:opacity-50 text-[#111B21] font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all"
+                  className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/25"
                 >
                   Tampilkan QR <ArrowRight size={16} />
                 </button>
@@ -159,19 +146,19 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
               {/* LOADING STATE */}
               {qrState === 'loading' && (
                 <div className="py-10 flex flex-col items-center gap-4">
-                  <Loader2 className="w-12 h-12 text-[#00a884] animate-spin" />
-                  <p className="text-[#8696A0] text-sm italic">Menghubungkan ke WhatsApp...</p>
+                  <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+                  <p className="text-gray-500 text-sm italic">Menghubungkan ke WhatsApp...</p>
                 </div>
               )}
 
               {/* WAITING QR STATE */}
               {qrState === 'waiting' && (
                 <div className="flex flex-col items-center gap-6 w-full">
-                  <div className="relative p-3 bg-white rounded-xl">
+                  <div className="relative p-3 bg-white rounded-xl border border-gray-200 shadow-sm">
                     {qrImage ? (
                       <img src={qrImage} alt="WhatsApp QR" className="w-48 h-48" />
                     ) : (
-                      <div className="w-48 h-48 flex flex-col items-center justify-center bg-gray-100 text-gray-400">
+                      <div className="w-48 h-48 flex flex-col items-center justify-center bg-gray-50 text-gray-400">
                         <Loader2 className="animate-spin mb-2" />
                         <span className="text-[10px]">Menunggu Barcode...</span>
                       </div>
@@ -179,13 +166,13 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
                   </div>
 
                   {countdown > 0 && (
-                    <div className="text-[#00a884] text-[11px] font-bold bg-[#00a884]/10 px-3 py-1 rounded-full border border-[#00a884]/20">
+                    <div className="text-blue-600 text-[11px] font-bold bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
                       QR Kedaluwarsa: {countdown}s
                     </div>
                   )}
 
-                  <div className="w-full bg-[#2A3942]/50 border border-[#313D45] rounded-xl p-4 text-[11px] space-y-1 text-[#8696A0]">
-                    <p className="text-[#E9EDEF] font-bold mb-1">Cara Menghubungkan:</p>
+                  <div className="w-full bg-gray-50 border border-gray-100 rounded-xl p-4 text-[11px] space-y-1 text-gray-500">
+                    <p className="text-gray-700 font-bold mb-1">Cara Menghubungkan:</p>
                     <p>1. Buka WhatsApp di ponsel Anda</p>
                     <p>2. Tap Menu atau Pengaturan &gt; Perangkat Tertaut</p>
                     <p>3. Tap Tautkan Perangkat dan arahkan ke layar ini</p>
@@ -196,13 +183,13 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
               {/* CONNECTED STATE */}
               {qrState === 'connected' && (
                 <div className="py-6 flex flex-col items-center text-center gap-4">
-                  <div className="w-20 h-20 bg-[#00a884] rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-[#00a884]/20">
+                  <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-emerald-500/20">
                     <CheckCircle size={40} className="text-white" />
                   </div>
                   <div>
-                    <h3 className="text-white font-bold text-lg">Berhasil Terhubung!</h3>
-                    <p className="text-[#00a884] font-mono text-sm">{connectedNumber}</p>
-                    <p className="text-[#8696A0] text-xs mt-2 italic">Menutup jendela dalam 3 detik...</p>
+                    <h3 className="text-gray-900 font-bold text-lg">Berhasil Terhubung!</h3>
+                    <p className="text-emerald-600 font-mono text-sm">{connectedNumber}</p>
+                    <p className="text-gray-400 text-xs mt-2 italic">Menutup jendela dalam 3 detik...</p>
                   </div>
                 </div>
               )}
@@ -210,13 +197,13 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
               {/* ERROR STATE */}
               {qrState === 'error' && (
                 <div className="py-6 flex flex-col items-center text-center gap-4">
-                  <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-500">
+                  <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500">
                     <X size={32} />
                   </div>
-                  <p className="text-red-400 text-sm">{errorMsg}</p>
+                  <p className="text-red-500 text-sm">{errorMsg}</p>
                   <button
                     onClick={() => { setIsNameConfirmed(false); setQrState('idle'); }}
-                    className="text-[#00a884] text-xs font-bold hover:underline"
+                    className="text-blue-600 text-xs font-bold hover:underline"
                   >
                     Ulangi Proses
                   </button>
@@ -227,8 +214,8 @@ export const QRModal: React.FC<QRModalProps> = ({ sessionId, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-[#2A3942]/30 border-t border-[#2A3942] text-center">
-          <p className="text-[#8696A0] text-[10px]">
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 text-center">
+          <p className="text-gray-400 text-[10px]">
             Pastikan ponsel Anda memiliki koneksi internet aktif.
           </p>
         </div>

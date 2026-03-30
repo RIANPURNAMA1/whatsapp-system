@@ -190,11 +190,16 @@ const useStore = create<AppState>((set, get) => ({
   },
 
   addMessage: (message) => set(state => {
+    if (!message || !message.message_id) return state;
+    
     const isDuplicate = state.messages.some(m => m.message_id === message.message_id);
     if (isDuplicate) return state;
-    const currentJid = state.selectedChat?.jid?.toLowerCase().trim();
-    const messageJid = message.chat_jid?.toLowerCase().trim();
-    if (currentJid && messageJid && currentJid === messageJid) {
+    
+    const currentJid = state.selectedChat?.jid?.toLowerCase()?.trim() || '';
+    const messageJid = message.chat_jid?.toLowerCase()?.trim() || '';
+    
+    // Add message if JIDs match or if selectedChat is null (fallback for AI replies)
+    if (!currentJid || !messageJid || currentJid === messageJid) {
       return { messages: [...state.messages, message] };
     }
     return state;

@@ -37,7 +37,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   // Jika ada URL gambar DAN tidak sedang error, tampilkan IMG
   if (imageUrl && !hasError) {
     return (
-      <div className={`${sizeClass} rounded-full overflow-hidden flex-shrink-0 bg-[#202C33] ${className}`}>
+      <div className={`${sizeClass} rounded-full overflow-hidden flex-shrink-0 bg-gray-100 ${className}`}>
         <img
           src={imageUrl}
           alt={name}

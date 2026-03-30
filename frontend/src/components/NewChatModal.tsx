@@ -22,26 +22,21 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
   const [customPhone, setCustomPhone] = useState('');
   const [showCustom, setShowCustom] = useState(false);
 
-  // ── Fungsi Load Kontak ──────────────────────────────────────────
   const loadContacts = useCallback(async (query: string = '') => {
     if (!sessionId) return;
     
     setIsLoading(true);
     try {
-      // Pastikan API memanggil endpoint yang mengembalikan daftar kontak WhatsApp
       const data = await contactApi.getAll(sessionId, query);
       setContacts(data || []);
     } catch (err) {
       console.error("Gagal memuat kontak:", err);
-      // Jangan tampilkan toast error jika hanya karena pencarian kosong
     } finally {
       setIsLoading(false);
     }
   }, [sessionId]);
 
-  // ── Auto Load saat modal terbuka atau search berubah ────────────
   useEffect(() => {
-    // Memberikan delay sedikit (debounce) agar tidak hit API setiap ketikan
     const delayDebounce = setTimeout(() => {
       loadContacts(search);
     }, 300);
@@ -58,15 +53,12 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
   const handleCustomPhone = () => {
     if (!customPhone.trim()) return;
     
-    // Pembersihan nomor: hapus karakter selain angka
     let phone = customPhone.replace(/[^0-9]/g, '');
     
-    // Format otomatis ke standar WhatsApp (Contoh: Indonesia 62)
     if (phone.startsWith('0')) {
       phone = '62' + phone.substring(1);
     }
     
-    // Jika nomor terlalu pendek
     if (phone.length < 9) {
       toast.error("Nomor telepon terlalu pendek");
       return;
@@ -81,21 +73,21 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
     c.name || c.push_name || c.phone_number || c.jid.split('@')[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#202C33] rounded-2xl w-full max-w-sm mx-4 overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl w-full max-w-sm mx-4 overflow-hidden shadow-2xl border border-gray-200 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2A3942]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[#00A884] rounded-full flex items-center justify-center shadow-lg">
-              <MessageSquare className="w-5 h-5 text-[#111B21]" />
+            <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center shadow-lg">
+              <MessageSquare className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-[#E9EDEF] font-semibold">Chat Baru</h2>
-              <p className="text-[#8696A0] text-[11px] uppercase tracking-wider">Pilih Kontak</p>
+              <h2 className="text-gray-900 font-semibold">Chat Baru</h2>
+              <p className="text-gray-400 text-[11px] uppercase tracking-wider">Pilih Kontak</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-[#8696A0] hover:bg-[#2A3942] rounded-full transition-all">
+          <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-all">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -103,14 +95,14 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
         {/* Input Search */}
         <div className="px-4 py-3">
           <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8696A0] group-focus-within:text-[#00A884] transition-colors" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
             <input
               type="text"
               placeholder="Cari nama atau nomor..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               autoFocus
-              className="w-full bg-[#2A3942] text-[#E9EDEF] placeholder-[#8696A0] rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none border border-transparent focus:border-[#00A884]/50 transition-all"
+              className="w-full bg-gray-50 text-gray-900 placeholder-gray-400 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none border border-transparent focus:border-blue-500 focus:bg-white transition-all"
             />
           </div>
         </div>
@@ -120,7 +112,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
           <button
             onClick={() => setShowCustom(!showCustom)}
             className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all ${
-              showCustom ? 'bg-[#00A884] text-[#111B21]' : 'bg-[#2A3942] text-[#00A884] hover:bg-[#32434E]'
+              showCustom ? 'bg-blue-500 text-white' : 'bg-gray-100 text-blue-600 hover:bg-gray-200'
             }`}
           >
             <Plus className="w-4 h-4" />
@@ -135,11 +127,11 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                 value={customPhone}
                 onChange={e => setCustomPhone(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleCustomPhone()}
-                className="flex-1 bg-[#111B21] text-[#E9EDEF] border border-[#2A3942] rounded-xl px-4 py-2 text-sm outline-none focus:border-[#00A884]"
+                className="flex-1 bg-gray-50 text-gray-900 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500"
               />
               <button
                 onClick={handleCustomPhone}
-                className="bg-[#00A884] text-[#111B21] px-5 py-2 rounded-xl text-sm font-bold hover:bg-[#00C49A]"
+                className="bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-blue-600"
               >
                 Chat
               </button>
@@ -151,12 +143,12 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
         <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pb-4">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="w-8 h-8 text-[#00A884] animate-spin" />
-              <span className="text-[#8696A0] text-sm italic">Menyinkronkan kontak...</span>
+              <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+              <span className="text-gray-400 text-sm italic">Menyinkronkan kontak...</span>
             </div>
           ) : contacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center px-6">
-              <p className="text-[#8696A0] text-sm">
+              <p className="text-gray-400 text-sm">
                 {search ? `Tidak ditemukan "${search}"` : 'Belum ada kontak di WhatsApp ini.'}
               </p>
             </div>
@@ -166,7 +158,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                 <button
                   key={contact.jid}
                   onClick={() => handleSelectContact(contact)}
-                  className="w-full flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-[#2A3942] transition-all group"
+                  className="w-full flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-gray-50 transition-all group"
                 >
                   <Avatar
                     name={getContactName(contact)}
@@ -174,15 +166,15 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                     size="md"
                   />
                   <div className="flex-1 text-left min-w-0">
-                    <p className="text-[#E9EDEF] text-[15px] font-medium truncate group-hover:text-[#00A884]">
+                    <p className="text-gray-900 text-[15px] font-medium truncate group-hover:text-blue-600">
                       {getContactName(contact)}
                     </p>
-                    <p className="text-[#8696A0] text-xs mt-0.5 truncate">
+                    <p className="text-gray-400 text-xs mt-0.5 truncate">
                       {contact.phone_number ? `+${contact.phone_number}` : 'No phone number'}
                     </p>
                   </div>
                   {contact.is_business === 1 && (
-                    <span className="text-[10px] bg-[#00A884]/10 text-[#00A884] border border-[#00A884]/20 px-2 py-0.5 rounded-lg font-bold">
+                    <span className="text-[10px] bg-blue-100 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-lg font-bold">
                       BISNIS
                     </span>
                   )}

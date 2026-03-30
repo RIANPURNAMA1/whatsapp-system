@@ -1,60 +1,113 @@
-import React from "react";
-import { Smartphone, PlusCircle, RefreshCw, LogOut, Trash2 } from "lucide-react";
+import { Smartphone, PlusCircle, RefreshCw, LogOut, Trash2, Wifi, WifiOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onReconnect, onLogout, user }: any) => {
+const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onReconnect, onLogout }: any) => {
   return (
-    <div className="flex-1 bg-[#111B21] flex flex-col overflow-hidden">
-      <div className="p-6 border-b border-[#222d34] flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold">Perangkat</h2>
-          <p className="text-[#8696A0] text-xs">
-            {user?.role_type === "system" ? "Semua perangkat aktif" : `Perangkat milik ${user?.full_name || "Staff"}`}
-          </p>
+
+    <div className="flex-1 bg-gray-50 flex flex-col overflow-hidden h-full">
+      {/* HEADER */}
+      <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between">
+        
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+            <Smartphone className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Perangkat</h2>
+            <p className="text-xs text-gray-500">{sessions.filter((s: any) => s.status === "connected").length} terhubung</p>
+          </div>
         </div>
-        <button onClick={onAdd} className="p-2 bg-[#00a884] text-[#0B141A] rounded-lg hover:bg-[#00c99d]">
-          <PlusCircle className="w-5 h-5" />
-        </button>
+        <Button onClick={onAdd} size="sm" className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/25 gap-1">
+          <PlusCircle className="w-4 h-4" />
+          Tambah
+        </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+      {/* DEVICE LIST - 2 Columns Grid */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {sessions.length > 0 ? (
-          sessions.map((session: any) => (
-            <div
-              key={session.id}
-              onClick={() => onSelect(session)}
-              className={`p-4 rounded-xl border cursor-pointer transition-all group relative ${
-                session.id === activeId ? "bg-[#2A3942] border-[#00a884]" : "bg-[#202C33] border-[#313D45]"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-lg ${session.status === "connected" ? "bg-[#00a884]/10 text-[#00a884]" : "bg-red-500/10 text-red-500"}`}>
-                    <Smartphone size={20} />
+          <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            {sessions.map((session: any) => {
+              const isActive = session.id === activeId;
+              return (
+                <div
+                  key={session.id}
+                  onClick={() => onSelect(session)}
+                  className={`flex flex-col p-4 rounded-xl cursor-pointer transition-all ${
+                    isActive 
+                      ? "bg-white border-2 border-blue-500 shadow-sm" 
+                      : "bg-white border border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    {/* STATUS ICON */}
+                    <div className={`p-2 rounded-lg ${session.status === "connected" ? "bg-emerald-100" : "bg-red-100"}`}>
+                      {session.status === "connected" ? (
+                        <Wifi className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <WifiOff className="w-4 h-4 text-red-500" />
+                      )}
+                    </div>
+
+                    {/* STATUS BADGE */}
+                    <span className={`text-[10px] px-2 py-1 rounded-full font-medium ${session.status === "connected" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-600"}`}>
+                      {session.status === "connected" ? "Online" : "Offline"}
+                    </span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold truncate">{session.name || "Perangkat Tanpa Nama"}</p>
-                    <p className="text-[11px] text-[#8696A0]">{session.phone_number || "Belum Terhubung"}</p>
+
+                  {/* INFO */}
+                  <div className="flex-1 min-w-0 mb-3">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{session.name || "Tanpa Nama"}</p>
+                    <p className="text-xs text-gray-500 truncate">{session.phone_number || "Belum terhubung"}</p>
                   </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${session.status === "connected" ? "bg-[#00a884]/20 text-[#00a884]" : "bg-orange-500/10 text-orange-500"}`}>
-                    {session.status}
-                  </span>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+
+                  {/* ACTIONS */}
+                  <div className="flex items-center gap-1 pt-2 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
                     {session.status !== "connected" && (
-                      <button onClick={(e) => { e.stopPropagation(); onReconnect(session.id); }} className="p-1.5 hover:text-[#00a884]"><RefreshCw size={16} /></button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => onReconnect(session.id)} 
+                        className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                      >
+                        <RefreshCw size={14} />
+                      </Button>
                     )}
                     {session.status === "connected" && (
-                      <button onClick={(e) => { e.stopPropagation(); onLogout(session.id); }} className="p-1.5 hover:text-orange-500"><LogOut size={16} /></button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => onLogout(session.id)} 
+                        className="h-7 w-7 p-0 text-gray-400 hover:text-orange-600 hover:bg-orange-50"
+                      >
+                        <LogOut size={14} />
+                      </Button>
                     )}
-                    <button onClick={(e) => onDelete(e, session.id, session.name)} className="p-1.5 hover:text-red-500"><Trash2 size={16} /></button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => onDelete(session.id, session.name)} 
+                      className="h-7 w-7 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 size={14} />
+                    </Button>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))
+              );
+            })}
+          </div>
         ) : (
-          <div className="text-center py-10 text-[#8696A0]">Belum ada perangkat yang tertaut.</div>
+          <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+              <Smartphone className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-700 mb-1">Belum ada perangkat</h3>
+            <p className="text-sm text-gray-500 mb-4">Hubungkan perangkat WhatsApp untuk memulai</p>
+            <Button onClick={onAdd} className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/25 gap-2">
+              <PlusCircle className="w-4 h-4" />
+              Hubungkan
+            </Button>
+          </div>
         )}
       </div>
     </div>

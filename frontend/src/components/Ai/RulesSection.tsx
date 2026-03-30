@@ -18,12 +18,10 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   
-  // State Form individual untuk memudahkan penggunaan FormData
   const [keyword, setKeyword] = useState("");
   const [answer, setAnswer] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
-  // Ref untuk mengontrol input file secara programatik
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchRules = async () => {
@@ -50,20 +48,18 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
     
     setIsAdding(true);
     
-    // Gunakan FormData karena kita mengirim file fisik
     const formData = new FormData();
     formData.append("sessionId", sessionId);
     formData.append("keyword", keyword);
     formData.append("answer", answer);
     if (selectedFile) {
-      formData.append("image", selectedFile); // Key 'image' harus sama dengan upload.single('image') di backend
+      formData.append("image", selectedFile);
     }
 
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/ai-rules/save`, {
         method: "POST",
         headers: { 
-          // JANGAN set 'Content-Type': 'application/json' jika pakai FormData
           Authorization: `Bearer ${localStorage.getItem("token")}` 
         },
         body: formData,
@@ -108,45 +104,41 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-      {/* Form Input */}
-      <div className="bg-[#202C33] p-6 rounded-2xl border border-[#313D45] shadow-xl">
-        <h3 className="text-sm font-bold text-emerald-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
+        <h3 className="text-sm font-bold text-blue-600 uppercase tracking-wider mb-4 flex items-center gap-2">
           <Plus size={18} /> Tambah Auto Reply Baru
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* Input Keyword */}
           <div className="md:col-span-3">
-            <label className="text-[10px] text-[#8696A0] uppercase block mb-1">Keyword</label>
+            <label className="text-[10px] text-gray-500 uppercase font-semibold block mb-1">Keyword</label>
             <div className="relative">
-              <Tag className="absolute left-3 top-3 text-[#8696A0]" size={16} />
+              <Tag className="absolute left-3 top-3 text-gray-400" size={16} />
               <input
                 type="text"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder="cth: harga"
-                className="w-full bg-[#111B21] border border-[#313D45] rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-emerald-500 outline-none transition-all"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 outline-none transition-all"
               />
             </div>
           </div>
 
-          {/* Input Jawaban */}
           <div className="md:col-span-4">
-            <label className="text-[10px] text-[#8696A0] uppercase block mb-1">Jawaban Otomatis</label>
+            <label className="text-[10px] text-gray-500 uppercase font-semibold block mb-1">Jawaban Otomatis</label>
             <div className="relative">
-              <MessageSquare className="absolute left-3 top-3 text-[#8696A0]" size={16} />
+              <MessageSquare className="absolute left-3 top-3 text-gray-400" size={16} />
               <input
                 type="text"
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder="Masukkan jawaban..."
-                className="w-full bg-[#111B21] border border-[#313D45] rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-emerald-500 outline-none transition-all"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 outline-none transition-all"
               />
             </div>
           </div>
 
-          {/* Input File (Ganti dari URL ke File) */}
           <div className="md:col-span-3">
-            <label className="text-[10px] text-[#8696A0] uppercase block mb-1">Lampiran Gambar</label>
+            <label className="text-[10px] text-gray-500 uppercase font-semibold block mb-1">Lampiran Gambar</label>
             <div className="flex items-center gap-2">
               <input
                 type="file"
@@ -160,8 +152,8 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
                 onClick={() => fileInputRef.current?.click()}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs border border-dashed transition-all ${
                   selectedFile 
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" 
-                    : "border-[#41525D] text-[#8696A0] hover:bg-[#111B21]"
+                    ? "border-blue-500 bg-blue-50 text-blue-600" 
+                    : "border-gray-300 text-gray-500 hover:bg-gray-50"
                 }`}
               >
                 {selectedFile ? (
@@ -173,7 +165,7 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
               {selectedFile && (
                 <button 
                   onClick={() => setSelectedFile(null)}
-                  className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
                 >
                   <X size={18} />
                 </button>
@@ -185,7 +177,7 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
             <button
               onClick={handleAddRule}
               disabled={isAdding}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+              className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25"
             >
               {isAdding ? <Loader2 className="animate-spin" size={18} /> : "Simpan"}
             </button>
@@ -193,34 +185,33 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
         </div>
       </div>
 
-      {/* List Table */}
-      <div className="bg-[#202C33] rounded-2xl border border-[#313D45] overflow-hidden shadow-lg">
+      <div className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm">
         <table className="w-full text-left text-sm">
-          <thead className="bg-[#111B21] text-[#8696A0] text-[10px] uppercase tracking-widest">
+          <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase tracking-widest">
             <tr>
-              <th className="px-6 py-4">Keyword</th>
-              <th className="px-6 py-4">Jawaban & Media</th>
-              <th className="px-6 py-4 text-center">Aksi</th>
+              <th className="px-6 py-4 font-bold">Keyword</th>
+              <th className="px-6 py-4 font-bold">Jawaban & Media</th>
+              <th className="px-6 py-4 font-bold text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#313D45]">
+          <tbody className="divide-y divide-gray-100">
             {isLoading ? (
-              <tr><td colSpan={3} className="text-center py-10 text-[#8696A0]">Memuat rules...</td></tr>
+              <tr><td colSpan={3} className="text-center py-10 text-gray-400">Memuat rules...</td></tr>
             ) : rules.length === 0 ? (
-              <tr><td colSpan={3} className="text-center py-10 text-[#8696A0]">Belum ada rule chatbot.</td></tr>
+              <tr><td colSpan={3} className="text-center py-10 text-gray-400">Belum ada rule chatbot.</td></tr>
             ) : (
               rules.map((rule) => (
-                <tr key={rule.id} className="hover:bg-[#2A3942] transition-colors group">
+                <tr key={rule.id} className="hover:bg-gray-50 transition-colors group">
                   <td className="px-6 py-4">
-                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded text-xs font-mono">
+                    <span className="bg-blue-100 text-blue-600 border border-blue-200 px-2 py-1 rounded-lg text-xs font-mono font-semibold">
                       {rule.keyword}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[#D1D7DB]">{rule.answer}</span>
+                      <span className="text-gray-700">{rule.answer}</span>
                       {rule.image_url && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/5 w-fit px-2 py-0.5 rounded border border-emerald-500/10 mt-1">
+                        <div className="flex items-center gap-1.5 text-[10px] text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100 mt-1">
                           <ImageIcon size={12} />
                           Gambar Terlampir
                         </div>
@@ -230,7 +221,7 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
                   <td className="px-6 py-4 text-center">
                     <button 
                       onClick={() => handleDelete(rule.id!)} 
-                      className="text-[#8696A0] hover:text-red-400 p-2 transition-colors"
+                      className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>

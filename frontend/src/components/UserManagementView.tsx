@@ -5,46 +5,59 @@ import {
   Search, 
   MapPin, 
   Mail, 
-  Circle,
   Edit2,
   Trash2,
   Shield,
-  X,
-  ChevronDown,
-  Loader2
+  MoreHorizontal,
+  BadgeCheck,
+  Clock
 } from 'lucide-react';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-// --- 1. KOMPONEN MODAL INTERNAL (RESPONSIF) ---
-const Modal = ({ isOpen, onClose, title, children }: any) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="bg-[#202c33] w-full max-w-md rounded-2xl shadow-2xl relative z-10 border border-[#313d45] flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-200">
-        <div className="px-6 py-4 border-b border-[#313d45] flex justify-between items-center shrink-0">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-[#2a3942] rounded-full text-[#8696a0] hover:text-white transition-all">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="p-6 overflow-y-auto custom-scrollbar">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
+interface User {
+  id: number;
+  full_name: string;
+  username: string;
+  password?: string;
+  role_id: number;
+  role_name?: string;
+  branch: string;
+  last_login?: string;
+}
 
-// --- 2. KOMPONEN UTAMA USER MANAGEMENT ---
+interface Role {
+  id: number;
+  name: string;
+}
+
 const UserManagementView = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null);
-  const [users, setUsers] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [userToDelete, setUserToDelete] = useState<number | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [formData, setFormData] = useState<Partial<User>>({});
 
   const fetchData = async () => {
     setLoading(true);
@@ -76,11 +89,34 @@ const UserManagementView = () => {
     return (now - lastActive) / 1000 / 60 < 5;
   };
 
-  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleOpenModal = (user?: User) => {
+    if (user) {
+      setEditingUser(user);
+      setFormData({
+        full_name: user.full_name,
+        username: user.username,
+        role_id: user.role_id,
+        branch: user.branch,
+        password: ''
+      });
+    } else {
+      setEditingUser(null);
+      setFormData({
+        full_name: '',
+        username: '',
+        role_id: undefined,
+        branch: '',
+        password: ''
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const payload = Object.fromEntries(formData.entries());
     const isEdit = !!editingUser;
+    const payload = { ...formData };
+    if (!payload.password) delete payload.password;
 
     try {
       const response = await fetch(isEdit ? `${API_URL}/users/${editingUser.id}` : `${API_URL}/users`, {
@@ -95,117 +131,234 @@ const UserManagementView = () => {
       } else {
         alert(result.message);
       }
-    } catch (error) {
+    } catch {
       alert("Terjadi kesalahan sistem");
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Hapus akun admin ini?")) return;
+  const handleDeleteClick = (id: number) => {
+    setUserToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
     try {
-      const response = await fetch(`${API_URL}/users/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_URL}/users/${userToDelete}`, { method: 'DELETE' });
       const result = await response.json();
-      if (result.success) fetchData();
-    } catch (error) {
+      if (result.success) {
+        setIsDeleteDialogOpen(false);
+        fetchData();
+      } else {
+        alert(result.message);
+      }
+    } catch {
       alert("Gagal menghapus user");
     }
   };
 
   const filteredUsers = users.filter(user => 
     user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.branch?.toLowerCase().includes(searchQuery.toLowerCase())
+    user.branch?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.username?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const getRoleColor = (roleName: string | undefined) => {
+    const lower = roleName?.toLowerCase() || '';
+    if (lower.includes('admin')) return 'bg-purple-100 text-purple-700 border-purple-200';
+    if (lower.includes('super')) return 'bg-amber-100 text-amber-700 border-amber-200';
+    return 'bg-slate-100 text-slate-700 border-slate-200';
+  };
+
   return (
-    /* PERBAIKAN: Gunakan min-h-screen dan h-full agar bisa scroll */
-    <div className="w-full bg-[#0b141a] min-h-screen overflow-y-auto pb-20">
-      <div className="max-w-7xl mx-auto p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* HEADER */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 pt-2">
-          <div>
-            <h2 className="text-xl md:text-2xl font-semibold flex items-center gap-3 text-white">
-              <Users className="w-6 h-6 text-emerald-500" />
-              Manajemen Admin
-            </h2>
-            <p className="text-[#8696a0] text-xs md:text-sm mt-1">Kelola akses administrator cabang.</p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8696a0]" />
-              <input 
-                type="text" 
-                placeholder="Cari..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#202c33] border border-[#313d45] rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:border-emerald-500 outline-none transition-all lg:w-64"
-              />
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <Users className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
+                  Manajemen Admin
+                </h1>
+                <p className="text-slate-500 text-sm mt-0.5">
+                  Kelola akses administrator cabang sistem
+                </p>
+              </div>
             </div>
-            <button 
-              onClick={() => { setEditingUser(null); setIsModalOpen(true); }}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 active:scale-95 transition-all"
-            >
-              <UserPlus className="w-4 h-4" />
-              Tambah
-            </button>
+
+            <div className="flex flex-col sm:flex-row items-stretch gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input 
+                  type="text" 
+                  placeholder="Cari admin..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full sm:w-72 pl-10 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20"
+                />
+              </div>
+              <Button 
+                onClick={() => handleOpenModal()}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                Tambah Admin
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* STATS */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Users className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">{users.length}</p>
+                <p className="text-sm text-slate-500">Total Admin</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <BadgeCheck className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">
+                  {users.filter(u => getOnlineStatus(u.last_login || '')).length}
+                </p>
+                <p className="text-sm text-slate-500">Sedang Aktif</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                <Shield className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">{roles.length}</p>
+                <p className="text-sm text-slate-500">Role Aktif</p>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* GRID KONTEN */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-slate-500 mt-4">Memuat data...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200/60 p-12 text-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-700 mb-1">Belum ada admin</h3>
+            <p className="text-slate-500 text-sm mb-4">Tambahkan admin baru untuk memulai</p>
+            <Button 
+              onClick={() => handleOpenModal()}
+              variant="outline" 
+              className="gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              Tambah Admin
+            </Button>
           </div>
         ) : (
-          /* PERBAIKAN GRID: grid-cols-1 untuk mobile dipastikan tampil semua */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredUsers.map((user) => {
-              const isOnline = getOnlineStatus(user.last_login);
+              const isOnline = getOnlineStatus(user.last_login || '');
               return (
-                <div key={user.id} className="bg-[#111b21] border border-[#222d34] rounded-2xl p-5 hover:border-emerald-500/50 transition-all flex flex-col">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-10 h-10 bg-[#202c33] rounded-full flex items-center justify-center text-emerald-500 border border-[#313d45] shrink-0 font-bold">
-                        {user.full_name?.charAt(0)}
+                <div 
+                  key={user.id} 
+                  className="bg-white rounded-2xl border border-slate-200/60 p-6 hover:shadow-lg hover:border-slate-300/80 transition-all duration-200 group"
+                >
+                  <div className="flex items-start justify-between mb-5">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md">
+                          {user.full_name?.charAt(0)}
+                        </div>
+                        {isOnline && (
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm" />
+                        )}
                       </div>
-                      <div className="overflow-hidden">
-                        <h3 className="font-medium text-white truncate text-sm md:text-base">{user.full_name}</h3>
-                        <div className="flex items-center gap-1 text-[#8696a0] text-[10px] md:text-xs">
-                          <Shield className="w-3 h-3 text-amber-500" />
-                          {user.role_name}
+                      <div>
+                        <h3 className="font-semibold text-slate-900 text-base">{user.full_name}</h3>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(user.role_name)}`}>
+                            <Shield className="w-3 h-3" />
+                            {user.role_name}
+                          </span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 bg-[#202c33] px-2 py-1 rounded-full shrink-0">
-                      <Circle className={`w-1.5 h-1.5 fill-current ${isOnline ? 'text-emerald-500' : 'text-[#8696a0]'}`} />
-                      <span className="text-[9px] font-bold text-[#8696a0] uppercase">{isOnline ? 'On' : 'Off'}</span>
-                    </div>
+                    <button className="p-2 hover:bg-slate-100 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
+                      <MoreHorizontal className="w-5 h-5 text-slate-400" />
+                    </button>
                   </div>
 
-                  <div className="space-y-2 mb-5 flex-1">
-                    <div className="flex items-center gap-3 text-xs text-[#8696a0]">
-                      <Mail className="w-3.5 h-3.5" />
+                  <div className="space-y-3 mb-5">
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                        <Mail className="w-4 h-4 text-slate-500" />
+                      </div>
                       <span className="truncate">@{user.username}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-[#8696a0]">
-                      <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                        <MapPin className="w-4 h-4 text-slate-500" />
+                      </div>
                       <span className="truncate">{user.branch || 'Pusat'}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-slate-500" />
+                      </div>
+                      <span className="truncate">
+                        {user.last_login 
+                          ? `Terakhir: ${new Date(user.last_login).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                          : 'Belum pernah login'
+                        }
+                      </span>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-[#222d34] flex justify-between items-center mt-auto">
-                     <span className="text-[10px] text-[#8696a0]">
-                       Aktif: {user.last_login ? new Date(user.last_login).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
-                     </span>
-                     <div className="flex gap-1">
-                        <button onClick={() => { setEditingUser(user); setIsModalOpen(true); }} className="p-2 hover:bg-[#202c33] rounded-lg text-[#8696a0] hover:text-white transition-all">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDelete(user.id)} className="p-2 hover:bg-red-500/10 rounded-lg text-[#8696a0] hover:text-red-400 transition-all">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                     </div>
+                  <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${isOnline ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                      {isOnline ? 'Online' : 'Offline'}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleOpenModal(user)}
+                        className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 gap-1"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleDeleteClick(user.id)}
+                        className="text-slate-500 hover:text-red-600 hover:bg-red-50 gap-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Hapus
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
@@ -215,47 +368,131 @@ const UserManagementView = () => {
       </div>
 
       {/* MODAL FORM */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        title={editingUser ? "Edit Admin" : "Tambah Admin"}
-      >
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-[#8696a0] uppercase">Nama Lengkap</label>
-              <input name="full_name" defaultValue={editingUser?.full_name || ''} required className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-2 px-4 text-sm text-white focus:border-emerald-500 outline-none" />
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">
+              {editingUser ? 'Edit Admin' : 'Tambah Admin Baru'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSave} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Nama Lengkap</Label>
+              <Input 
+                id="full_name"
+                name="full_name"
+                value={formData.full_name || ''}
+                onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                placeholder="Masukkan nama lengkap"
+                required
+                className="h-11"
+              />
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-[#8696a0] uppercase">Username</label>
-              <input name="username" defaultValue={editingUser?.username || ''} required className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-2 px-4 text-sm text-white focus:border-emerald-500 outline-none" />
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input 
+                id="username"
+                name="username"
+                value={formData.username || ''}
+                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                placeholder="Masukkan username"
+                required
+                className="h-11"
+              />
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-[#8696a0] uppercase">Password</label>
-              <input name="password" type="password" required={!editingUser} className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-2 px-4 text-sm text-white focus:border-emerald-500 outline-none" placeholder="••••••••" />
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input 
+                id="password"
+                name="password"
+                type="password"
+                value={formData.password || ''}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                placeholder={editingUser ? 'Kosongkan jika tidak diubah' : 'Masukkan password'}
+                required={!editingUser}
+                className="h-11"
+              />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-[#8696a0] uppercase">Role</label>
-                <select name="role_id" defaultValue={editingUser?.role_id || ''} required className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-2 px-4 text-sm text-white appearance-none">
-                  <option value="" disabled>Role</option>
-                  {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select 
+                  value={formData.role_id?.toString() || ''}
+                  onValueChange={(value) => setFormData({...formData, role_id: parseInt(value)})}
+                  required
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Pilih role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map(r => (
+                      <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-[#8696a0] uppercase">Cabang</label>
-                <input name="branch" defaultValue={editingUser?.branch || ''} required className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-2 px-4 text-sm text-white focus:border-emerald-500 outline-none" />
+              <div className="space-y-2">
+                <Label htmlFor="branch">Cabang</Label>
+                <Input 
+                  id="branch"
+                  name="branch"
+                  value={formData.branch || ''}
+                  onChange={(e) => setFormData({...formData, branch: e.target.value})}
+                  placeholder="Nama cabang"
+                  required
+                  className="h-11"
+                />
               </div>
             </div>
-          </div>
-          <div className="pt-4 flex flex-col gap-2">
-            <button type="submit" className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm active:scale-95 transition-all">SIMPAN</button>
-            <button type="button" onClick={() => setIsModalOpen(false)} className="w-full py-3 text-[#8696a0] text-sm">BATAL</button>
-          </div>
-        </form>
-      </Modal>
+            <DialogFooter className="gap-2 pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsModalOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button 
+                type="submit"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              >
+                Simpan
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #313d45; border-radius: 10px; }`}</style>
+      {/* DELETE CONFIRMATION DIALOG */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Hapus Admin</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-slate-600">
+              Apakah Anda yakin ingin menghapus admin ini? Tindakan ini tidak dapat dibatalkan.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button 
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -9,19 +9,24 @@ interface AiHeaderProps {
 
 export const AiHeader: React.FC<AiHeaderProps> = ({ onSave, isSaving, canSave }) => {
   return (
-    <div className="flex justify-between items-center mb-8">
-      <div>
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <Bot className="text-emerald-400" /> AI Auto-Reply Config
-        </h1>
-        <p className="text-xs text-[#8696A0] mt-1">
-          Kelola respon otomatis dan kecerdasan buatan per perangkat
-        </p>
+    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 mb-8">
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+          <Bot className="w-7 h-7 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            AI Auto-Reply Config
+          </h1>
+          <p className="text-gray-600 text-sm mt-0.5 font-medium">
+            Kelola respon otomatis dan kecerdasan buatan per perangkat
+          </p>
+        </div>
       </div>
       <button 
         onClick={onSave} 
         disabled={isSaving || !canSave} 
-        className="bg-emerald-600 hover:bg-emerald-700 px-6 py-2 rounded-xl font-bold flex gap-2 transition-all disabled:opacity-30 shadow-lg shadow-emerald-900/20"
+        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-6 py-3 rounded-xl font-bold flex gap-2 text-white items-center justify-center transition-all disabled:opacity-50 shadow-lg shadow-blue-500/25"
       >
         {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />} 
         Simpan Perubahan

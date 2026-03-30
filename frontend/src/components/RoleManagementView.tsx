@@ -1,48 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  ShieldCheck, Plus, Trash2, Edit3, Lock, 
-  CheckCircle2, X, Loader2, ChevronRight 
+  ShieldCheck, 
+  Plus, 
+  Trash2, 
+  Edit2, 
+  Lock, 
+  Search, 
+  Shield,
+  Users,
+  BadgeCheck,
+  MoreHorizontal,
+  CheckCircle2
 } from 'lucide-react';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-const Modal = ({ isOpen, onClose, title, children }: any) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="bg-[#202c33] w-full max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl relative z-10 border-t md:border border-[#313d45] overflow-hidden animate-in slide-in-from-bottom md:zoom-in duration-300">
-        <div className="px-6 py-4 border-b border-[#313d45] flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-[#2a3942] rounded-full text-[#8696a0] transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="p-6 max-h-[80vh] overflow-y-auto">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
+interface Role {
+  id: number;
+  name: string;
+  description: string;
+  type: string;
+  users: number;
+}
 
-const RoleManagementView = ({ activeTab = "role-management" }: { activeTab?: string }) => {
-  const [roles, setRoles] = useState<any[]>([]);
+const RoleManagementView = () => {
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // --- NEW STATE FOR EDITING ---
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [roleToDelete, setRoleToDelete] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [formData, setFormData] = useState<Partial<Role>>({});
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const endpoint = activeTab === "role-management" ? "/roles" : "/users";
-      const response = await fetch(`${API_URL}${endpoint}`);
+      const response = await fetch(`${API_URL}/roles`);
       const result = await response.json();
       if (result.success) setRoles(result.data);
     } catch (error) {
-      console.error("Fetch error:", error);
+      console.error("Gagal mengambil data:", error);
     } finally {
       setLoading(false);
     }
@@ -50,49 +58,41 @@ const RoleManagementView = ({ activeTab = "role-management" }: { activeTab?: str
 
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+  }, []);
 
-  // --- OPEN MODAL FOR EDIT ---
-  const handleEdit = (item: any) => {
-    setEditingItem(item);
+  const handleOpenModal = (role?: Role) => {
+    if (role) {
+      setEditingRole(role);
+      setFormData({
+        name: role.name,
+        description: role.description
+      });
+    } else {
+      setEditingRole(null);
+      setFormData({
+        name: '',
+        description: ''
+      });
+    }
     setIsModalOpen(true);
   };
 
-  // --- RESET STATE ON CLOSE ---
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setEditingItem(null);
+    setEditingRole(null);
+    setFormData({});
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Hapus data ini?")) return;
-    try {
-      const endpoint = activeTab === "role-management" ? `/roles/${id}` : `/users/${id}`;
-      const response = await fetch(`${API_URL}${endpoint}`, { method: 'DELETE' });
-      const result = await response.json();
-      if (result.success) fetchData();
-    } catch (error) {
-      alert("Gagal menghapus");
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
-
+    const isEdit = !!editingRole;
+    
     try {
-      const isEdit = !!editingItem;
-      const endpoint = activeTab === "role-management" 
-        ? (isEdit ? `/roles/${editingItem.id}` : "/roles") 
-        : (isEdit ? `/users/${editingItem.id}` : "/users");
-      
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        method: isEdit ? 'PUT' : 'POST', // Gunakan PUT untuk edit
+      const response = await fetch(isEdit ? `${API_URL}/roles/${editingRole.id}` : `${API_URL}/roles`, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(formData)
       });
-      
       const result = await response.json();
       if (result.success) {
         handleCloseModal();
@@ -100,232 +100,317 @@ const RoleManagementView = ({ activeTab = "role-management" }: { activeTab?: str
       } else {
         alert(result.message);
       }
-    } catch (error) {
-      alert("Gagal menyimpan data");
+    } catch {
+      alert("Terjadi kesalahan sistem");
     }
   };
 
-  return (
-    <div className="flex-1 bg-[#0b141a] min-h-screen p-4 md:p-8 text-[#d1d7db]">
-      
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8">
-        <div>
-          <h2 className="text-xl md:text-2xl font-semibold flex items-center gap-3">
-            <ShieldCheck className="w-6 h-6 md:w-7 md:h-7 text-emerald-500" />
-            {activeTab === "role-management" ? "Manajemen Role" : "Manajemen User"}
-          </h2>
-          <p className="text-[#8696a0] text-xs md:text-sm mt-1">
-            {activeTab === "role-management" ? "Atur hak akses admin." : "Kelola akun admin cabang."}
-          </p>
-        </div>
-        
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3 md:py-2 rounded-xl md:rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-900/20"
-        >
-          <Plus className="w-5 h-5 md:w-4 md:h-4" />
-          <span>{activeTab === "role-management" ? "Tambah Role" : "Tambah Admin"}</span>
-        </button>
-      </div>
+  const handleDeleteClick = (id: number) => {
+    setRoleToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
 
-      <div className="bg-[#111b21] rounded-2xl md:rounded-md border border-[#222d34] overflow-hidden">
+  const handleDeleteConfirm = async () => {
+    if (!roleToDelete) return;
+    try {
+      const response = await fetch(`${API_URL}/roles/${roleToDelete}`, { method: 'DELETE' });
+      const result = await response.json();
+      if (result.success) {
+        setIsDeleteDialogOpen(false);
+        fetchData();
+      } else {
+        alert(result.message);
+      }
+    } catch {
+      alert("Gagal menghapus role");
+    }
+  };
+
+  const filteredRoles = roles.filter(role => 
+    role.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    role.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getRoleTypeBadge = (type: string) => {
+    if (type === 'system') {
+      return 'bg-amber-100 text-amber-700 border-amber-200';
+    }
+    return 'bg-blue-100 text-blue-700 border-blue-200';
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* HEADER */}
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <ShieldCheck className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
+                  Manajemen Role
+                </h1>
+                <p className="text-slate-500 text-sm mt-0.5">
+                  Atur hak akses dan peran administrator sistem
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input 
+                  type="text" 
+                  placeholder="Cari role..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full sm:w-72 pl-10 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20"
+                />
+              </div>
+              <Button 
+                onClick={() => handleOpenModal()}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Tambah Role
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* STATS */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Shield className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">{roles.length}</p>
+                <p className="text-sm text-slate-500">Total Role</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <BadgeCheck className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">
+                  {roles.filter(r => r.type === 'custom').length}
+                </p>
+                <p className="text-sm text-slate-500">Role Custom</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                <Users className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">
+                  {roles.reduce((acc, r) => acc + (r.users || 0), 0)}
+                </p>
+                <p className="text-sm text-slate-500">Total User</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* GRID KONTEN */}
         {loading ? (
-          <div className="p-20 flex flex-col items-center justify-center text-[#8696a0]">
-            <Loader2 className="w-10 h-10 animate-spin mb-4 text-emerald-500" />
-            <p className="text-sm">Mengambil data...</p>
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-slate-500 mt-4">Memuat data...</p>
+          </div>
+        ) : filteredRoles.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200/60 p-12 text-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="w-8 h-8 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-700 mb-1">Belum ada role</h3>
+            <p className="text-slate-500 text-sm mb-4">Tambahkan role baru untuk memulai</p>
+            <Button 
+              onClick={() => handleOpenModal()}
+              variant="outline" 
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Role
+            </Button>
           </div>
         ) : (
-          <>
-            {/* DESKTOP VIEW */}
-            <div className="hidden md:block">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-[#202c33]/50 text-[#8696a0] uppercase text-[11px] tracking-widest">
-                    <th className="px-6 py-4 font-bold">{activeTab === "role-management" ? "Nama Role" : "Nama User"}</th>
-                    <th className="px-6 py-4 font-bold">{activeTab === "role-management" ? "Deskripsi Akses" : "Cabang / Role"}</th>
-                    <th className="px-6 py-4 font-bold text-center">Status/Info</th>
-                    <th className="px-6 py-4 font-bold text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#222d34]">
-                  {roles.map((item) => (
-                    <tr key={item.id} className="hover:bg-[#202c33]/30 transition-colors group">
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${item.type === 'system' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                            {item.type === 'system' ? <Lock className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                          </div>
-                          <div>
-                            <div className="font-medium text-white">{item.name || item.full_name}</div>
-                            {activeTab === "user-management" && <div className="text-[10px] text-[#8696a0]">@{item.username}</div>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className="text-sm text-[#8696a0]">
-                          {activeTab === "role-management" ? item.description : `${item.branch} - ${item.role_name}`}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 text-center">
-                        <span className="bg-[#202c33] text-[#d1d7db] px-3 py-1 rounded-full text-xs border border-[#313d45]">
-                          {activeTab === "role-management" ? `${item.users} User` : (item.last_login || 'Belum Login')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => handleEdit(item)}
-                            className="p-2 hover:bg-[#3b4a54] rounded-lg text-[#8696a0] hover:text-white transition-all"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          {item.type !== 'system' && (
-                            <button onClick={() => handleDelete(item.id)} className="p-2 hover:bg-red-500/10 rounded-lg text-red-400 transition-all">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* MOBILE VIEW */}
-            <div className="md:hidden divide-y divide-[#222d34]">
-              {roles.map((item) => (
-                <div key={item.id} className="p-5 active:bg-[#202c33]/40 transition-colors">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex gap-4">
-                      <div className={`p-3 rounded-xl h-fit ${item.type === 'system' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                        {item.type === 'system' ? <Lock size={20} /> : <ShieldCheck size={20} />}
-                      </div>
-                      <div className="pr-4">
-                        <h4 className="font-bold text-white text-lg leading-tight">{item.name || item.full_name}</h4>
-                        <p className="text-sm text-[#8696a0] mt-1 line-clamp-2">
-                          {activeTab === "role-management" ? item.description : `${item.branch} • ${item.role_name}`}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#222d34]/50">
-                    <span className="text-xs font-medium px-3 py-1 bg-[#202c33] rounded-md text-[#8696a0]">
-                      {activeTab === "role-management" ? `${item.users} Pengguna` : (item.last_login || 'Offline')}
-                    </span>
-                    <div className="flex gap-3">
-                      <button onClick={() => handleEdit(item)} className="p-2 text-[#8696a0] active:text-white"><Edit3 size={18} /></button>
-                      {item.type !== 'system' && (
-                        <button onClick={() => handleDelete(item.id)} className="p-2 text-red-400/80 active:text-red-400"><Trash2 size={18} /></button>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {filteredRoles.map((role) => (
+              <div 
+                key={role.id} 
+                className="bg-white rounded-2xl border border-slate-200/60 p-6 hover:shadow-lg hover:border-slate-300/80 transition-all duration-200 group"
+              >
+                <div className="flex items-start justify-between mb-5">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${role.type === 'system' ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/25' : 'bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25'}`}>
+                      {role.type === 'system' ? (
+                        <Lock className="w-6 h-6 text-white" />
+                      ) : (
+                        <ShieldCheck className="w-6 h-6 text-white" />
                       )}
                     </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 text-base">{role.name}</h3>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getRoleTypeBadge(role.type)}`}>
+                          <Shield className="w-3 h-3" />
+                          {role.type === 'system' ? 'System' : 'Custom'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <button className="p-2 hover:bg-slate-100 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
+                    <MoreHorizontal className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+
+                <div className="space-y-3 mb-5">
+                  <div className="text-sm text-slate-600 line-clamp-2">
+                    {role.description || 'Tidak ada deskripsi'}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-slate-600">
+                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                      <Users className="w-4 h-4 text-slate-500" />
+                    </div>
+                    <span>{role.users || 0} pengguna menggunakan role ini</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </>
+
+                <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+                  <div className={`flex items-center gap-1.5 text-xs font-medium ${role.type !== 'system' ? 'text-blue-600' : 'text-amber-600'}`}>
+                    {role.type !== 'system' ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Dapat diedit
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4" />
+                        Sistem
+                      </>
+                    )}
+                  </div>
+                  {role.type !== 'system' && (
+                    <div className="flex gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleOpenModal(role)}
+                        className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 gap-1"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleDeleteClick(role.id)}
+                        className="text-slate-500 hover:text-red-600 hover:bg-red-50 gap-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Hapus
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* FORM MODAL WITH INITIAL VALUES */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={handleCloseModal} 
-        title={editingItem 
-          ? (activeTab === "role-management" ? "Edit Role" : "Edit Admin") 
-          : (activeTab === "role-management" ? "Tambah Role" : "Tambah Admin")
-        }
-      >
-        <form className="space-y-5 pb-6 md:pb-0" onSubmit={handleSubmit}>
-          {activeTab === "role-management" ? (
-            <>
-              <div>
-                <label className="block text-[11px] font-bold text-[#8696a0] mb-2 uppercase tracking-wider">Nama Role</label>
-                <input 
-                  name="name" 
-                  defaultValue={editingItem?.name || ''} 
-                  required type="text" 
-                  className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-3.5 px-4 text-white focus:outline-none focus:border-emerald-500" 
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-[#8696a0] mb-2 uppercase tracking-wider">Deskripsi Izin</label>
-                <textarea 
-                  name="description" 
-                  defaultValue={editingItem?.description || ''} 
-                  rows={3} 
-                  className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-3.5 px-4 text-white focus:outline-none focus:border-emerald-500 resize-none" 
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#8696a0] mb-2 uppercase tracking-wider">Nama Lengkap</label>
-                  <input 
-                    name="full_name" 
-                    defaultValue={editingItem?.full_name || ''} 
-                    required type="text" 
-                    className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-3.5 px-4 text-white focus:outline-none" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#8696a0] mb-2 uppercase tracking-wider">Username</label>
-                  <input 
-                    name="username" 
-                    defaultValue={editingItem?.username || ''} 
-                    required type="text" 
-                    className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-3.5 px-4 text-white focus:outline-none" 
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-[#8696a0] mb-2 uppercase tracking-wider">Password {editingItem && <span className="text-[9px] lowercase italic">(Kosongkan jika tidak ganti)</span>}</label>
-                <input 
-                  name="password" 
-                  type="password" 
-                  required={!editingItem} 
-                  className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-3.5 px-4 text-white focus:outline-none" 
-                  placeholder={editingItem ? "••••••••" : "Masukkan password"} 
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-[#8696a0] mb-2 uppercase tracking-wider">Role</label>
-                  <select 
-                    name="role_id" 
-                    defaultValue={editingItem?.role_id || '3'} 
-                    className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-3.5 px-4 text-white focus:outline-none appearance-none"
-                  >
-                    <option value="1">Super Admin</option>
-                    <option value="2">Admin Pusat</option>
-                    <option value="3">Admin Cabang</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-[#8696a0] mb-2 uppercase tracking-wider">Cabang</label>
-                  <input 
-                    name="branch" 
-                    defaultValue={editingItem?.branch || ''} 
-                    type="text" 
-                    className="w-full bg-[#2a3942] border border-[#313d45] rounded-xl py-3.5 px-4 text-white focus:outline-none" 
-                  />
-                </div>
-              </div>
-            </>
-          )}
-      
+      {/* MODAL FORM */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">
+              {editingRole ? 'Edit Role' : 'Tambah Role Baru'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSave} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nama Role</Label>
+              <Input 
+                id="name"
+                name="name"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                placeholder="Masukkan nama role"
+                required
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Deskripsi</Label>
+              <Input 
+                id="description"
+                name="description"
+                value={formData.description || ''}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                placeholder="Masukkan deskripsi role"
+                className="h-11"
+              />
+            </div>
+            <DialogFooter className="gap-2 pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleCloseModal}
+              >
+                Batal
+              </Button>
+              <Button 
+                type="submit"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              >
+                Simpan
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-          <div className="pt-4 flex flex-col md:flex-row gap-3">
-            <button type="button" onClick={handleCloseModal} className="order-2 md:order-1 flex-1 py-4 md:py-3 rounded-xl text-sm font-semibold text-[#8696a0] hover:bg-[#2a3942]">Batal</button>
-            <button type="submit" className="order-1 md:order-2 flex-1 py-4 md:py-3 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg">
-              {editingItem ? "Update Data" : "Simpan Data"}
-            </button>
+      {/* DELETE CONFIRMATION DIALOG */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Hapus Role</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-slate-600">
+              Apakah Anda yakin ingin menghapus role ini? Tindakan ini tidak dapat dibatalkan.
+            </p>
           </div>
-        </form>
-      </Modal>
+          <DialogFooter className="gap-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button 
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
