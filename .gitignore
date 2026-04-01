@@ -1,0 +1,4 @@
+node_modules/
+backend/sessions/
+backend/public/uploads/*.mp4
+.env
