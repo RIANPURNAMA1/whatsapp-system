@@ -117,44 +117,60 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
         </div>
 
         {/* Area Chart */}
-        <div className="h-28 w-full -ml-3 relative">
-          <ResponsiveContainer width="106%" height="100%">
-            <AreaChart data={processedChartData}>
-              <defs>
-                <linearGradient id="closingGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
-                  <stop offset="50%" stopColor="#10b981" stopOpacity={0.15} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="leadsGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Tooltip contentStyle={{ display: "none" }} />
-              <Area
-                type="monotone"
-                dataKey="leads"
-                stroke="#818cf8"
-                strokeWidth={2}
-                strokeDasharray="5 3"
-                fill="url(#leadsGradient)"
-                dot={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="closing"
-                stroke="#10b981"
-                strokeWidth={3}
-                strokeLinecap="round"
-                fill="url(#closingGradient)"
-                dot={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+        <div className={`h-32 w-full relative ${isDarkMode ? '' : 'bg-gradient-to-br from-emerald-50/50 to-teal-50/50 rounded-2xl p-2'}`}>
+          {!chartData || chartData.length === 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <TrendingUp className={`w-8 h-8 mx-auto mb-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+                <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {loading ? 'Memuat...' : 'Belum ada data'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={processedChartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="closingGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.5} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="leadsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: isDarkMode ? '#202C33' : '#fff', 
+                    border: 'none', 
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="leads"
+                  stroke="#818cf8"
+                  strokeWidth={2}
+                  fill="url(#leadsGrad)"
+                  dot={false}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="closing"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  fill="url(#closingGrad)"
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
           
           {/* Chart Legend */}
-          <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-6">
+          <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-6">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 bg-indigo-400 rounded" />
               <span className={`text-[9px] font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Leads</span>

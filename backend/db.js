@@ -271,7 +271,7 @@ async function initDatabase() {
     `CREATE TABLE IF NOT EXISTS wa_ai_settings (
       session_id VARCHAR(50) PRIMARY KEY,
       is_active TINYINT(1) DEFAULT 0,
-      is_rules_active TINYINT(1) DEFAULT 1, -- Pastikan baris ini ada
+      is_rules_active TINYINT(1) DEFAULT 1,
       bot_name VARCHAR(100),
       prompt TEXT,
       knowledge_base TEXT,
@@ -279,6 +279,14 @@ async function initDatabase() {
       max_delay INT DEFAULT 15,
       max_messages_per_day INT DEFAULT 200,
       human_wait_time INT DEFAULT 0,
+      read_delay INT DEFAULT 2,
+      auto_read TINYINT(1) DEFAULT 0,
+      auto_read_delay INT DEFAULT 0,
+      after_read_delay INT DEFAULT 3,
+      schedule_enabled TINYINT(1) DEFAULT 0,
+      schedule_start_time TIME DEFAULT '08:00:00',
+      schedule_end_time TIME DEFAULT '17:00:00',
+      schedule_days VARCHAR(20) DEFAULT '1,2,3,4,5,6,7',
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
 `,
@@ -374,6 +382,96 @@ CREATE TABLE IF NOT EXISTS wa_rules (
     } catch (err) {
       if (!err.message.includes('Duplicate column')) {
         console.warn("⚠️ Migration warning for tracked_links:", err.message);
+      }
+    }
+
+    // Migrate wa_ai_settings: add read_delay if not exists
+    try {
+      await db.promise().query(`
+        ALTER TABLE wa_ai_settings ADD COLUMN read_delay INT DEFAULT 2 AFTER human_wait_time
+      `);
+      console.log("✅ Added read_delay column to wa_ai_settings");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for wa_ai_settings:", err.message);
+      }
+    }
+
+    // Migrate wa_ai_settings: add auto_read and schedule columns if not exists
+    try {
+      await db.promise().query(`
+        ALTER TABLE wa_ai_settings ADD COLUMN auto_read TINYINT(1) DEFAULT 0 AFTER read_delay
+      `);
+      console.log("✅ Added auto_read column to wa_ai_settings");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for auto_read:", err.message);
+      }
+    }
+
+    try {
+      await db.promise().query(`
+        ALTER TABLE wa_ai_settings ADD COLUMN auto_read_delay INT DEFAULT 0 AFTER auto_read
+      `);
+      console.log("✅ Added auto_read_delay column to wa_ai_settings");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for auto_read_delay:", err.message);
+      }
+    }
+
+    try {
+      await db.promise().query(`
+        ALTER TABLE wa_ai_settings ADD COLUMN after_read_delay INT DEFAULT 3 AFTER auto_read_delay
+      `);
+      console.log("✅ Added after_read_delay column to wa_ai_settings");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for after_read_delay:", err.message);
+      }
+    }
+
+    try {
+      await db.promise().query(`
+        ALTER TABLE wa_ai_settings ADD COLUMN schedule_enabled TINYINT(1) DEFAULT 0 AFTER after_read_delay
+      `);
+      console.log("✅ Added schedule_enabled column to wa_ai_settings");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for schedule_enabled:", err.message);
+      }
+    }
+
+    try {
+      await db.promise().query(`
+        ALTER TABLE wa_ai_settings ADD COLUMN schedule_start_time TIME DEFAULT '08:00:00' AFTER schedule_enabled
+      `);
+      console.log("✅ Added schedule_start_time column to wa_ai_settings");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for schedule_start_time:", err.message);
+      }
+    }
+
+    try {
+      await db.promise().query(`
+        ALTER TABLE wa_ai_settings ADD COLUMN schedule_end_time TIME DEFAULT '17:00:00' AFTER schedule_start_time
+      `);
+      console.log("✅ Added schedule_end_time column to wa_ai_settings");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for schedule_end_time:", err.message);
+      }
+    }
+
+    try {
+      await db.promise().query(`
+        ALTER TABLE wa_ai_settings ADD COLUMN schedule_days VARCHAR(20) DEFAULT '1,2,3,4,5,6,7' AFTER schedule_end_time
+      `);
+      console.log("✅ Added schedule_days column to wa_ai_settings");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for schedule_days:", err.message);
       }
     }
 

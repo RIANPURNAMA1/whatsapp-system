@@ -14,6 +14,53 @@ const gemini = new GoogleGenAI({
 
 const aiQueues = {};
 
+const isWithinSchedule = (settings) => {
+  if (Number(settings.schedule_enabled) !== 1) {
+    console.log("[AI] ✅ Schedule disabled - AI aktif 24/7");
+    return true;
+  }
+  
+  const now = new Date();
+  const currentDay = now.getDay();
+  const currentHours = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTime = currentHours * 60 + currentMinutes;
+  
+  const allowedDays = (settings.schedule_days || "1,2,3,4,5,6,7")
+    .split(",")
+    .map(d => parseInt(d.trim()));
+  
+  const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  const dayName = dayNames[currentDay];
+  
+  if (!allowedDays.includes(currentDay)) {
+    console.log(`[AI] ⛔ Di luar jadwal - Hari ${dayName} tidak termasuk hari aktif (${settings.schedule_days})`);
+    return false;
+  }
+  
+  const startTime = settings.schedule_start_time || "08:00:00";
+  const endTime = settings.schedule_end_time || "17:00:00";
+  
+  const [startH, startM] = startTime.split(":").map(Number);
+  const [endH, endM] = endTime.split(":").map(Number);
+  
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+  
+  const formatTime = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  
+  if (currentTime < startMinutes || currentTime > endMinutes) {
+    const currentTimeStr = formatTime(currentHours, currentMinutes);
+    const startStr = formatTime(startH, startM);
+    const endStr = formatTime(endH, endM);
+    console.log(`[AI] ⛔ Di luar jadwal - Sekarang ${currentTimeStr}, jadwal ${startStr} - ${endStr}`);
+    return false;
+  }
+  
+  console.log(`[AI] ✅ Dalam jadwal - Hari ${dayName}, jam ${formatTime(currentHours, currentMinutes)} (${startTime} - ${endTime})`);
+  return true;
+};
+
 // ─── Helper: deteksi error token habis dari Groq ───────────────────────────
 const isTokenLimitError = (err) => {
   const msg = err?.message?.toLowerCase() || "";
@@ -80,8 +127,15 @@ export const handleAIResponse = async (
   userMessage,
   sock,
   isFromMe,
+  msgKey = null,
 ) => {
   try {
+    // 0. Skip jika pesan dari grup
+    if (remoteJid?.endsWith("@g.us")) {
+      console.log(`[AI] ⛔ Skip - Pesan dari grup, tidak diReply: ${remoteJid}`);
+      return;
+    }
+
     // 1. Stop AI jika admin balas manual
     if (isFromMe) {
       if (aiQueues[remoteJid]) {
@@ -95,11 +149,40 @@ export const handleAIResponse = async (
     // 2. Ambil settings
     const settings = await queryOne(
       `SELECT is_active, is_rules_active, bot_name, prompt, knowledge_base, 
-              min_delay, max_delay, human_wait_time 
+              min_delay, max_delay, human_wait_time, auto_read, auto_read_delay, after_read_delay,
+              schedule_enabled, schedule_start_time, schedule_end_time, schedule_days
        FROM wa_ai_settings WHERE session_id = ?`,
       [sessionId],
     );
     if (!settings) return;
+
+    // 2b. Cek Schedule TERLEBIH DAHULU - BLOCK semua jika diluar jadwal
+    console.log(`[AI] 📅 Cek jadwal untuk ${remoteJid}...`);
+    if (!isWithinSchedule(settings)) {
+      console.log(`[AI] ⛔ AI tidak aktif - Di luar jadwal`);
+      return;
+    }
+
+    // 2c. Auto Read - Tandai pesan sebagai READ (ceklist 2 biru)
+    if (Number(settings.auto_read) === 1) {
+      const readDelayMs = (settings.auto_read_delay || 0) * 1000;
+      console.log(`[AI] ⏳ Read delay: ${settings.auto_read_delay || 0} detik...`);
+      await new Promise(resolve => setTimeout(resolve, readDelayMs));
+      try {
+        if (msgKey) {
+          await sock.readMessages([msgKey]);
+          console.log(`[AI] ✅ Pesan di-read (ceklist 2 biru): ${remoteJid}`);
+        } else {
+          await sock.sendPresenceUpdate("read", remoteJid);
+          console.log(`[AI] ✅ Pesan di-read: ${remoteJid}`);
+        }
+      } catch (readErr) {
+        console.warn("[AI] ⚠️ Gagal read:", readErr.message);
+        try {
+          await sock.sendPresenceUpdate("read", remoteJid);
+        } catch (err2) {}
+      }
+    }
 
     // 3. Cek & kirim Rules lebih dulu (tidak terhalang is_active)
     if (Number(settings.is_rules_active) === 1) {
@@ -134,6 +217,11 @@ export const handleAIResponse = async (
       try {
         if (!aiQueues[remoteJid]) return;
         aiQueues[remoteJid].isProcessing = true;
+
+        // Tunggu setelah read SEBELUM mulai typing
+        const afterReadDelayMs = (currentSettings.after_read_delay || 3) * 1000;
+        console.log(`[AI] ⏳ Menunggu ${currentSettings.after_read_delay || 3} detik sebelum typing...`);
+        await new Promise(resolve => setTimeout(resolve, afterReadDelayMs));
 
         await sock.sendPresenceUpdate("composing", remoteJid);
         const fullUserContent = aiQueues[remoteJid].messages.join(" ");

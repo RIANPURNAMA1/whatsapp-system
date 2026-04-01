@@ -32,6 +32,13 @@ const AISettingPage: React.FC = () => {
     max_delay: 15,
     max_messages_per_day: 200,
     human_wait_time: 0,
+    auto_read: 0,
+    auto_read_delay: 0,
+    after_read_delay: 3,
+    schedule_enabled: 0,
+    schedule_start_time: "08:00",
+    schedule_end_time: "17:00",
+    schedule_days: "1,2,3,4,5,6,7",
   });
 
   const fetchConfigs = async () => {
@@ -96,6 +103,13 @@ const AISettingPage: React.FC = () => {
       max_delay: cfg.max_delay || 15,
       max_messages_per_day: cfg.max_messages_per_day || 200,
       human_wait_time: cfg.human_wait_time || 0,
+      auto_read: cfg.auto_read || 0,
+      auto_read_delay: cfg.auto_read_delay || 0,
+      after_read_delay: cfg.after_read_delay || 3,
+      schedule_enabled: cfg.schedule_enabled || 0,
+      schedule_start_time: cfg.schedule_start_time ? cfg.schedule_start_time.substring(0, 5) : "08:00",
+      schedule_end_time: cfg.schedule_end_time ? cfg.schedule_end_time.substring(0, 5) : "17:00",
+      schedule_days: cfg.schedule_days || "1,2,3,4,5,6,7",
     });
     setKbMode("text");
     toast.success(`Editing: ${getSessionName(cfg.session_id)}`);
@@ -116,6 +130,13 @@ const AISettingPage: React.FC = () => {
       data.append("maxDelay", formData.max_delay.toString());
       data.append("maxMessagesPerDay", formData.max_messages_per_day.toString());
       data.append("humanWaitTime", formData.human_wait_time.toString());
+      data.append("autoRead", formData.auto_read.toString());
+      data.append("autoReadDelay", formData.auto_read_delay.toString());
+      data.append("afterReadDelay", formData.after_read_delay.toString());
+      data.append("scheduleEnabled", formData.schedule_enabled.toString());
+      data.append("scheduleStartTime", formData.schedule_start_time + ":00");
+      data.append("scheduleEndTime", formData.schedule_end_time + ":00");
+      data.append("scheduleDays", formData.schedule_days);
       
       actualFiles.forEach((file) => data.append("files", file));
 

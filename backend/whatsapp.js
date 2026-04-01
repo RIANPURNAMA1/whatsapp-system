@@ -551,7 +551,8 @@ sock.ev.on("messages.upsert", async ({ messages, type }) => {
           msg.key.remoteJid, 
           caption, 
           sock, 
-          msg.key.fromMe
+          msg.key.fromMe,
+          msg.key
         );
       }
     }

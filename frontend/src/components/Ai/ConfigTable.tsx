@@ -7,7 +7,9 @@ import {
   RefreshCw, 
   BookOpen, 
   Zap, 
-  MessageSquareText
+  MessageSquareText,
+  CheckCircle2,
+  Calendar
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -109,6 +111,8 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
               <th className="p-4 font-bold">ID & Perangkat</th>
               <th className="p-4 font-bold text-center">CS AI</th>
               <th className="p-4 font-bold text-center">Auto Rules</th>
+              <th className="p-4 font-bold text-center">Read</th>
+              <th className="p-4 font-bold text-center">Schedule</th>
               <th className="p-4 font-bold">Nama Bot</th>
               <th className="p-4 font-bold">Knowledge Base</th>
               <th className="p-4 font-bold text-center">Delay</th>
@@ -126,6 +130,9 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
               const isRulesActive = localStatus[sId]?.rules !== undefined 
                 ? localStatus[sId].rules 
                 : Number(cfg.is_rules_active || cfg.isRulesActive) === 1;
+
+              const isAutoRead = Number(cfg.auto_read) === 1;
+              const isSchedule = Number(cfg.schedule_enabled) === 1;
 
               return (
                 <tr key={sId} className="border-b border-gray-100 hover:bg-gray-50/50 transition-all">
@@ -171,6 +178,30 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                     </div>
                   </td>
 
+                  <td className="p-4 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <CheckCircle2 
+                        size={16} 
+                        className={isAutoRead ? "text-green-500" : "text-gray-300"} 
+                      />
+                      <span className={`text-[9px] font-bold uppercase ${isAutoRead ? "text-green-600" : "text-gray-400"}`}>
+                        {isAutoRead ? "ON" : "OFF"}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="p-4 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <Calendar 
+                        size={16} 
+                        className={isSchedule ? "text-purple-500" : "text-gray-300"} 
+                      />
+                      <span className={`text-[9px] font-bold uppercase ${isSchedule ? "text-purple-600" : "text-gray-400"}`}>
+                        {isSchedule ? cfg.schedule_start_time?.substring(0,5) + "-" + cfg.schedule_end_time?.substring(0,5) : "OFF"}
+                      </span>
+                    </div>
+                  </td>
+
                   <td className="p-4 font-medium text-gray-900 truncate max-w-[120px]">{cfg.bot_name || "-"}</td>
 
                   <td className="p-4">
@@ -203,7 +234,7 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                 </tr>
               );
             }) : (
-              <tr><td colSpan={7} className="p-16 text-center text-gray-400 italic">Belum ada perangkat terhubung.</td></tr>
+              <tr><td colSpan={9} className="p-16 text-center text-gray-400 italic">Belum ada perangkat terhubung.</td></tr>
             )}
           </tbody>
         </table>

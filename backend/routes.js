@@ -2097,6 +2097,13 @@ router.get("/ai-settings", authenticateToken, async (req, res) => {
         max_messages_per_day, 
         human_wait_time, 
         is_active, 
+        auto_read,
+        auto_read_delay,
+        after_read_delay,
+        schedule_enabled,
+        schedule_start_time,
+        schedule_end_time,
+        schedule_days,
         updated_at 
       FROM wa_ai_settings 
       ORDER BY updated_at DESC`
@@ -2121,7 +2128,14 @@ router.post("/ai-settings/save", authenticateToken, upload.array('files'), async
       minDelay, 
       maxDelay, 
       maxMessagesPerDay,
-      humanWaitTime // Diambil dari frontend
+      humanWaitTime,
+      autoRead,
+      autoReadDelay,
+      afterReadDelay,
+      scheduleEnabled,
+      scheduleStartTime,
+      scheduleEndTime,
+      scheduleDays
     } = req.body;
 
     if (!sessionId) {
@@ -2151,11 +2165,11 @@ router.post("/ai-settings/save", authenticateToken, upload.array('files'), async
       }
     }
 
-    // 3. Simpan ke Database - Menyertakan human_wait_time
+    // 3. Simpan ke Database - Menyertakan human_wait_time, auto_read, dan schedule
     const sql = `
       INSERT INTO wa_ai_settings 
-      (session_id, bot_name, prompt, knowledge_base, min_delay, max_delay, max_messages_per_day, human_wait_time)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (session_id, bot_name, prompt, knowledge_base, min_delay, max_delay, max_messages_per_day, human_wait_time, auto_read, auto_read_delay, after_read_delay, schedule_enabled, schedule_start_time, schedule_end_time, schedule_days)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
       bot_name=VALUES(bot_name), 
       prompt=VALUES(prompt), 
@@ -2163,7 +2177,14 @@ router.post("/ai-settings/save", authenticateToken, upload.array('files'), async
       min_delay=VALUES(min_delay), 
       max_delay=VALUES(max_delay), 
       max_messages_per_day=VALUES(max_messages_per_day),
-      human_wait_time=VALUES(human_wait_time)
+      human_wait_time=VALUES(human_wait_time),
+      auto_read=VALUES(auto_read),
+      auto_read_delay=VALUES(auto_read_delay),
+      after_read_delay=VALUES(after_read_delay),
+      schedule_enabled=VALUES(schedule_enabled),
+      schedule_start_time=VALUES(schedule_start_time),
+      schedule_end_time=VALUES(schedule_end_time),
+      schedule_days=VALUES(schedule_days)
     `;
 
     const values = [
@@ -2174,7 +2195,14 @@ router.post("/ai-settings/save", authenticateToken, upload.array('files'), async
       parseInt(minDelay) || 5, 
       parseInt(maxDelay) || 15, 
       parseInt(maxMessagesPerDay) || 200,
-      parseInt(humanWaitTime) || 0 // Nilai menit tunggu
+      parseInt(humanWaitTime) || 0,
+      autoRead ? 1 : 0,
+      parseInt(autoReadDelay) || 0,
+      parseInt(afterReadDelay) || 3,
+      scheduleEnabled ? 1 : 0,
+      scheduleStartTime || "08:00:00",
+      scheduleEndTime || "17:00:00",
+      scheduleDays || "1,2,3,4,5,6,7"
     ];
 
     await query(sql, values);
