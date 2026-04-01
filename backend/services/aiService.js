@@ -163,8 +163,8 @@ export const handleAIResponse = async (
       return;
     }
 
-    // 2c. Auto Read - Tandai pesan sebagai READ (ceklist 2 biru)
-    if (Number(settings.auto_read) === 1) {
+    // 2c. Auto Read - Tandai pesan sebagai READ (ceklist 2 biru) - Hanya jika AI aktif
+    if (Number(settings.auto_read) === 1 && Number(settings.is_active) === 1) {
       const readDelayMs = (settings.auto_read_delay || 0) * 1000;
       console.log(`[AI] ⏳ Read delay: ${settings.auto_read_delay || 0} detik...`);
       await new Promise(resolve => setTimeout(resolve, readDelayMs));
