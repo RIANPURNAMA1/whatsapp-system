@@ -111,6 +111,7 @@ app.get("/r/:slug", async (req, res) => {
     // 4. Proses Logging & Analytics (Async/Background)
     const userAgent = req.headers['user-agent'] || 'Unknown Device';
     const referer = req.headers['referer'] || 'Direct';
+    const ipAddress = req.ip || req.connection?.remoteAddress || 'Unknown';
     
     // Update counter klik total
     query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [rotator.id])
@@ -118,8 +119,8 @@ app.get("/r/:slug", async (req, res) => {
 
     // Simpan log detail kunjungan
     query(
-      "INSERT INTO rotator_logs (rotator_id, target_number, user_agent, referer, created_at) VALUES (?, ?, ?, ?, NOW())",
-      [rotator.id, targetNumber, userAgent, referer]
+      "INSERT INTO rotator_clicks (rotator_id, ip_address, user_agent, referer, created_at) VALUES (?, ?, ?, ?, NOW())",
+      [rotator.id, ipAddress, userAgent, referer]
     ).catch(err => console.error("Error saving log:", err));
 
     // 5. Konstruksi URL WhatsApp

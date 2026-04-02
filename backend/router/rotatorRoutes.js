@@ -120,4 +120,170 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+/**
+ * GET: Ambil Statistik Klik Link Rotator
+ * Endpoint: GET /api/rotators/stats
+ */
+router.get("/stats", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const roleType = req.user.role_type;
+    const { start_date, end_date } = req.query;
+
+    // Default: hari ini
+    const today = new Date();
+    const startDate = start_date || today.toISOString().split('T')[0];
+    const endDate = end_date || today.toISOString().split('T')[0];
+
+    // Ambil semua rotator
+    let rotatorSql = "SELECT * FROM link_rotators";
+    let rotatorParams = [];
+    
+    if (roleType !== 'system') {
+      rotatorSql += " WHERE user_id = ?";
+      rotatorParams.push(userId);
+    }
+    
+    const rotators = await query(rotatorSql, rotatorParams);
+
+    // Ambil statistik klik dari rotator_clicks
+    const statsSql = `
+      SELECT 
+        rotator_id,
+        DATE(created_at) as click_date,
+        COUNT(*) as click_count
+      FROM rotator_clicks 
+      WHERE DATE(created_at) BETWEEN ? AND ?
+      GROUP BY rotator_id, DATE(created_at)
+      ORDER BY DATE(created_at) DESC
+    `;
+    
+    const statsData = await query(statsSql, [startDate, endDate]);
+
+    // Ambil total clicks per rotator dalam periode
+    const totalSql = `
+      SELECT 
+        rotator_id,
+        COUNT(*) as total_clicks
+      FROM rotator_clicks 
+      WHERE DATE(created_at) BETWEEN ? AND ?
+      GROUP BY rotator_id
+    `;
+    
+    const totalData = await query(totalSql, [startDate, endDate]);
+
+    // Buat mapping total clicks
+    const totalMap = {};
+    totalData.forEach(item => {
+      totalMap[item.rotator_id] = item.total_clicks;
+    });
+
+    // Buat mapping daily clicks
+    const dailyMap = {};
+    statsData.forEach(item => {
+      if (!dailyMap[item.rotator_id]) {
+        dailyMap[item.rotator_id] = [];
+      }
+      dailyMap[item.rotator_id].push({
+        date: item.click_date,
+        count: item.click_count
+      });
+    });
+
+    // Format response
+    const links = rotators.map(rotator => ({
+      id: rotator.id,
+      name: rotator.name,
+      short_code: rotator.short_code,
+      total: totalMap[rotator.id] || 0,
+      daily: dailyMap[rotator.id] || []
+    }));
+
+    const totalClicks = Object.values(totalMap).reduce((sum, val) => sum + parseInt(val), 0);
+
+    res.json({ 
+      success: true, 
+      data: { 
+        total_clicks: totalClicks,
+        links: links 
+      } 
+    });
+  } catch (error) {
+    console.error("Error Get Rotator Stats:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET: Ambil Detail Statistik per Link Rotator
+ * Endpoint: GET /api/rotators/:id/stats
+ */
+router.get("/:id/stats", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const roleType = req.user.role_type;
+    const { start_date, end_date } = req.query;
+
+    // Cek kepemilikan
+    let checkSql = "SELECT * FROM link_rotators WHERE id = ?";
+    let checkParams = [id];
+    
+    if (roleType !== 'system') {
+      checkSql += " AND user_id = ?";
+      checkParams.push(userId);
+    }
+    
+    const rotator = await queryOne(checkSql, checkParams);
+    
+    if (!rotator) {
+      return res.status(404).json({ success: false, message: "Rotator tidak ditemukan" });
+    }
+
+    // Default: hari ini
+    const today = new Date();
+    const startDate = start_date || today.toISOString().split('T')[0];
+    const endDate = end_date || today.toISOString().split('T')[0];
+
+    // Ambil statistik harian
+    const statsSql = `
+      SELECT 
+        DATE(created_at) as click_date,
+        COUNT(*) as click_count
+      FROM rotator_clicks 
+      WHERE rotator_id = ? AND DATE(created_at) BETWEEN ? AND ?
+      GROUP BY DATE(created_at)
+      ORDER BY click_date DESC
+    `;
+    
+    const statsData = await query(statsSql, [id, startDate, endDate]);
+
+    // Total dalam periode
+    const totalSql = `
+      SELECT COUNT(*) as total
+      FROM rotator_clicks 
+      WHERE rotator_id = ? AND DATE(created_at) BETWEEN ? AND ?
+    `;
+    
+    const totalResult = await queryOne(totalSql, [id, startDate, endDate]);
+
+    res.json({ 
+      success: true, 
+      data: {
+        id: rotator.id,
+        name: rotator.name,
+        short_code: rotator.short_code,
+        total: totalResult?.total || 0,
+        daily: statsData.map(item => ({
+          date: item.click_date,
+          count: item.click_count
+        }))
+      }
+    });
+  } catch (error) {
+    console.error("Error Get Rotator Detail Stats:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

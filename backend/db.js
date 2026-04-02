@@ -290,22 +290,32 @@ async function initDatabase() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
 `,
+`CREATE TABLE IF NOT EXISTS link_rotators (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        short_code VARCHAR(100) UNIQUE NOT NULL,
+        type ENUM('direct', 'lander') DEFAULT 'direct',
+        target_type ENUM('single', 'rotator') DEFAULT 'single',
+        wa_numbers TEXT NOT NULL,
+        message TEXT,
+        clicks INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES wa_users(id) ON DELETE CASCADE
+    )`,
 
-    `CREATE TABLE IF NOT EXISTS link_rotators (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    short_code VARCHAR(100) UNIQUE NOT NULL,
-    type ENUM('direct', 'lander') DEFAULT 'direct',
-    target_type ENUM('single', 'rotator') DEFAULT 'single',
-    wa_numbers TEXT NOT NULL,
-    message TEXT,
-    clicks INT DEFAULT 0,
-    -- PERBAIKAN DI SINI:
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES wa_users(id) ON DELETE CASCADE
-)`,
+    // ⭐ TAMBAHKAN TABEL INI (UNTUK FIX ERROR 404/NOT FOUND STATS)
+    `CREATE TABLE IF NOT EXISTS rotator_clicks (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        rotator_id INT NOT NULL,
+        ip_address VARCHAR(45) DEFAULT NULL,
+        user_agent TEXT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX (rotator_id),
+        INDEX (created_at),
+        FOREIGN KEY (rotator_id) REFERENCES link_rotators(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
     `CREATE TABLE IF NOT EXISTS tracked_links (
     id INT AUTO_INCREMENT PRIMARY KEY,

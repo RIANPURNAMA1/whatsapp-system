@@ -1052,6 +1052,166 @@ router.delete("/rotators/:id", authenticateToken, async (req, res) => {
   }
 });
 
+// GET: Statistik klik rotator berdasarkan tanggal
+router.get("/rotators/stats", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const roleType = req.user.role_type.toLowerCase().trim();
+    const { start_date, end_date } = req.query;
+
+    // Default: hari ini
+    const today = new Date().toISOString().split('T')[0];
+    const startDate = start_date || today;
+    const endDate = end_date || today;
+
+    // Ambil semua rotator
+    let rotatorSql = "SELECT id, name, short_code FROM link_rotators";
+    let rotatorParams = [];
+    
+    if (roleType !== "system" && roleType !== "manager") {
+      rotatorSql += " WHERE user_id = ?";
+      rotatorParams.push(userId);
+    }
+    
+    const rotators = await query(rotatorSql, rotatorParams);
+
+    if (rotators.length === 0) {
+      return res.json({ 
+        success: true, 
+        data: { 
+          total_clicks: 0,
+          links: [] 
+        } 
+      });
+    }
+
+    // Ambil statistik klik
+    const rotatorIds = rotators.map(r => r.id);
+    const placeholders = rotatorIds.map(() => '?').join(',');
+    
+    const statsSql = `
+      SELECT 
+        rotator_id,
+        DATE(created_at) as click_date,
+        COUNT(*) as click_count
+      FROM rotator_clicks 
+      WHERE rotator_id IN (${placeholders})
+        AND DATE(created_at) BETWEEN ? AND ?
+      GROUP BY rotator_id, DATE(created_at)
+      ORDER BY click_date DESC
+    `;
+    
+    const statsData = await query(statsSql, [...rotatorIds, startDate, endDate]);
+
+    // Total per rotator
+    const totalSql = `
+      SELECT 
+        rotator_id,
+        COUNT(*) as total_clicks
+      FROM rotator_clicks 
+      WHERE rotator_id IN (${placeholders})
+        AND DATE(created_at) BETWEEN ? AND ?
+      GROUP BY rotator_id
+    `;
+    
+    const totalData = await query(totalSql, [...rotatorIds, startDate, endDate]);
+
+    // Buat mapping
+    const totalMap = {};
+    totalData.forEach(item => {
+      totalMap[item.rotator_id] = item.total_clicks;
+    });
+
+    const dailyMap = {};
+    statsData.forEach(item => {
+      if (!dailyMap[item.rotator_id]) {
+        dailyMap[item.rotator_id] = [];
+      }
+      dailyMap[item.rotator_id].push({
+        date: item.click_date,
+        count: item.click_count
+      });
+    });
+
+    // Format response
+    const links = rotators.map(rotator => ({
+      id: rotator.id,
+      name: rotator.name,
+      short_code: rotator.short_code,
+      total: totalMap[rotator.id] || 0,
+      daily: dailyMap[rotator.id] || []
+    }));
+
+    const totalClicks = Object.values(totalMap).reduce((sum, val) => sum + parseInt(val), 0);
+
+    res.json({ 
+      success: true, 
+      data: { 
+        total_clicks: totalClicks,
+        links: links 
+      } 
+    });
+  } catch (error) {
+    console.error("GET Rotator Stats Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET: Detail statistik per rotator
+router.get("/rotators/:id/stats", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { start_date, end_date } = req.query;
+
+    const today = new Date().toISOString().split('T')[0];
+    const startDate = start_date || today;
+    const endDate = end_date || today;
+
+    // Ambil data rotator
+    const rotator = await queryOne("SELECT * FROM link_rotators WHERE id = ?", [id]);
+    
+    if (!rotator) {
+      return res.status(404).json({ success: false, message: "Rotator tidak ditemukan" });
+    }
+
+    // Statistik harian
+    const statsSql = `
+      SELECT 
+        DATE(created_at) as click_date,
+        COUNT(*) as click_count
+      FROM rotator_clicks 
+      WHERE rotator_id = ? AND DATE(created_at) BETWEEN ? AND ?
+      GROUP BY DATE(created_at)
+      ORDER BY click_date DESC
+    `;
+    
+    const statsData = await query(statsSql, [id, startDate, endDate]);
+
+    // Total
+    const totalResult = await queryOne(
+      "SELECT COUNT(*) as total FROM rotator_clicks WHERE rotator_id = ? AND DATE(created_at) BETWEEN ? AND ?",
+      [id, startDate, endDate]
+    );
+
+    res.json({ 
+      success: true, 
+      data: {
+        id: rotator.id,
+        name: rotator.name,
+        short_code: rotator.short_code,
+        total: totalResult?.total || 0,
+        daily: statsData.map(item => ({
+          date: item.click_date,
+          count: item.click_count
+        }))
+      }
+    });
+  } catch (error) {
+    console.error("GET Rotator Detail Stats Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // ===============================================
 // TRACKED LINKS - Lacak klik URL eksternal
 // ===============================================
@@ -1066,6 +1226,50 @@ router.get("/tracked-links", authenticateToken, async (req, res) => {
       ORDER BY id DESC
     `);
     res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET: Stats tracked links
+router.get("/tracked-links/:id/stats", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { start_date, end_date } = req.query;
+
+    const today = new Date().toISOString().split('T')[0];
+    const startDate = start_date || today;
+    const endDate = end_date || today;
+
+    // Stats harian
+    const statsSql = `
+      SELECT 
+        DATE(created_at) as click_date,
+        COUNT(*) as click_count
+      FROM tracked_link_clicks 
+      WHERE tracked_link_id = ? AND DATE(created_at) BETWEEN ? AND ?
+      GROUP BY DATE(created_at)
+      ORDER BY click_date DESC
+    `;
+    
+    const statsData = await query(statsSql, [id, startDate, endDate]);
+
+    // Total
+    const totalResult = await queryOne(
+      "SELECT COUNT(*) as total FROM tracked_link_clicks WHERE tracked_link_id = ? AND DATE(created_at) BETWEEN ? AND ?",
+      [id, startDate, endDate]
+    );
+
+    res.json({ 
+      success: true, 
+      data: {
+        total: totalResult?.total || 0,
+        daily: statsData.map(item => ({
+          date: item.click_date,
+          count: item.click_count
+        }))
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

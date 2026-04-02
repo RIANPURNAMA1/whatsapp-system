@@ -132,5 +132,65 @@ CREATE TABLE IF NOT EXISTS wa_group_participants (
 -- ------------------------------------------------
 INSERT IGNORE INTO wa_sessions (id, name, status) VALUES ('default', 'Session Utama', 'disconnected');
 
+-- ------------------------------------------------
+-- Tabel link_rotators: Link rotator WhatsApp
+-- ------------------------------------------------
+CREATE TABLE IF NOT EXISTS link_rotators (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  short_code VARCHAR(100) NOT NULL UNIQUE,
+  type ENUM('direct', 'lander') DEFAULT 'direct',
+  target_type ENUM('single', 'rotator') DEFAULT 'single',
+  wa_numbers TEXT DEFAULT NULL,
+  message TEXT DEFAULT NULL,
+  original_url TEXT DEFAULT NULL,
+  clicks INT DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_user (user_id),
+  INDEX idx_short_code (short_code)
+);
+
+-- ------------------------------------------------
+-- Tabel rotator_clicks: Log klik link rotator
+-- ------------------------------------------------
+CREATE TABLE IF NOT EXISTS rotator_clicks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  rotator_id INT NOT NULL,
+  ip_address VARCHAR(45) DEFAULT NULL,
+  user_agent TEXT DEFAULT NULL,
+  referer TEXT DEFAULT NULL,
+  country VARCHAR(100) DEFAULT NULL,
+  city VARCHAR(100) DEFAULT NULL,
+  device_type VARCHAR(50) DEFAULT NULL,
+  browser VARCHAR(100) DEFAULT NULL,
+  os VARCHAR(100) DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_rotator (rotator_id),
+  INDEX idx_created (created_at),
+  INDEX idx_rotator_date (rotator_id, created_at)
+);
+
+-- ------------------------------------------------
+-- Tabel tracked_links: Link URL tracking
+-- ------------------------------------------------
+CREATE TABLE IF NOT EXISTS tracked_links (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  original_url TEXT NOT NULL,
+  short_code VARCHAR(100) NOT NULL UNIQUE,
+  clicks INT DEFAULT 0,
+  clicks_today INT DEFAULT 0,
+  clicks_week INT DEFAULT 0,
+  clicks_month INT DEFAULT 0,
+  last_click_date DATE DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_user (user_id),
+  INDEX idx_short_code (short_code)
+);
+
 -- Tampilkan tabel yang dibuat
 SHOW TABLES;
