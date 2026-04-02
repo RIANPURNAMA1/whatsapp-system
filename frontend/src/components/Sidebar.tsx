@@ -63,22 +63,23 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         className={`
-          fixed md:relative z-50 flex flex-col w-[68px] min-h-screen md:min-h-0 md:h-full bg-white border-r border-gray-200 py-5 items-center justify-between 
-          transition-transform duration-300 ease-in-out shadow-lg md:shadow-none overflow-y-auto
+          fixed md:relative z-50 flex flex-col w-[68px] h-screen md:h-full bg-white border-r border-gray-200 py-5
+          transition-transform duration-300 ease-in-out shadow-lg md:shadow-none
           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}
       >
-        <div className="flex flex-col gap-4 items-center w-full">
+        {/* SCROLLABLE TOP SECTION */}
+        <div className="flex-1 flex flex-col gap-4 items-center overflow-y-auto custom-scrollbar">
           {/* LOGO UTAMA */}
           <button
             onClick={() => {
               window.location.reload();
               setIsSidebarOpen(false);
             }}
-            className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 hover:shadow-blue-500/30 transition-all active:scale-95"
+            className="w- h-10  rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 hover:shadow-blue-500/30 transition-all active:scale-95"
             title="Satu Pintu Home"
           >
-            <MessageSquare className="w-6 h-6 text-white" />
+            <MessageSquare className="w-6 h-6 p-2 text-blue" />
           </button>
 
           <div className="flex flex-col gap-3 w-full items-center">
@@ -193,8 +194,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* BAGIAN BAWAH */}
-        <div className="flex flex-col gap-4 items-center pb-6">
+        {/* FIXED BOTTOM SECTION */}
+        <div className="flex flex-col gap-4 items-center pt-4 pb-6 mt-auto">
           {isSystemAdmin && (
             <div
               onClick={() => handleNavClick("settings")}

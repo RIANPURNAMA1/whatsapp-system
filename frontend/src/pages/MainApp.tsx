@@ -158,11 +158,9 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
   };
 
   const handleDeleteDevice = async (
-    e: React.MouseEvent,
     sessionId: string,
     name: string,
   ) => {
-    e.stopPropagation();
     const result = await Swal.fire({
       title: "Hapus Perangkat?",
       text: `Data sesi "${name || sessionId}" akan dihapus permanen.`,

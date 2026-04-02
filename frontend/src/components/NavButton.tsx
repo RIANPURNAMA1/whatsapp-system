@@ -12,10 +12,10 @@ const NavButton = ({ icon, active, onClick, title }: NavButtonProps) => (
     onClick={onClick}
     title={title}
     className={`
-      group relative flex items-center justify-center w-12 h-12 rounded-xl transition-all
+      group relative flex items-center justify-center w-10 h-10 rounded-xl transition-all
       ${active 
-        ? "bg-blue-100 text-blue-600" 
-        : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}
+        ? "text-blue-600" 
+        : "text-gray-400 hover:text-blue-500"}
     `}
   >
     {icon}
