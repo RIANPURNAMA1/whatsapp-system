@@ -112,9 +112,7 @@ export const LinkRotatorSection: React.FC = () => {
   });
   const [addUrlSubmitting, setAddUrlSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"rotator" | "tracked">("rotator");
-  const [dateFilter, setDateFilter] = useState<"today" | "week" | "month" | "custom">("today");
-  const [customStartDate, setCustomStartDate] = useState("");
-  const [customEndDate, setCustomEndDate] = useState("");
+  const [dateFilter, setDateFilter] = useState<"today" | "yesterday" | "week" | "month">("today");
   const [clickStats, setClickStats] = useState<Record<number, ClickStats>>({});
   const [loadingStats, setLoadingStats] = useState(false);
   const [filteredRotatorClicks, setFilteredRotatorClicks] = useState(0);
@@ -155,14 +153,19 @@ export const LinkRotatorSection: React.FC = () => {
     }
   };
 
-  const fetchRotatorStats = async (filter: "today" | "week" | "month" | "custom", start?: string, end?: string) => {
+  const fetchRotatorStats = async (filter: "today" | "yesterday" | "week" | "month") => {
     setLoadingStats(true);
     const today = new Date();
-    let startDate = start;
-    let endDate = end;
+    let startDate = "";
+    let endDate = "";
     
     if (filter === "today") {
       startDate = today.toISOString().split("T")[0];
+      endDate = startDate;
+    } else if (filter === "yesterday") {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      startDate = yesterday.toISOString().split("T")[0];
       endDate = startDate;
     } else if (filter === "week") {
       const weekAgo = new Date(today);
@@ -463,6 +466,14 @@ export const LinkRotatorSection: React.FC = () => {
                     Hari Ini
                   </button>
                   <button
+                    onClick={() => { setDateFilter("yesterday"); fetchRotatorStats("yesterday"); }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                      dateFilter === "yesterday" ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    Kemarin
+                  </button>
+                  <button
                     onClick={() => { setDateFilter("week"); fetchRotatorStats("week"); }}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                       dateFilter === "week" ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-50"
@@ -478,41 +489,7 @@ export const LinkRotatorSection: React.FC = () => {
                   >
                     30 Hari
                   </button>
-                  <button
-                    onClick={() => setDateFilter("custom")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                      dateFilter === "custom" ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    Custom
-                  </button>
                 </div>
-                
-                {dateFilter === "custom" && (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="w-36 h-9 text-xs"
-                    />
-                    <span className="text-gray-400 text-xs">s/d</span>
-                    <Input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="w-36 h-9 text-xs"
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => fetchRotatorStats("custom", customStartDate, customEndDate)}
-                      disabled={!customStartDate || !customEndDate}
-                      className="h-9 bg-blue-500 hover:bg-blue-600"
-                    >
-                      <Calendar className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -539,7 +516,7 @@ export const LinkRotatorSection: React.FC = () => {
                       {loadingStats ? "..." : filteredRotatorClicks}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Klik {dateFilter === "today" ? "Hari Ini" : dateFilter === "week" ? "7 Hari" : dateFilter === "month" ? "30 Hari" : "Filter"}
+                      Klik {dateFilter === "today" ? "Hari Ini" : dateFilter === "yesterday" ? "Kemarin" : dateFilter === "week" ? "7 Hari" : "30 Hari"}
                     </p>
                   </div>
                 </div>
@@ -621,11 +598,11 @@ export const LinkRotatorSection: React.FC = () => {
 
                         <div className="flex items-center gap-6">
                           <div className="text-center">
-                            <p className="font-black text-2xl text-gray-900">
-                              {loadingStats ? "..." : (clickStats[item.id]?.total || item.clicks)}
+                            <p className="font-black text-2xl text-blue-600">
+                              {loadingStats ? "..." : (clickStats[item.id]?.total || 0)}
                             </p>
                             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                              Klik {dateFilter === "today" ? "Hr Ini" : dateFilter === "week" ? "7 Hr" : dateFilter === "month" ? "30 Hr" : ""}
+                              {dateFilter === "today" ? "Hari Ini" : dateFilter === "yesterday" ? "Kemarin" : dateFilter === "week" ? "7 Hari" : "30 Hari"}
                             </p>
                           </div>
                           <div className="h-10 w-[1px] bg-gray-200" />
@@ -1097,7 +1074,7 @@ export const LinkRotatorSection: React.FC = () => {
             <div className="p-6 space-y-4">
               <div className="p-4 bg-gray-50 rounded-xl">
                 <p className="text-[10px] uppercase font-bold text-gray-500 mb-2">
-                  Statistik {dateFilter === "today" ? "Hari Ini" : dateFilter === "week" ? "7 Hari" : dateFilter === "month" ? "30 Hari" : ""}
+                  Statistik {dateFilter === "today" ? "Hari Ini" : dateFilter === "yesterday" ? "Kemarin" : dateFilter === "week" ? "7 Hari" : "30 Hari"}
                 </p>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Klik Filter</span>

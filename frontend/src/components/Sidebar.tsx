@@ -76,10 +76,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               window.location.reload();
               setIsSidebarOpen(false);
             }}
-            className="w- h-10  rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 hover:shadow-blue-500/30 transition-all active:scale-95"
+            className=" bg-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 hover:shadow-blue-500/30 transition-all active:scale-95"
             title="Satu Pintu Home"
           >
-            <MessageSquare className="w-6 h-6 p-2 text-blue" />
+            <MessageSquare className="w-6 h-6 m-3 text-white" />
           </button>
 
           <div className="flex flex-col gap-3 w-full items-center">
