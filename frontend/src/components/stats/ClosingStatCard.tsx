@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { TrendingUp, Loader2, Users, CheckCircle2, Target, Zap } from 'lucide-react';
+import { TrendingUp, Loader2, Users, CheckCircle2, Target, Zap, Leaf } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, Tooltip } from 'recharts';
 
 interface ClosingStatCardProps {
@@ -9,6 +9,7 @@ interface ClosingStatCardProps {
   conversionRate: string | number;
   totalLeads: number;
   chartData: any[];
+  totalOrganik?: number;
 }
 
 const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
@@ -18,6 +19,7 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
   conversionRate,
   totalLeads,
   chartData,
+  totalOrganik = 0,
 }) => {
   const rawRate = Number(conversionRate) || 0;
   const circumference = 2 * Math.PI * 36;
@@ -25,13 +27,16 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
 
   const processedChartData = useMemo(() => {
     if (!chartData || chartData.length === 0) {
-      return Array(7).fill({ leads: 0, closing: 0 });
+      return Array(7).fill({ leads: 0, closing: 0, organik: 0 });
     }
     return chartData.map(item => ({
-      leads: Number(item.lead_count || item.leads || 0),
-      closing: Number(item.closing_count || item.value || item.closing || 0)
+      leads: Number(item.leads || item.masuk || item.lead_count || 0),
+      closing: Number(item.closing || item.keluar || item.closing_count || item.value || 0),
+      organik: Number(item.leads_organik || 0)
     }));
   }, [chartData]);
+
+  const hasChartData = processedChartData.length > 0 && processedChartData.some(item => item.leads > 0 || item.closing > 0);
 
   return (
     <div className={`relative overflow-hidden rounded-3xl border transition-all duration-500 ${
@@ -118,7 +123,7 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
 
         {/* Area Chart */}
         <div className={`h-32 w-full relative ${isDarkMode ? '' : 'bg-gradient-to-br from-emerald-50/50 to-teal-50/50 rounded-2xl p-2'}`}>
-          {!chartData || chartData.length === 0 ? (
+          {!loading && !hasChartData ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
                 <TrendingUp className={`w-8 h-8 mx-auto mb-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} />
@@ -196,6 +201,22 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
               </p>
               <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {loading ? "..." : totalLeads.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <div className={`h-10 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`} />
+
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-purple-500/20' : 'bg-gradient-to-br from-purple-100 to-pink-100'}`}>
+              <Leaf size={18} className={isDarkMode ? "text-purple-400" : "text-purple-600"} />
+            </div>
+            <div>
+              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                Leads Organik
+              </p>
+              <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {loading ? "..." : totalOrganik.toLocaleString()}
               </p>
             </div>
           </div>

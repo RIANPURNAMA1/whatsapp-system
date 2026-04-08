@@ -13,6 +13,10 @@ import {
   Sparkles,
   X,
   Check,
+  Edit,
+  Leaf,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
@@ -35,11 +39,18 @@ import {
 
 export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
   const [keywords, setKeywords] = useState<any[]>([]);
+  const [organikKeywords, setOrganikKeywords] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [newKw, setNewKw] = useState({ platform: "", text: "", session_id: "" });
+  const [newOrganik, setNewOrganik] = useState({ keyword: "", is_active: true });
+  const [editKw, setEditKw] = useState<any>(null);
+  const [editOrganik, setEditOrganik] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isOrganikFormOpen, setIsOrganikFormOpen] = useState(false);
+  const [isOrganikEditOpen, setIsOrganikEditOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
 
@@ -74,8 +85,30 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
     }
   };
 
+  const fetchOrganikKeywords = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/organik-keywords`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      console.log("Organik API Response:", res.data);
+      
+      if (res.data?.success) {
+        console.log("Setting organik keywords:", res.data.data);
+        setOrganikKeywords(res.data.data || []);
+      }
+    } catch (err: any) {
+      console.error("Fetch organik error:", err.response?.data || err.message);
+    }
+  };
+
   useEffect(() => {
+    console.log("=== KeywordManager MOUNTED ===");
     fetchKeywords();
+    fetchOrganikKeywords();
     fetchSessions();
   }, []);
 
@@ -138,6 +171,132 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
     }
   };
 
+  const handleEdit = (keyword: any) => {
+    setEditKw({
+      id: keyword.id,
+      platform: keyword.platform,
+      text: keyword.keyword_text,
+      session_id: keyword.session_id,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editKw.platform.trim() || !editKw.text.trim() || !editKw.session_id) {
+      toast.error("Semua kolom wajib diisi");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/keywords/update/${editKw.id}`,
+        {
+          platform: editKw.platform.toLowerCase(),
+          keyword_text: editKw.text,
+          session_id: editKw.session_id,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success("Keyword berhasil diperbarui");
+      setIsEditOpen(false);
+      setEditKw(null);
+      fetchKeywords();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Gagal memperbarui");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOrganikSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrganik.keyword.trim()) {
+      toast.error("Keyword organik wajib diisi");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${import.meta.env.VITE_API_URL}/organik-keywords`,
+        { keyword: newOrganik.keyword, is_active: newOrganik.is_active },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success("Keyword organik berhasil ditambahkan");
+      setNewOrganik({ keyword: "", is_active: true });
+      setIsOrganikFormOpen(false);
+      fetchOrganikKeywords();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Gagal menyimpan");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOrganikEdit = (item: any) => {
+    setEditOrganik({ id: item.id, keyword: item.keyword, is_active: Boolean(item.is_active) });
+    setIsOrganikEditOpen(true);
+  };
+
+  const handleOrganikUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editOrganik.keyword.trim()) {
+      toast.error("Keyword organik wajib diisi");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/organik-keywords/${editOrganik.id}`,
+        { keyword: editOrganik.keyword, is_active: editOrganik.is_active },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success("Keyword organik berhasil diperbarui");
+      setIsOrganikEditOpen(false);
+      setEditOrganik(null);
+      fetchOrganikKeywords();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Gagal memperbarui");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOrganikDelete = async (id: number) => {
+    const result = await Swal.fire({
+      title: "Hapus Keyword Organik?",
+      text: "Data yang dihapus tidak dapat dikembalikan.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Ya, Hapus",
+      cancelButtonText: "Batal",
+      background: "#ffffff",
+      color: "#111B21",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const token = localStorage.getItem("token");
+        await axios.delete(`${import.meta.env.VITE_API_URL}/organik-keywords/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        fetchOrganikKeywords();
+        toast.success("Keyword organik berhasil dihapus");
+      } catch (error) {
+        toast.error("Gagal menghapus");
+      }
+    }
+  };
+
   const filteredKeywords = keywords.filter((k: any) => {
     const matchesSearch = 
       k.platform?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -186,14 +345,61 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
               </div>
             </div>
 
-            <Button 
-              onClick={() => setIsFormOpen(true)}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 gap-2 px-6 h-12 text-base"
-            >
-              <Plus className="w-5 h-5" />
-              Tambah Keyword
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => setIsFormOpen(true)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 gap-2 px-6 h-12 text-base"
+              >
+                <Plus className="w-5 h-5" />
+                Tambah Keyword
+              </Button>
+              <Button 
+                onClick={() => setIsOrganikFormOpen(true)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 gap-2 px-6 h-12 text-base"
+              >
+                <Leaf className="w-5 h-5" />
+                Keyword Organik
+              </Button>
+            </div>
           </div>
+
+          {/* ORGANIK KEYWORDS SECTION */}
+          {(() => {
+            const hasOrganik = organikKeywords && Array.isArray(organikKeywords) && organikKeywords.length > 0;
+            if (!hasOrganik) {
+              return (
+                <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Leaf className="w-5 h-5 text-blue-600" />
+                    <span className="text-sm text-blue-700">Belum ada keyword organik. Klik tombol Keyword Organik untuk menambah.</span>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="mb-6 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <Leaf className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-bold text-gray-900">Keyword Organik</h3>
+                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">{organikKeywords.length}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {organikKeywords.map((item: any) => (
+                    <div key={item.id} className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-blue-200 shadow-sm">
+                      <span className={`w-2 h-2 rounded-full ${item.is_active ? 'bg-blue-600' : 'bg-gray-300'}`} />
+                      <span className="text-sm font-medium text-gray-800">"{item.keyword}"</span>
+                      <button onClick={() => handleOrganikEdit(item)} className="text-gray-400 hover:text-blue-600">
+                        <Edit size={14} />
+                      </button>
+                      <button onClick={() => handleOrganikDelete(item.id)} className="text-gray-400 hover:text-red-600">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* FILTERS */}
           <div className="flex flex-col sm:flex-row gap-4">
@@ -323,13 +529,22 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleDelete(k.id)}
-                    className="p-3 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                    title="Hapus keyword"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleEdit(k)}
+                      className="p-3 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Edit keyword"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(k.id)}
+                      className="p-3 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Hapus keyword"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -423,6 +638,238 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                   <span className="flex items-center gap-2">
                     <Check className="w-4 h-4" />
                     Simpan Keyword
+                  </span>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* EDIT FORM DIALOG */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                <Edit className="w-5 h-5 text-white" />
+              </div>
+              <DialogTitle className="text-xl">Edit Keyword</DialogTitle>
+            </div>
+            <p className="text-gray-500 text-sm">Perbarui keyword yang ada</p>
+          </DialogHeader>
+          
+          <form onSubmit={handleUpdate} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Smartphone className="w-4 h-4" />
+                Perangkat WhatsApp
+              </label>
+              <select
+                value={editKw?.session_id || ""}
+                onChange={(e) => setEditKw({ ...editKw, session_id: e.target.value })}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer"
+                required
+              >
+                <option value="">Pilih Perangkat...</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name || `Device ${s.id}`} {s.phone_number ? `(${s.phone_number})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                Sumber Platform
+              </label>
+              <Input 
+                type="text"
+                placeholder="Contoh: tiktok, instagram, facebook"
+                value={editKw?.platform || ""}
+                onChange={(e) => setEditKw({ ...editKw, platform: e.target.value })}
+                required
+                className="h-12 text-base"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Kata Kunci
+              </label>
+              <Input 
+                type="text"
+                placeholder="Masukkan kata kunci filter..."
+                value={editKw?.text || ""}
+                onChange={(e) => setEditKw({ ...editKw, text: e.target.value })}
+                required
+                className="h-12 text-base"
+              />
+            </div>
+
+            <DialogFooter className="gap-3 pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => { setIsEditOpen(false); setEditKw(null); }}
+                className="flex-1 h-11"
+              >
+                Batal
+              </Button>
+              <Button 
+                type="submit"
+                disabled={loading}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-11"
+              >
+                {loading ? (
+                  <RefreshCcw className="animate-spin mx-auto" size={18} />
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Perbarui Keyword
+                  </span>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ORGANIK KEYWORD FORM DIALOG */}
+      <Dialog open={isOrganikFormOpen} onOpenChange={setIsOrganikFormOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                <Leaf className="w-5 h-5 text-white" />
+              </div>
+              <DialogTitle className="text-xl">Tambah Keyword Organik</DialogTitle>
+            </div>
+            <p className="text-gray-500 text-sm">Keyword organik untuk mendeteksi leads dari balasan</p>
+          </DialogHeader>
+          
+          <form onSubmit={handleOrganikSave} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Kata Kunci
+              </label>
+              <Input 
+                type="text"
+                placeholder="Contoh: iya kakak, ok kak, siap kak"
+                value={newOrganik.keyword}
+                onChange={(e) => setNewOrganik({ ...newOrganik, keyword: e.target.value })}
+                required
+                className="h-12 text-base"
+              />
+              <p className="text-xs text-gray-400">Pisahkan dengan koma untuk multiple keywords</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input 
+                type="checkbox" 
+                id="isActive"
+                checked={newOrganik.is_active}
+                onChange={(e) => setNewOrganik({ ...newOrganik, is_active: e.target.checked })}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+                Aktif
+              </label>
+            </div>
+
+            <DialogFooter className="gap-3 pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsOrganikFormOpen(false)}
+                className="flex-1 h-11"
+              >
+                Batal
+              </Button>
+              <Button 
+                type="submit"
+                disabled={loading}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-11"
+              >
+                {loading ? (
+                  <RefreshCcw className="animate-spin mx-auto" size={18} />
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Simpan
+                  </span>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ORGANIK KEYWORD EDIT DIALOG */}
+      <Dialog open={isOrganikEditOpen} onOpenChange={setIsOrganikEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                <Edit className="w-5 h-5 text-white" />
+              </div>
+              <DialogTitle className="text-xl">Edit Keyword Organik</DialogTitle>
+            </div>
+          </DialogHeader>
+          
+          <form onSubmit={handleOrganikUpdate} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Kata Kunci
+              </label>
+              <Input 
+                type="text"
+                placeholder="Contoh: iya kakak"
+                value={editOrganik?.keyword || ""}
+                onChange={(e) => setEditOrganik({ ...editOrganik, keyword: e.target.value })}
+                required
+                className="h-12 text-base"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input 
+                type="checkbox" 
+                id="editIsActive"
+                checked={editOrganik?.is_active || false}
+                onChange={(e) => setEditOrganik({ ...editOrganik, is_active: e.target.checked })}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="editIsActive" className="text-sm font-medium text-gray-700">
+                Aktif
+              </label>
+            </div>
+
+            <DialogFooter className="gap-3 pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => { setIsOrganikEditOpen(false); setEditOrganik(null); }}
+                className="flex-1 h-11"
+              >
+                Batal
+              </Button>
+              <Button 
+                type="submit"
+                disabled={loading}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-11"
+              >
+                {loading ? (
+                  <RefreshCcw className="animate-spin mx-auto" size={18} />
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Perbarui
                   </span>
                 )}
               </Button>

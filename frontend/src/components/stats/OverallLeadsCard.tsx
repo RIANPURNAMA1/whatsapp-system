@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, TrendingUp, Target, Zap } from 'lucide-react';
+import { Users, TrendingUp, Target, Zap, Leaf } from 'lucide-react';
 
 interface OverallLeadsCardProps {
   isDarkMode: boolean;
@@ -7,6 +7,7 @@ interface OverallLeadsCardProps {
   totalLeads: number;
   totalClosing: number;
   conversionRate: string | number;
+  totalOrganik?: number;
 }
 
 const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
@@ -15,7 +16,9 @@ const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
   totalLeads,
   totalClosing,
   conversionRate,
+  totalOrganik = 0,
 }) => {
+  const totalWithOrganik = totalLeads + totalOrganik;
   const rate = Number(conversionRate) || 0;
   const circumference = 2 * Math.PI * 36;
   const strokeDashoffset = circumference - (rate / 100) * circumference;
@@ -52,7 +55,7 @@ const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
                   <span className="text-gray-400">...</span>
                 ) : (
                   <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    {totalLeads.toLocaleString()}
+                    {totalWithOrganik.toLocaleString()}
                   </span>
                 )}
               </h2>
@@ -129,6 +132,22 @@ const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
               </p>
               <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {loading ? "..." : totalClosing.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <div className={`h-10 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`} />
+
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-purple-500/20' : 'bg-gradient-to-br from-purple-100 to-pink-100'}`}>
+              <Leaf size={18} className={isDarkMode ? "text-purple-400" : "text-purple-600"} />
+            </div>
+            <div>
+              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                Leads Organik
+              </p>
+              <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {loading ? "..." : totalOrganik.toLocaleString()}
               </p>
             </div>
           </div>

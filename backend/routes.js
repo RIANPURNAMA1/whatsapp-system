@@ -128,6 +128,16 @@ const buildPeriodFilter = (period, columnName, startDate, endDate) => {
 const JWT_SECRET =
   "918cfb63fffbbc45a16b96beb5fca0deb9a33f0b2180997cc2f15b2affeab1e393c1630e3e9cb02aaf3fe5ae64fbaad1e5c03df2bbe29ca4ba9792c5c1f7ad0a";
 
+// Helper untuk membangun filter organik dinamis
+const buildOrganikFilter = async () => {
+  const organikKeywords = await query("SELECT keyword, is_active FROM organik_keywords WHERE is_active = TRUE");
+  if (organikKeywords.length === 0) {
+    return "AND LOWER(content) LIKE '%iya kakak%'";
+  }
+  const conditions = organikKeywords.map(k => `LOWER(content) LIKE '%${k.keyword.toLowerCase()}%'`).join(" OR ");
+  return `AND (${conditions})`;
+};
+
 // --- LETAKKAN DI SINI ---
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -1476,6 +1486,53 @@ router.delete("/keywords/:id", authenticateToken, async (req, res) => {
   }
 });
 
+// CRUD untuk Organik Keywords
+router.get("/organik-keywords", authenticateToken, async (req, res) => {
+  try {
+    const data = await query("SELECT * FROM organik_keywords ORDER BY created_at DESC");
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/organik-keywords", authenticateToken, async (req, res) => {
+  try {
+    const { keyword, is_active = true } = req.body;
+    if (!keyword) {
+      return res.status(400).json({ success: false, message: "Keyword harus diisi" });
+    }
+    await query("INSERT INTO organik_keywords (keyword, is_active) VALUES (?, ?)", [keyword, is_active]);
+    res.json({ success: true, message: "Keyword organik berhasil ditambahkan" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.put("/organik-keywords/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { keyword, is_active } = req.body;
+    if (!keyword) {
+      return res.status(400).json({ success: false, message: "Keyword harus diisi" });
+    }
+    await query("UPDATE organik_keywords SET keyword = ?, is_active = ? WHERE id = ?", [keyword, is_active, id]);
+    res.json({ success: true, message: "Keyword organik berhasil diperbarui" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.delete("/organik-keywords/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await query("DELETE FROM organik_keywords WHERE id = ?", [id]);
+    res.json({ success: true, message: "Keyword organik berhasil dihapus" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // ===============================================
 // STATS ROUTES - DASHBOARD UTAMA
 // ===============================================
@@ -1687,15 +1744,40 @@ router.get("/social/media", authenticateToken, async (req, res) => {
       GROUP BY cl.session_id
     `;
 
-    const [messages, closingData] = await Promise.all([
+    const organikFilter = await buildOrganikFilter();
+    const organikPlaceholder = finalSessionIds.map(() => "?").join(",");
+    
+    let organikParams = finalSessionIds;
+    let organikDateFilter = "";
+    if (dateFilterMsg) {
+      organikDateFilter = dateFilterMsg.replace('m.', '');
+      organikParams = [...finalSessionIds, startDate, endDate];
+    }
+    
+    const [messages, closingData, organikData] = await Promise.all([
       query(sqlMessages, paramsMessages),
-      query(sqlClosing, paramsClosing)
+      query(sqlClosing, paramsClosing),
+      query(
+        `SELECT session_id, COUNT(*) as organik_count 
+         FROM wa_messages 
+         WHERE session_id IN (${organikPlaceholder}) 
+         AND is_from_me = 1 AND chat_jid NOT LIKE '%@g.us' AND chat_jid NOT LIKE '%@newsletter'
+         ${organikFilter}
+         ${organikDateFilter}
+         GROUP BY session_id`,
+        organikParams
+      )
     ]);
 
     // 6. Mapping & Kalkulasi (Sama dengan logic sebelumnya)
     const closingMap = {};
     closingData.forEach(c => {
       closingMap[c.session_id] = parseInt(c.closing_count);
+    });
+
+    const organikMap = {};
+    organikData.forEach(o => {
+      organikMap[o.session_id] = parseInt(o.organik_count);
     });
 
     const stats = {};
@@ -1710,7 +1792,8 @@ router.get("/social/media", authenticateToken, async (req, res) => {
           session_id: sId, 
           totalPesanMasuk: 0,
           totalLeads: 0,
-          totalClosing: closingMap[sId] || 0 
+          totalClosing: closingMap[sId] || 0,
+          totalOrganik: organikMap[sId] || 0
         };
         uniqueSenders[sId] = { all_leads: new Set() };
         
@@ -1748,8 +1831,11 @@ router.get("/social/media", authenticateToken, async (req, res) => {
                 session_id: id,
                 totalPesanMasuk: 0,
                 totalLeads: 0,
-                totalClosing: closingMap[id] || 0
+                totalClosing: closingMap[id] || 0,
+                totalOrganik: organikMap[id] || 0
             };
+        } else {
+            stats[id].totalOrganik = organikMap[id] || 0;
         }
     });
 
@@ -1832,7 +1918,8 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
 
     // 3. Query Paralel
     // Perhatikan: query closing menggunakan targetSessionIds sendiri untuk IN (?)
-    const [keywords, closingDataRaw, messages] = await Promise.all([
+    const organikFilter = await buildOrganikFilter();
+    const [keywords, closingDataRaw, messages, organikDataRaw] = await Promise.all([
       query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
       
       // Mengelompokkan closing per session agar bisa tampil di Bar Chart
@@ -1846,12 +1933,24 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
       query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
              FROM wa_messages m
              WHERE m.session_id IN (${inPlaceholder}) 
-             AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams)
+             AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams),
+
+      query(`SELECT session_id, COUNT(*) as total_organik 
+             FROM wa_messages 
+             WHERE session_id IN (${inPlaceholder}) 
+             AND is_from_me = 1 AND chat_jid NOT LIKE '%@g.us' AND chat_jid NOT LIKE '%@newsletter'
+             ${organikFilter}
+             ${dateFilterMsg.replace('m.', '')}
+             GROUP BY session_id`, queryParams)
     ]);
 
     // 4. Mapping Closing per Device
     const closingMap = new Map();
     closingDataRaw.forEach(c => closingMap.set(c.session_id, parseInt(c.total_closing)));
+
+    // 4.1 Mapping Organik per Device
+    const organikMap = new Map();
+    organikDataRaw.forEach(o => organikMap.set(o.session_id, parseInt(o.total_organik)));
 
     // 5. Perhitungan Leads
     const keywordMap = new Map();
@@ -1902,7 +2001,8 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
         .map(s => ({
           name: s.name.toUpperCase(),
           lead_count: deviceLeadsMap.get(s.id)?.size || 0,
-          closing_count: closingMap.get(s.id) || 0 // Data untuk bar kedua
+          closing_count: closingMap.get(s.id) || 0,
+          leads_organik: organikMap.get(s.id) || 0
         }))
     });
 
@@ -1918,63 +2018,39 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const roleType = req.user.role_type.toLowerCase().trim();
 
-    // 1. Ambil list device yang diizinkan (Optimasi: Langsung ambil ID saja)
     let allowedSessions = [];
     if (roleType === "system" || roleType === "manager") {
-      allowedSessions = await query(
-        "SELECT id, name, status FROM wa_sessions ORDER BY name ASC",
-      );
+      allowedSessions = await query("SELECT id, name, status FROM wa_sessions ORDER BY name ASC");
     } else {
       allowedSessions = await query(
-        `SELECT s.id, s.name, s.status FROM wa_sessions s 
-         INNER JOIN wa_user_sessions us ON s.id = us.session_id 
-         WHERE us.user_id = ? ORDER BY s.name ASC`,
+        `SELECT s.id, s.name, s.status FROM wa_sessions s INNER JOIN wa_user_sessions us ON s.id = us.session_id WHERE us.user_id = ? ORDER BY s.name ASC`,
         [userId],
       );
     }
 
     const allowedIds = allowedSessions.map((s) => s.id);
-    if (allowedIds.length === 0)
-      return res.json({
-        success: true,
-        stats: {
-          /* data kosong */
-        },
-        devices: [],
-      });
+    if (allowedIds.length === 0) {
+      return res.json({ success: true, stats: {}, devices: [] });
+    }
 
-    // 2. Filter Device Security
-    let finalSessionIds =
-      sessionId && sessionId !== "all" && allowedIds.includes(sessionId)
-        ? [sessionId]
-        : allowedIds;
-
+    let finalSessionIds = sessionId && sessionId !== "all" && allowedIds.includes(sessionId) ? [sessionId] : allowedIds;
     const placeholders = finalSessionIds.map(() => "?").join(",");
     const sessionFilter = `AND m.session_id IN (${placeholders})`;
 
-    // 3. Bangun Filter Periode
-    const periodFilter = buildPeriodFilter(
-      period,
-      "m.timestamp",
-      startDate,
-      endDate,
-    );
+    const periodFilter = buildPeriodFilter(period, "m.timestamp", startDate, endDate);
+    const organikFilter = await buildOrganikFilter();
 
-    // --- OPTIMASI KUNCI: Hitung Batas Waktu Terkecil Sekali Saja ---
-    // Ini mencegah database melakukan scan ulang jutaan baris di dalam subquery
-    // --- OPTIMASI UTAMA: Pre-calculate Batas Waktu Periode ---
-    // Tambahkan kata "AND" sebelum ${periodFilter} agar syntax SQL benar
     const [minTimeRow] = await query(
       `SELECT MIN(timestamp) as min_t FROM wa_messages m WHERE 1=1 AND ${periodFilter}`,
       [],
     );
     const minPeriodTimestamp = minTimeRow?.min_t || "2000-01-01 00:00:00";
 
-    // --- EXECUTE QUERIES ---
     const [
       [rowPesanMasukAllTime],
       [rowPesanMasukPeriod],
       [rowPesanKeluar],
+      [rowLeadsOrganik],
       [rowLeadMasuk],
       [rowLeadAktif],
       [rowSlowResponse],
@@ -1983,164 +2059,17 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
       trendData,
       devicePerformance,
     ] = await Promise.all([
-      // 1. Total Leads All Time (Unique Customers)
-      // Menghitung berapa banyak nomor unik yang pernah chat ke kita secara keseluruhan
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-     FROM wa_messages m 
-     WHERE m.is_from_me = 0 
-     AND m.chat_jid NOT LIKE '%@g.us' 
-     AND m.chat_jid NOT LIKE '%@newsletter'
-     ${sessionFilter}`,
-        [...finalSessionIds],
-      ),
-
-      // 2. Leads Masuk Periode (Unique Customers in Period)
-      // Menghitung berapa banyak nomor unik yang mengirim pesan dalam periode filter
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-     FROM wa_messages m 
-     WHERE m.is_from_me = 0 
-     AND m.chat_jid NOT LIKE '%@g.us' 
-     AND m.chat_jid NOT LIKE '%@newsletter'
-     AND ${periodFilter} 
-     ${sessionFilter}`,
-        [...finalSessionIds],
-      ),
-
-      // 3. Leads Dibalas Periode (Unique Interacted Customers)
-      // Menghitung berapa banyak nomor unik yang berhasil kita kirimi pesan (Outbound) dalam periode filter
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-     FROM wa_messages m 
-     WHERE m.is_from_me = 1 
-     AND m.chat_jid NOT LIKE '%@g.us' 
-     AND m.chat_jid NOT LIKE '%@newsletter'
-     AND ${periodFilter} 
-     ${sessionFilter}`,
-        [...finalSessionIds],
-      ),
-
-      // 5. Lead Masuk (Akurat & Cepat)
-      // Definisi Lead: Chat pertama kali muncul di sistem dalam rentang waktu terpilih
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-         FROM wa_messages m
-         WHERE m.is_from_me = 0 
-         AND m.chat_jid NOT LIKE '%@g.us' 
-         AND m.chat_jid NOT LIKE '%@newsletter'
-         AND ${periodFilter} 
-         ${sessionFilter}
-         AND NOT EXISTS (
-           SELECT 1 FROM wa_messages older 
-           WHERE older.chat_jid = m.chat_jid 
-           AND older.timestamp < ?
-         )`,
-        [...finalSessionIds, minPeriodTimestamp], // Menggunakan parameter statis
-      ),
-
-      // 6. Lead Aktif (Orang unik yang chat dalam 30 menit terakhir)
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-         FROM wa_messages m 
-         WHERE m.is_from_me = 0 
-         AND m.chat_jid NOT LIKE '%@g.us' 
-         AND m.chat_jid NOT LIKE '%@newsletter'
-         AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) 
-         ${sessionFilter}`,
-        [...finalSessionIds],
-      ),
-
-      // 7. Slow Response (Orang unik yang chatnya belum dibalas > 10 menit)
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-         FROM wa_messages m 
-         WHERE m.is_from_me = 0 
-         AND m.chat_jid NOT LIKE '%@g.us' 
-         AND m.chat_jid NOT LIKE '%@newsletter'
-         AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) 
-         AND ${periodFilter} 
-         ${sessionFilter} 
-         AND NOT EXISTS (
-           SELECT 1 FROM wa_messages r 
-           WHERE r.chat_jid = m.chat_jid 
-           AND r.is_from_me = 1 
-           AND r.timestamp > m.timestamp
-         )`,
-        [...finalSessionIds],
-      ),
-
-      // 8. Tak Terjawab (Orang unik yang chatnya didiamkan > 24 jam)
-      query(
-        `SELECT COUNT(DISTINCT m.chat_jid) AS count 
-         FROM wa_messages m 
-         WHERE m.is_from_me = 0 
-         AND m.chat_jid NOT LIKE '%@g.us' 
-         AND m.chat_jid NOT LIKE '%@newsletter'
-         AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) 
-         AND ${periodFilter} 
-         ${sessionFilter} 
-         AND NOT EXISTS (
-           SELECT 1 FROM wa_messages r 
-           WHERE r.chat_jid = m.chat_jid 
-           AND r.is_from_me = 1 
-           AND r.timestamp > m.timestamp
-         )`,
-        [...finalSessionIds],
-      ),
-
-      // 9. Live Feed (Menampilkan PESAN TERAKHIR dari 15 orang berbeda)
-      // Kita gunakan subquery atau GROUP BY agar feed tidak penuh oleh 1 orang yang sama
-      query(
-        `SELECT m.id, 
-                COALESCE(ct.push_name, m.chat_jid) AS sender, 
-                m.content AS message_text, 
-                s.name AS received_via, 
-                m.timestamp AS received_at 
-         FROM wa_messages m
-         INNER JOIN (
-            SELECT MAX(id) as max_id 
-            FROM wa_messages 
-            WHERE is_from_me = 0 
-            GROUP BY chat_jid
-         ) last_msg ON m.id = last_msg.max_id
-         LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid 
-         LEFT JOIN wa_sessions s ON s.id = m.session_id 
-         WHERE m.is_from_me = 0 
-         AND m.chat_jid NOT LIKE '%@g.us' 
-         AND m.chat_jid NOT LIKE '%@newsletter'
-         ${sessionFilter} 
-         ORDER BY m.timestamp DESC 
-         LIMIT 15`,
-        [...finalSessionIds],
-      ),
-
-      // 10. Trend Data
-      query(
-        `SELECT 
-          ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, 
-          SUM(m.is_from_me = 0) AS masuk, 
-          SUM(m.is_from_me = 1) AS keluar 
-         FROM wa_messages m 
-         WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} 
-         GROUP BY time ORDER BY time ASC`,
-        [...finalSessionIds],
-      ),
-
-      // 11. Performa Device (Lead Masuk per Device)
-      query(
-        `SELECT s.name, 
-         (SELECT COUNT(DISTINCT m2.chat_jid) 
-          FROM wa_messages m2 
-          WHERE m2.session_id = s.id AND m2.is_from_me = 0 
-          AND m2.chat_jid NOT LIKE '%@g.us' 
-          AND ${periodFilter.replace(/m\./g, "m2.")}
-          AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m2.chat_jid AND older.timestamp < ?)
-         ) AS lead_count
-         FROM wa_sessions s 
-         WHERE s.id IN (${placeholders})`,
-        [minPeriodTimestamp, ...finalSessionIds],
-      ),
+      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${sessionFilter}`, [...finalSessionIds]),
+      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter}`, [...finalSessionIds]),
+      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter}`, [...finalSessionIds]),
+      query(`SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${organikFilter.replace('content', 'm.content')} AND ${periodFilter} ${sessionFilter}`, [...finalSessionIds]),
+      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m.chat_jid AND older.timestamp < ?)`, [...finalSessionIds, minPeriodTimestamp]),
+      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`, [...finalSessionIds]),
+      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
+      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
+      query(`SELECT m.id, COALESCE(ct.push_name, m.chat_jid) AS sender, m.content AS message_text, s.name AS received_via, m.timestamp AS received_at FROM wa_messages m INNER JOIN (SELECT MAX(id) as max_id FROM wa_messages WHERE is_from_me = 0 GROUP BY chat_jid) last_msg ON m.id = last_msg.max_id LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid LEFT JOIN wa_sessions s ON s.id = m.session_id WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${sessionFilter} ORDER BY m.timestamp DESC LIMIT 15`, [...finalSessionIds]),
+      query(`SELECT ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, SUM(m.is_from_me = 0) AS masuk, SUM(m.is_from_me = 1) AS keluar FROM wa_messages m WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} GROUP BY time ORDER BY time ASC`, [...finalSessionIds]),
+      query(`SELECT s.name, (SELECT COUNT(DISTINCT m2.chat_jid) FROM wa_messages m2 WHERE m2.session_id = s.id AND m2.is_from_me = 0 AND m2.chat_jid NOT LIKE '%@g.us' AND ${periodFilter.replace(/m\./g, "m2.")} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m2.chat_jid AND older.timestamp < ?)) AS lead_count, (SELECT COUNT(*) FROM wa_messages mo WHERE mo.session_id = s.id AND mo.is_from_me = 1 AND mo.chat_jid NOT LIKE '%@g.us' AND mo.chat_jid NOT LIKE '%@newsletter' ${organikFilter.replace('content', 'mo.content')} AND ${periodFilter.replace(/m\./g, "mo.")}) AS leads_organik FROM wa_sessions s WHERE s.id IN (${placeholders})`, [minPeriodTimestamp, ...finalSessionIds]),
     ]);
 
     res.json({
@@ -2149,9 +2078,9 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
         pesanMasukAllTime: rowPesanMasukAllTime?.count || 0,
         pesanMasukToday: rowPesanMasukPeriod?.count || 0,
         pesanKeluar: rowPesanKeluar?.count || 0,
+        leadsOrganik: rowLeadsOrganik?.count || 0,
         totalDevice: allowedSessions.length,
-        deviceConnected: allowedSessions.filter((s) => s.status === "connected")
-          .length,
+        deviceConnected: allowedSessions.filter((s) => s.status === "connected").length,
         leadMasuk: rowLeadMasuk?.count || 0,
         leadAktif: rowLeadAktif?.count || 0,
         slowResponse: rowSlowResponse?.count || 0,
@@ -2167,58 +2096,6 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
-
-// analisis AI
-router.post("/ai/analyze-dashboard", async (req, res) => {
-  try {
-    const { stats } = req.body;
-
-    if (!stats) {
-      return res.status(400).json({
-        success: false,
-        message: "Data statistik tidak ditemukan",
-      });
-    }
-
-    // Menggunakan model sesuai dokumentasi terbaru (Gemini 3 atau 2.5 Flash)
-    // Pastikan menggunakan "gemini-3-flash-preview" atau "gemini-2.5-flash"
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `
-        Anda adalah pakar strategi WhatsApp Marketing.
-        Analisis data performa hari ini:
-        - Pesan Masuk: ${stats.pesanMasukToday || 0}
-        - Pesan Terkirim: ${stats.pesanKeluar || 0}
-        - Leads Baru: ${stats.leadMasuk || 0}
-        - Leads Aktif: ${stats.leadAktif || 0}
-        - Slow Response: ${stats.slowResponse || 0}
-        - Belum Terjawab: ${stats.unanswered || 0}
-
-        Berikan 3 poin analisis singkat:
-        1. Kesimpulan performa.
-        2. Masalah utama (fokus ke Slow Response).
-        3. Strategi closing.
-      `,
-    });
-
-    // Sesuai dokumentasi baru: langsung gunakan .text (bukan fungsi)
-    res.json({
-      success: true,
-      analysis: response.text,
-    });
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-
-    // Memberikan info error yang lebih jelas untuk debugging
-    res.status(500).json({
-      success: false,
-      message: "Gagal memproses AI",
-      error: error.message,
-    });
-  }
-});
-
-
 // Route untuk membalas pesan otomatis (Auto-Reply)
 router.post("/ai/reply-message", async (req, res) => {
   try {

@@ -10,6 +10,7 @@ import {
   Search,
   MailCheck,
   Activity,
+  Leaf,
 } from "lucide-react";
 import useStore from "../store/useStore";
 import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
@@ -32,7 +33,7 @@ const FILTER_MAP: Record<string, string> = {
 };
 
 const StatDashboard: React.FC = () => {
-  const { isDarkMode, toggleDarkMode } = useStore();
+
 
   const now = new Date();
   const todayStart = new Date(new Date(now).setHours(0, 0, 0, 0))
@@ -46,6 +47,7 @@ const StatDashboard: React.FC = () => {
     totalLeads: 0,
     totalClosing: 0,
     averageConversionRate: 0,
+    totalOrganik: 0,
   });
 
   const [activeFilter, setActiveFilter] = useState("Hari ini");
@@ -166,16 +168,19 @@ const StatDashboard: React.FC = () => {
       const json = await res.json();
 
       if (json.success) {
+        const allOrganik = (json.deviceData || []).reduce((acc: number, d: any) => acc + (Number(d.leads_organik) || 0), 0);
         setOverallSummary({
           totalLeads: Number(json.summary?.totalLeads || 0),
           totalClosing: Number(json.summary?.totalClosing || 0),
           averageConversionRate: Number(json.summary?.averageConversionRate || 0),
+          totalOrganik: allOrganik,
         });
 
         const mappedDeviceData = (json.deviceData || []).map((device: any) => ({
           name: (device.name || "Unknown").toUpperCase(),
           lead_count: Number(device.lead_count || 0),
           closing_count: Number(device.closing_count || 0),
+          leads_organik: Number(device.leads_organik || 0),
         }));
 
         setDeviceLeadsData(mappedDeviceData);
@@ -405,13 +410,6 @@ const StatDashboard: React.FC = () => {
                 </button>
               ))}
             </div>
-
-            <button
-              onClick={toggleDarkMode}
-              className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-blue-600 hover:border-blue-300 transition-all"
-            >
-              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
           </div>
         </div>
 
@@ -458,82 +456,84 @@ const StatDashboard: React.FC = () => {
         <AIAnalyticSection stats={data.stats} dark={false} />
 
         {/* Stats Overview Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-emerald-600" />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{data.stats.pesanMasukToday || 0}</p>
-                <p className="text-xs text-gray-600 font-medium">Pesan Masuk {activeFilter}</p>
+                <p className="text-xl font-bold text-gray-900">{data.stats.pesanMasukToday || 0}</p>
+                <p className="text-[10px] text-gray-600 font-medium">Pesan Masuk</p>
               </div>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-1.5">
-              <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '100%' }} />
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                <Send className="w-5 h-5 text-orange-600" />
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 bg-orange-100 rounded-xl flex items-center justify-center">
+                <Send className="w-4 h-4 text-orange-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{data.stats.pesanKeluar || 0}</p>
-                <p className="text-xs text-gray-600 font-medium">Pesan Terkirim</p>
+                <p className="text-xl font-bold text-gray-900">{data.stats.pesanKeluar || 0}</p>
+                <p className="text-[10px] text-gray-600 font-medium">Terkirim</p>
               </div>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-1.5">
-              <div className="bg-orange-500 h-1.5 rounded-full" style={{ width: '100%' }} />
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <MailCheck className="w-5 h-5 text-blue-600" />
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center">
+                <Leaf className="w-4 h-4 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{data.stats.leadAktif || 0}</p>
-                <p className="text-xs text-gray-600 font-medium">Leads Aktif</p>
+                <p className="text-xl font-bold text-gray-900">{data.stats.leadsOrganik || 0}</p>
+                <p className="text-[10px] text-gray-600 font-medium">Leads Organik</p>
               </div>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-1.5">
-              <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: '100%' }} />
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                <Smartphone className="w-5 h-5 text-indigo-600" />
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
+                <MailCheck className="w-4 h-4 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{data.stats.deviceConnected || 0}</p>
-                <p className="text-xs text-gray-600 font-medium">Device Online</p>
+                <p className="text-xl font-bold text-gray-900">{data.stats.leadAktif || 0}</p>
+                <p className="text-[10px] text-gray-600 font-medium">Leads Aktif</p>
               </div>
             </div>
-            <p className="text-[10px] text-gray-500">dari {data.stats.totalDevice || 0} device</p>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${data.stats.deviceConnected > 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                <CheckCircle className={`w-5 h-5 ${data.stats.deviceConnected > 0 ? 'text-emerald-600' : 'text-red-600'}`} />
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center">
+                <Smartphone className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">{data.stats.deviceConnected || 0}</p>
+                <p className="text-[10px] text-gray-600 font-medium">Online</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${data.stats.deviceConnected > 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                <CheckCircle className={`w-4 h-4 ${data.stats.deviceConnected > 0 ? 'text-emerald-600' : 'text-red-600'}`} />
               </div>
               <div>
                 <p className={`text-lg font-bold ${data.stats.deviceConnected > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {data.stats.deviceConnected > 0 ? 'STABIL' : 'OFFLINE'}
+                  {data.stats.deviceConnected > 0 ? 'ONLINE' : 'OFFLINE'}
                 </p>
-                <p className="text-xs text-gray-600 font-medium">Status Sistem</p>
+                <p className="text-[10px] text-gray-600 font-medium">Status</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <ActivityChart data={data.chartData} dark={false} />
           <SLAChart data={slaData} dark={false} />
           <DeviceBarChart
@@ -543,7 +543,7 @@ const StatDashboard: React.FC = () => {
         </div>
 
         {/* Bottom Cards Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
           <LiveFeed
             messages={data.messages}
             totalPesan={data.stats.pesanMasukAllTime}
@@ -556,6 +556,7 @@ const StatDashboard: React.FC = () => {
             conversionRate={overallSummary.averageConversionRate}
             totalLeads={overallSummary.totalLeads}
             chartData={data?.chartData || []}
+            totalOrganik={overallSummary.totalOrganik}
           />
           <OverallLeadsCard
             isDarkMode={false}
@@ -563,6 +564,7 @@ const StatDashboard: React.FC = () => {
             totalLeads={overallSummary.totalLeads}
             totalClosing={overallSummary.totalClosing}
             conversionRate={overallSummary.averageConversionRate}
+            totalOrganik={overallSummary.totalOrganik}
           />
         </div>
 

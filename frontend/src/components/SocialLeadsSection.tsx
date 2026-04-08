@@ -12,6 +12,7 @@ import {
   Users,
   Smartphone,
   ArrowUpRight,
+  Leaf,
 } from "lucide-react";
 import {
   DragDropContext,
@@ -69,6 +70,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
           const stats = apiData.find((d: any) => d.session_id === s.id);
           const totalLeads = stats?.totalLeads || 0;
           const totalClosing = stats?.totalClosing || 0;
+          const totalOrganik = stats?.totalOrganik || 0;
           const conversionRate =
             totalLeads > 0
               ? Math.round((totalClosing / totalLeads) * 100)
@@ -81,6 +83,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
             total: stats?.totalPesanMasuk || 0,
             totalLeads,
             totalClosing,
+            totalOrganik,
             convRate: conversionRate,
           };
         });
@@ -114,6 +117,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
 
   const totalLeadsAll = items.reduce((sum, item) => sum + item.totalLeads, 0);
   const totalClosingAll = items.reduce((sum, item) => sum + item.totalClosing, 0);
+  const totalOrganikAll = items.reduce((sum, item) => sum + item.totalOrganik, 0);
   const avgConversion = totalLeadsAll > 0 ? Math.round((totalClosingAll / totalLeadsAll) * 100) : 0;
 
   return (
@@ -139,7 +143,14 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
               <Users size={16} className="text-emerald-500" />
               <div>
                 <p className="text-[10px] text-gray-400 font-semibold uppercase">Total Leads</p>
-                <p className="text-sm font-bold text-gray-900">{totalLeadsAll.toLocaleString()}</p>
+                <p className="text-sm font-bold text-gray-900">{(totalLeadsAll + totalOrganikAll).toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
+              <Leaf size={16} className="text-purple-500" />
+              <div>
+                <p className="text-[10px] text-gray-400 font-semibold uppercase">Organik</p>
+                <p className="text-sm font-bold text-gray-900">{totalOrganikAll.toLocaleString()}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -298,7 +309,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
                                     Total Leads
                                   </p>
                                   <p className="text-3xl font-bold text-gray-900 tracking-tight">
-                                    {item.totalLeads}
+                                    {item.totalLeads + item.totalOrganik}
                                   </p>
                                 </div>
                                 <div className="text-right">
@@ -365,6 +376,19 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
                                     {item.totalClosing}
                                   </span>
                                   <ArrowUpRight size={14} className="text-emerald-500" />
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center gap-2">
+                                  <Leaf size={14} className="text-purple-500" />
+                                  <span className="text-[11px] font-semibold text-gray-500">
+                                    Leads Organik
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-purple-600">
+                                    {item.totalOrganik}
+                                  </span>
                                 </div>
                               </div>
                               <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200/50">

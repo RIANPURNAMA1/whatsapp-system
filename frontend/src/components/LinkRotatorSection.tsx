@@ -84,16 +84,6 @@ interface TrackedLink {
   created_at?: string;
 }
 
-interface DailyClick {
-  date: string;
-  count: number;
-}
-
-interface ClickStats {
-  total: number;
-  daily: DailyClick[];
-}
-
 export const LinkRotatorSection: React.FC = () => {
   const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001';
   const [rotators, setRotators] = useState<Rotator[]>([]);
@@ -112,10 +102,6 @@ export const LinkRotatorSection: React.FC = () => {
   });
   const [addUrlSubmitting, setAddUrlSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"rotator" | "tracked">("rotator");
-  const [dateFilter, setDateFilter] = useState<"today" | "yesterday" | "week" | "month">("today");
-  const [clickStats, setClickStats] = useState<Record<number, ClickStats>>({});
-  const [loadingStats, setLoadingStats] = useState(false);
-  const [filteredRotatorClicks, setFilteredRotatorClicks] = useState(0);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -153,60 +139,10 @@ export const LinkRotatorSection: React.FC = () => {
     }
   };
 
-  const fetchRotatorStats = async (filter: "today" | "yesterday" | "week" | "month") => {
-    setLoadingStats(true);
-    const today = new Date();
-    let startDate = "";
-    let endDate = "";
-    
-    if (filter === "today") {
-      startDate = today.toISOString().split("T")[0];
-      endDate = startDate;
-    } else if (filter === "yesterday") {
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      startDate = yesterday.toISOString().split("T")[0];
-      endDate = startDate;
-    } else if (filter === "week") {
-      const weekAgo = new Date(today);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      startDate = weekAgo.toISOString().split("T")[0];
-      endDate = today.toISOString().split("T")[0];
-    } else if (filter === "month") {
-      const monthAgo = new Date(today);
-      monthAgo.setDate(monthAgo.getDate() - 30);
-      startDate = monthAgo.toISOString().split("T")[0];
-      endDate = today.toISOString().split("T")[0];
-    }
-    
-    try {
-      const { data } = await api.get("/rotators/stats", {
-        params: { start_date: startDate, end_date: endDate }
-      });
-      setFilteredRotatorClicks(data.data?.total_clicks || 0);
-      if (data.data?.links) {
-        const statsMap: Record<number, ClickStats> = {};
-        data.data.links.forEach((link: any) => {
-          statsMap[link.id] = link;
-        });
-        setClickStats(statsMap);
-      }
-    } catch (error) {
-      setFilteredRotatorClicks(0);
-    }
-    setLoadingStats(false);
-  };
-
   useEffect(() => {
     fetchRotators();
     fetchTrackedLinks();
   }, []);
-
-  useEffect(() => {
-    if (activeTab === "rotator") {
-      fetchRotatorStats("today");
-    }
-  }, [activeTab]);
 
   const addWaField = () => setWaList([...waList, { number: "", weight: 1 }]);
 
@@ -452,47 +388,6 @@ export const LinkRotatorSection: React.FC = () => {
         {/* ROTATOR TAB */}
         {activeTab === "rotator" && (
           <>
-            {/* Date Filter */}
-            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-lg font-bold text-gray-900">Filter Klik</h2>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex bg-white rounded-xl border border-gray-200 p-1">
-                  <button
-                    onClick={() => { setDateFilter("today"); fetchRotatorStats("today"); }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                      dateFilter === "today" ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    Hari Ini
-                  </button>
-                  <button
-                    onClick={() => { setDateFilter("yesterday"); fetchRotatorStats("yesterday"); }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                      dateFilter === "yesterday" ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    Kemarin
-                  </button>
-                  <button
-                    onClick={() => { setDateFilter("week"); fetchRotatorStats("week"); }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                      dateFilter === "week" ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    7 Hari
-                  </button>
-                  <button
-                    onClick={() => { setDateFilter("month"); fetchRotatorStats("month"); }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                      dateFilter === "month" ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    30 Hari
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {/* STATS */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
               <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
@@ -512,12 +407,8 @@ export const LinkRotatorSection: React.FC = () => {
                     <MousePointerClick className="w-6 h-6 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {loadingStats ? "..." : filteredRotatorClicks}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Klik {dateFilter === "today" ? "Hari Ini" : dateFilter === "yesterday" ? "Kemarin" : dateFilter === "week" ? "7 Hari" : "30 Hari"}
-                    </p>
+                    <p className="text-2xl font-bold text-gray-900">{totalClicks}</p>
+                    <p className="text-sm text-gray-500">Total Klik</p>
                   </div>
                 </div>
               </div>
@@ -598,20 +489,11 @@ export const LinkRotatorSection: React.FC = () => {
 
                         <div className="flex items-center gap-6">
                           <div className="text-center">
-                            <p className="font-black text-2xl text-blue-600">
-                              {loadingStats ? "..." : (clickStats[item.id]?.total || 0)}
-                            </p>
-                            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                              {dateFilter === "today" ? "Hari Ini" : dateFilter === "yesterday" ? "Kemarin" : dateFilter === "week" ? "7 Hari" : "30 Hari"}
-                            </p>
-                          </div>
-                          <div className="h-10 w-[1px] bg-gray-200" />
-                          <div className="text-center">
-                            <p className="font-bold text-lg text-gray-600">
+                            <p className="font-black text-2xl text-gray-900">
                               {item.clicks}
                             </p>
                             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                              Total
+                              Total Klik
                             </p>
                           </div>
                           <div className="h-10 w-[1px] bg-gray-200" />
@@ -1074,42 +956,15 @@ export const LinkRotatorSection: React.FC = () => {
             <div className="p-6 space-y-4">
               <div className="p-4 bg-gray-50 rounded-xl">
                 <p className="text-[10px] uppercase font-bold text-gray-500 mb-2">
-                  Statistik {dateFilter === "today" ? "Hari Ini" : dateFilter === "yesterday" ? "Kemarin" : dateFilter === "week" ? "7 Hari" : "30 Hari"}
+                  Statistik
                 </p>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Klik Filter</span>
-                  <span className="text-2xl font-black text-blue-600">
-                    {loadingStats ? "..." : (clickStats[viewingDetail.id]?.total || 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
                   <span className="text-gray-600">Total Klik</span>
-                  <span className="text-xl font-bold text-gray-700">
+                  <span className="text-2xl font-black text-blue-600">
                     {viewingDetail.clicks}
                   </span>
                 </div>
               </div>
-
-              {/* Daily Breakdown */}
-              {clickStats[viewingDetail.id]?.daily && clickStats[viewingDetail.id].daily.length > 0 && (
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-[10px] uppercase font-bold text-gray-500 mb-3">
-                    Perincian Harian
-                  </p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                    {clickStats[viewingDetail.id].daily.map((day: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-center text-sm py-1.5 border-b border-gray-100 last:border-0">
-                        <span className="text-gray-600 font-medium">
-                          {new Date(day.date).toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" })}
-                        </span>
-                        <span className="bg-blue-100 text-blue-600 px-3 py-0.5 rounded-full text-xs font-bold">
-                          {day.count} klik
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <div className="p-4 bg-gray-50 rounded-xl">
                 <p className="text-[10px] uppercase font-bold text-gray-500 mb-3">

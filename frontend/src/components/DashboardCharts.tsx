@@ -16,6 +16,7 @@ const TOKEN = {
   green:  "#10b981",
   blue:   "#3b82f6",
   orange: "#f97316",
+  purple: "#8b5cf6",
   red:    "#ef4444",
   greenGlow: "rgba(16,185,129,0.18)",
   blueGlow:  "rgba(59,130,246,0.18)",
@@ -284,6 +285,7 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
 
   const totalLeads   = data.reduce((a, b) => a + (b.lead_count    || 0), 0);
   const totalClosing = data.reduce((a, b) => a + (b.closing_count || 0), 0);
+  const totalOrganik = data.reduce((a, b) => a + (b.leads_organik  || 0), 0);
   const efficiencyPct = totalLeads
     ? Math.round((totalClosing / totalLeads) * 100)
     : 0;
@@ -308,6 +310,12 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
                 Closing <strong className={dark ? "text-white" : "text-slate-700"}>{totalClosing}</strong>
               </span>
             </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-purple-400 inline-block" />
+              <span className={`text-[10px] font-bold ${dark ? "text-slate-500" : "text-slate-400"}`}>
+                Organik <strong className={dark ? "text-white" : "text-slate-700"}>{totalOrganik}</strong>
+              </span>
+            </span>
 
             {/* Efficiency badge */}
             <span className={`ml-auto text-[10px] font-black px-2.5 py-1 rounded-lg
@@ -324,7 +332,7 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
 
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 20, right: 4, left: -24, bottom: 0 }} barGap={6}>
+          <BarChart data={data} margin={{ top: 20, right: 4, left: -24, bottom: 0 }} barGap={4}>
             <defs>
               <linearGradient id="barGreen" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%"   stopColor={TOKEN.green} stopOpacity={1}   />
@@ -333,6 +341,10 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
               <linearGradient id="barBlue" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%"   stopColor={TOKEN.blue} stopOpacity={1}   />
                 <stop offset="100%" stopColor={TOKEN.blue} stopOpacity={0.7} />
+              </linearGradient>
+              <linearGradient id="barPurple" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor={TOKEN.purple} stopOpacity={1}   />
+                <stop offset="100%" stopColor={TOKEN.purple} stopOpacity={0.7} />
               </linearGradient>
             </defs>
 
@@ -356,7 +368,7 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
                 return (
                   <div
                     className="p-3.5 rounded-xl shadow-xl"
-                    style={{ background: tooltipBg, border: `1px solid ${tooltipBdr}`, minWidth: "150px" }}
+                    style={{ background: tooltipBg, border: `1px solid ${tooltipBdr}`, minWidth: "170px" }}
                   >
                     <p className={`text-[9px] font-black uppercase tracking-widest mb-2.5 ${dark ? "text-slate-400" : "text-slate-500"}`}>
                       {row.name}
@@ -374,6 +386,12 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
                         </span>
                         <span className={`text-sm font-black ${dark ? "text-white" : "text-slate-800"}`}>{row.closing_count}</span>
                       </div>
+                      <div className="flex items-center justify-between gap-6">
+                        <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
+                          <span className="w-2 h-2 rounded-full bg-purple-400" /> Organik
+                        </span>
+                        <span className={`text-sm font-black ${dark ? "text-white" : "text-slate-800"}`}>{row.leads_organik || 0}</span>
+                      </div>
                       <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
                         <span className="text-[9px] font-bold text-slate-400 uppercase">Conv. Rate</span>
                         <span className={`text-[11px] font-black ${rate >= 50 ? "text-emerald-500" : "text-orange-500"}`}>{rate}%</span>
@@ -384,7 +402,7 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
               }}
             />
 
-            <Bar dataKey="lead_count" fill="url(#barGreen)" radius={[5, 5, 0, 0]} barSize={28} animationDuration={1400}>
+            <Bar dataKey="lead_count" fill="url(#barGreen)" radius={[5, 5, 0, 0]} barSize={24} animationDuration={1400}>
               <LabelList
                 dataKey="lead_count"
                 position="top"
@@ -403,7 +421,7 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
               />
             </Bar>
 
-            <Bar dataKey="closing_count" fill="url(#barBlue)" radius={[5, 5, 0, 0]} barSize={28} animationDuration={1800}>
+            <Bar dataKey="closing_count" fill="url(#barBlue)" radius={[5, 5, 0, 0]} barSize={24} animationDuration={1800}>
               <LabelList
                 dataKey="closing_count"
                 position="top"
@@ -413,6 +431,25 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
                   return (
                     <text x={x + width / 2} y={y - 7}
                       fill={TOKEN.blue} fontSize={9} fontWeight="900"
+                      textAnchor="middle"
+                    >
+                      {value}
+                    </text>
+                  );
+                }}
+              />
+            </Bar>
+
+            <Bar dataKey="leads_organik" fill="url(#barPurple)" radius={[5, 5, 0, 0]} barSize={24} animationDuration={2000}>
+              <LabelList
+                dataKey="leads_organik"
+                position="top"
+                content={(props: any) => {
+                  const { x, y, width, value } = props;
+                  if (!value) return null;
+                  return (
+                    <text x={x + width / 2} y={y - 7}
+                      fill={TOKEN.purple} fontSize={9} fontWeight="900"
                       textAnchor="middle"
                     >
                       {value}

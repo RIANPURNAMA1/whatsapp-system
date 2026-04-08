@@ -102,6 +102,13 @@ async function initDatabase() {
       color_code VARCHAR(20) DEFAULT '#8696A0',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS organik_keywords (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      keyword VARCHAR(255) NOT NULL,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
 
     // 1. BUAT TABEL ROLE DULU
     // Di file db.js
