@@ -311,7 +311,7 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
               </span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-purple-400 inline-block" />
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
               <span className={`text-[10px] font-bold ${dark ? "text-slate-500" : "text-slate-400"}`}>
                 Organik <strong className={dark ? "text-white" : "text-slate-700"}>{totalOrganik}</strong>
               </span>
@@ -342,9 +342,9 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
                 <stop offset="0%"   stopColor={TOKEN.blue} stopOpacity={1}   />
                 <stop offset="100%" stopColor={TOKEN.blue} stopOpacity={0.7} />
               </linearGradient>
-              <linearGradient id="barPurple" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor={TOKEN.purple} stopOpacity={1}   />
-                <stop offset="100%" stopColor={TOKEN.purple} stopOpacity={0.7} />
+              <linearGradient id="barAmber" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor="#d97706" stopOpacity={1}   />
+                <stop offset="100%" stopColor="#b45309" stopOpacity={0.7} />
               </linearGradient>
             </defs>
 
@@ -440,7 +440,7 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
               />
             </Bar>
 
-            <Bar dataKey="leads_organik" fill="url(#barPurple)" radius={[5, 5, 0, 0]} barSize={24} animationDuration={2000}>
+            <Bar dataKey="leads_organik" fill="url(#barAmber)" radius={[5, 5, 0, 0]} barSize={24} animationDuration={2000}>
               <LabelList
                 dataKey="leads_organik"
                 position="top"
@@ -449,7 +449,7 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
                   if (!value) return null;
                   return (
                     <text x={x + width / 2} y={y - 7}
-                      fill={TOKEN.purple} fontSize={9} fontWeight="900"
+                      fill="#d97706" fontSize={9} fontWeight="900"
                       textAnchor="middle"
                     >
                       {value}
