@@ -3288,4 +3288,175 @@ router.delete(
   },
 );
 
+// ========== PLATFORM & GENERAL SETTINGS ==========
+
+// GET: Get all platform settings
+router.get("/settings/platforms", authenticateToken, async (req, res) => {
+  try {
+    const platforms = await query(
+      "SELECT platform, settings_key, settings_value FROM platform_settings ORDER BY platform, settings_key"
+    );
+    
+    const result = {};
+    platforms.forEach(row => {
+      if (!result[row.platform]) {
+        result[row.platform] = {};
+      }
+      let value = row.settings_value;
+      // Parse boolean strings
+      if (value === "true") value = true;
+      else if (value === "false") value = false;
+      // Try parse JSON for objects
+      try {
+        value = JSON.parse(value);
+      } catch (e) {}
+      result[row.platform][row.settings_key] = value;
+    });
+    
+    // Add default values for missing platforms
+    const defaultPlatforms = {
+      whatsapp: { enabled: true, autoReply: true, sound: true, autoOnline: false, saveContact: true, typing: true, readReceipt: true },
+      tiktok: { enabled: false, autoReply: false, notifyComment: true, autoLike: false },
+      instagram: { enabled: false, autoReply: false, autoReplyComment: false, storyNotify: true },
+      facebook: { enabled: false, autoReply: false, autoReplyComment: false, autoInbox: true },
+    };
+    
+    for (const [platform, defaults] of Object.entries(defaultPlatforms)) {
+      if (!result[platform]) {
+        result[platform] = defaults;
+      } else {
+        result[platform] = { ...defaults, ...result[platform] };
+      }
+    }
+    
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error("Error get platform settings:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST: Save platform settings
+router.post("/settings/platforms", authenticateToken, async (req, res) => {
+  try {
+    const { platform, settings } = req.body;
+    
+    if (!platform || !settings) {
+      return res.status(400).json({ success: false, error: "Platform and settings required" });
+    }
+    
+    const validPlatforms = ["whatsapp", "tiktok", "instagram", "facebook"];
+    if (!validPlatforms.includes(platform)) {
+      return res.status(400).json({ success: false, error: "Invalid platform" });
+    }
+    
+    for (const [key, value] of Object.entries(settings)) {
+      const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+      await query(
+        `INSERT INTO platform_settings (platform, settings_key, settings_value) 
+         VALUES (?, ?, ?) 
+         ON DUPLICATE KEY UPDATE settings_value = VALUES(settings_value)`,
+        [platform, key, stringValue]
+      );
+    }
+    
+    res.json({ success: true, message: "Settings saved successfully" });
+  } catch (err) {
+    console.error("Error save platform settings:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET: Get general settings
+router.get("/settings/general", authenticateToken, async (req, res) => {
+  try {
+    const settings = await query("SELECT settings_key, settings_value FROM general_settings");
+    
+    const result = {
+      sessionTimeout: "60",
+      theme: "light",
+      language: "id",
+      timezone: "Asia/Jakarta",
+      notificationSound: true,
+      desktopNotification: true,
+      autoRefresh: true,
+      refreshInterval: "30",
+    };
+    
+    settings.forEach(row => {
+      let value = row.settings_value;
+      if (value === "true") value = true;
+      else if (value === "false") value = false;
+      result[row.settings_key] = value;
+    });
+    
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error("Error get general settings:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST: Save general settings
+router.post("/settings/general", authenticateToken, async (req, res) => {
+  try {
+    const { settings } = req.body;
+    
+    if (!settings) {
+      return res.status(400).json({ success: false, error: "Settings required" });
+    }
+    
+    for (const [key, value] of Object.entries(settings)) {
+      await query(
+        `INSERT INTO general_settings (settings_key, settings_value) 
+         VALUES (?, ?) 
+         ON DUPLICATE KEY UPDATE settings_value = VALUES(settings_value)`,
+        [key, String(value)]
+      );
+    }
+    
+    res.json({ success: true, message: "General settings saved successfully" });
+  } catch (err) {
+    console.error("Error save general settings:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT: Update single setting
+router.put("/settings/:platform/:key", authenticateToken, async (req, res) => {
+  try {
+    const { platform, key } = req.params;
+    const { value } = req.body;
+    
+    const validPlatforms = ["whatsapp", "tiktok", "instagram", "facebook", "general"];
+    if (!validPlatforms.includes(platform)) {
+      return res.status(400).json({ success: false, error: "Invalid platform" });
+    }
+    
+    const table = platform === "general" ? "general_settings" : "platform_settings";
+    const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+    
+    if (platform === "general") {
+      await query(
+        `INSERT INTO general_settings (settings_key, settings_value) 
+         VALUES (?, ?) 
+         ON DUPLICATE KEY UPDATE settings_value = VALUES(settings_value)`,
+        [key, stringValue]
+      );
+    } else {
+      await query(
+        `INSERT INTO platform_settings (platform, settings_key, settings_value) 
+         VALUES (?, ?, ?) 
+         ON DUPLICATE KEY UPDATE settings_value = VALUES(settings_value)`,
+        [platform, key, stringValue]
+      );
+    }
+    
+    res.json({ success: true, message: "Setting updated" });
+  } catch (err) {
+    console.error("Error update setting:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

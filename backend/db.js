@@ -359,6 +359,22 @@ CREATE TABLE IF NOT EXISTS wa_rules (
     INDEX (keyword)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
+    `CREATE TABLE IF NOT EXISTS platform_settings (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      platform ENUM('whatsapp', 'tiktok', 'instagram', 'facebook') NOT NULL,
+      settings_key VARCHAR(100) NOT NULL,
+      settings_value TEXT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_platform_setting (platform, settings_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+    `CREATE TABLE IF NOT EXISTS general_settings (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      settings_key VARCHAR(100) UNIQUE NOT NULL,
+      settings_value TEXT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
   ];
 
   try {

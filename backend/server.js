@@ -8,7 +8,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import routes from "./routes.js";
+import tiktokRoutes from "./routes/tiktok.js";
 import { createSession } from "./whatsapp.js";
+import { migrateTikTokTables } from "./db_tiktok.js";
 import { query, queryOne, ensureDbReady } from "./db.js";
 
 dotenv.config();
@@ -212,6 +214,7 @@ app.get("/t/:code", async (req, res) => {
 // 2. API Routes
 // ===============================================
 app.use("/api", routes);
+app.use("/api/tiktok", tiktokRoutes);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 // Health check
 app.get("/health", (req, res) => {
@@ -266,6 +269,7 @@ httpServer.listen(PORT, async () => {
 
   try {
     await ensureDbReady();
+    await migrateTikTokTables();
     console.log(`🚀 Backend Run: http://localhost:${PORT}`);
 
     // Info Link yang benar

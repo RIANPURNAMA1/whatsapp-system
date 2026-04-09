@@ -26,6 +26,7 @@ import { KeywordManager } from "../components/KeywordManager";
 import { LinkRotatorSection } from "../components/LinkRotatorSection";
 import AISettingPage from "../components/AISettingPage";
 import GroupList from "@/components/Grouplist";
+import TikTokPanel from "../components/tiktok/TikTokPanel";
 import type { GroupChat } from "../types/Group";
 
 interface UserData {
@@ -221,6 +222,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
           "keyword-management",
           "link-rotator",
           "ai-setting",
+          "tiktok",
         ].includes(activeTab) ? (
           <div className="flex flex-1 flex-col overflow-hidden relative">
             <button
@@ -286,6 +288,12 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
             {activeTab === "settings" && (
               <div className="flex-1 overflow-y-auto h-full">
                 <Settings onBack={() => setActiveTab("chats")} />
+              </div>
+            )}
+
+            {activeTab === "tiktok" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <TikTokPanel onBack={() => setActiveTab("chats")} />
               </div>
             )}
           </div>
