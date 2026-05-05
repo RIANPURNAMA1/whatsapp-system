@@ -2417,6 +2417,24 @@ router.get("/ai-settings/assets/:sessionId", authenticateToken, async (req, res)
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+router.delete("/ai-assets/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Asset ID wajib diisi" });
+    }
+
+    await query("DELETE FROM wa_ai_media_assets WHERE id = ?", [id]);
+
+    res.json({ success: true, message: "Aset berhasil dihapus" });
+  } catch (err) {
+    console.error("Error delete asset:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // 3. Route untuk Mengubah Status Aktif/Nonaktif AI (Toggle)
 router.post("/ai-settings/toggle", authenticateToken, async (req, res) => {
   try {
@@ -2468,6 +2486,27 @@ router.post("/ai-settings/toggle-rules", authenticateToken, async (req, res) => 
     });
   } catch (err) {
     console.error("Error toggle-rules:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.delete("/ai-settings/:sessionId", authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: "Session ID wajib diisi" });
+    }
+
+    await query("DELETE FROM wa_ai_media_assets WHERE session_id = ?", [sessionId]);
+    await query("DELETE FROM wa_ai_settings WHERE session_id = ?", [sessionId]);
+
+    res.json({
+      success: true,
+      message: `Konfigurasi AI untuk device ${sessionId} berhasil dihapus`
+    });
+  } catch (err) {
+    console.error("Error delete AI settings:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

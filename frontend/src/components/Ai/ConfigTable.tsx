@@ -17,12 +17,13 @@ interface ConfigTableProps {
   configs: any[];
   getSessionName: (id: string) => string;
   onEdit: (cfg: any) => void;
+  onDelete: (cfg: any) => void;
   onCopy: (id: string) => void;
   onRefresh: () => void;
 }
 
 export const ConfigTable: React.FC<ConfigTableProps> = ({ 
-  configs, getSessionName, onEdit, onCopy, onRefresh 
+  configs, getSessionName, onEdit, onDelete, onCopy, onRefresh 
 }) => {
   const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
   const [loadingRules, setLoadingRules] = useState<string | null>(null);
@@ -228,7 +229,7 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                     <div className="flex justify-center gap-2">
                       <button onClick={() => onEdit(cfg)} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-all"><Edit3 size={14} /></button>
                       <button onClick={() => onCopy(sId)} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-all"><Copy size={14} /></button>
-                      <button className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-all"><Trash2 size={14} /></button>
+                      <button onClick={() => onDelete(cfg)} className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-all"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>

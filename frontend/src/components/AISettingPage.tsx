@@ -195,6 +195,23 @@ const AISettingPage: React.FC = () => {
     }
   };
 
+  const handleDelete = async (cfg: any) => {
+    const sessionName = getSessionName(cfg.session_id);
+    if (!confirm(`Hapus konfigurasi AI untuk device "${sessionName}"?`)) return;
+    try {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/ai-settings/${cfg.session_id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
+      toast.success(`Konfigurasi ${sessionName} berhasil dihapus`);
+      fetchConfigs();
+      if (selectedSessionId === cfg.session_id) {
+        setSelectedSessionId("");
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Gagal menghapus konfigurasi");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -212,6 +229,7 @@ const AISettingPage: React.FC = () => {
           configs={savedConfigs}
           getSessionName={getSessionName}
           onEdit={handleEdit}
+          onDelete={handleDelete}
           onCopy={(id) => {
             navigator.clipboard.writeText(id);
             toast.success("ID Disalin");
