@@ -12,6 +12,15 @@ import {
   Search,
   ExternalLink,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Globe,
+  Monitor,
+  Smartphone,
+  Tablet,
+  MapPin,
+  Clock,
+  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -51,6 +60,19 @@ interface Rotator {
   message: string;
 }
 
+interface ClickLog {
+  id: number;
+  ip_address: string;
+  user_agent: string;
+  referer: string;
+  country: string | null;
+  city: string | null;
+  device_type: string | null;
+  browser: string | null;
+  os: string | null;
+  created_at: string;
+}
+
 export const LinkRotatorSection: React.FC = () => {
   const [rotators, setRotators] = useState<Rotator[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,6 +82,10 @@ export const LinkRotatorSection: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [viewingDetail, setViewingDetail] = useState<Rotator | null>(null);
+  const [clickLogs, setClickLogs] = useState<ClickLog[]>([]);
+  const [clickLogsPage, setClickLogsPage] = useState(1);
+  const [clickLogsTotal, setClickLogsTotal] = useState(0);
+  const [clickLogsLoading, setClickLogsLoading] = useState(false);
   const [period, setPeriod] = useState<"today" | "yesterday" | "week" | "month">("today");
   const [periodClicks, setPeriodClicks] = useState<Record<number, number>>({});
   const [totalPeriodClicks, setTotalPeriodClicks] = useState(0);
@@ -96,6 +122,24 @@ export const LinkRotatorSection: React.FC = () => {
       toast.error("Gagal sinkronisasi data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchClickLogs = async (rotatorId: number, page: number = 1) => {
+    setClickLogsLoading(true);
+    try {
+      const { data } = await api.get(`/rotators/${rotatorId}/clicks`, {
+        params: { page, limit: 20 },
+      });
+      if (data.success) {
+        setClickLogs(data.data.clicks || []);
+        setClickLogsTotal(data.data.total || 0);
+        setClickLogsPage(data.data.page || 1);
+      }
+    } catch (error) {
+      toast.error("Gagal memuat log klik");
+    } finally {
+      setClickLogsLoading(false);
     }
   };
 
@@ -203,6 +247,12 @@ export const LinkRotatorSection: React.FC = () => {
     } catch {
       toast.error("Gagal");
     }
+  };
+
+  const openDetail = (item: Rotator) => {
+    setViewingDetail(item);
+    setClickLogsPage(1);
+    fetchClickLogs(item.id, 1);
   };
 
   const filteredData = useMemo(
@@ -396,7 +446,7 @@ export const LinkRotatorSection: React.FC = () => {
                       <div className="h-10 w-[1px] bg-gray-200" />
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setViewingDetail(item)}
+                          onClick={() => openDetail(item)}
                           className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Lihat Detail"
                         >
@@ -558,8 +608,8 @@ export const LinkRotatorSection: React.FC = () => {
       {/* DETAIL MODAL */}
       {viewingDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl">
-            <div className="p-6 border-b border-gray-100">
+          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex-none">
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
@@ -578,29 +628,38 @@ export const LinkRotatorSection: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-[10px] uppercase font-bold text-gray-500 mb-2">
-                  Statistik
-                </p>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Total Klik</span>
-                  <span className="text-2xl font-black text-blue-600">
-                    {viewingDetail.clicks}
-                  </span>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Info Cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-[10px] uppercase font-bold text-gray-500 mb-2">
+                    Total Klik
+                  </p>
+                  <p className="text-2xl font-black text-blue-600">
+                    {clickLogsTotal}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-[10px] uppercase font-bold text-gray-500 mb-2">
+                    Periode
+                  </p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {period === "today" ? "Hari Ini" : period === "yesterday" ? "Kemarin" : period === "week" ? "Minggu Ini" : "Bulan Ini"}
+                  </p>
                 </div>
               </div>
 
+              {/* WA Numbers */}
               <div className="p-4 bg-gray-50 rounded-xl">
                 <p className="text-[10px] uppercase font-bold text-gray-500 mb-3">
                   Daftar Nomor & Bobot
                 </p>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
                   {(() => {
                     try {
                       const waNumbers = JSON.parse(viewingDetail.wa_numbers);
                       return waNumbers.map((wa: any, idx: number) => (
-                        <div key={idx} className="flex justify-between items-center text-sm border-b border-gray-200 pb-2">
+                        <div key={idx} className="flex justify-between items-center text-sm border-b border-gray-200 pb-2 last:border-0">
                           <span className="text-gray-700 font-medium">{wa.number}</span>
                           <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded text-xs font-bold">
                             W: {wa.weight || 1}
@@ -614,17 +673,117 @@ export const LinkRotatorSection: React.FC = () => {
                 </div>
               </div>
 
+              {/* Click Logs */}
               <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-[10px] uppercase font-bold text-gray-500 mb-1">
-                  Pesan Custom
-                </p>
-                <p className="text-sm italic text-gray-600">
-                  "{viewingDetail.message || "Tidak ada pesan"}"
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] uppercase font-bold text-gray-500">
+                    Log Kunjungan
+                  </p>
+                  <span className="text-xs text-gray-400">
+                    {clickLogs.length} dari {clickLogsTotal}
+                  </span>
+                </div>
+
+                {clickLogsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                  </div>
+                ) : clickLogs.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Belum ada kunjungan</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {clickLogs.map((log) => (
+                      <div key={log.id} className="bg-white rounded-xl p-3 border border-gray-100">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-mono text-gray-500 truncate">
+                                {log.ip_address}
+                              </span>
+                              {log.referer && log.referer !== "Direct" && (
+                                <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-medium truncate">
+                                  {log.referer}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                              {log.device_type && (
+                                <span className="flex items-center gap-1">
+                                  {log.device_type === "mobile" ? <Smartphone size={12} /> : log.device_type === "tablet" ? <Tablet size={12} /> : <Monitor size={12} />}
+                                  {log.device_type}
+                                </span>
+                              )}
+                              {log.browser && (
+                                <span className="flex items-center gap-1">
+                                  <Globe size={12} />
+                                  {log.browser}
+                                </span>
+                              )}
+                              {log.os && (
+                                <span>{log.os}</span>
+                              )}
+                            </div>
+                            {(log.city || log.country) && (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                                <MapPin size={12} />
+                                {[log.city, log.country].filter(Boolean).join(", ")}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-gray-400 flex-none">
+                            <Clock size={12} />
+                            {new Date(log.created_at).toLocaleString("id-ID", {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1 truncate" title={log.user_agent}>
+                          {log.user_agent}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {clickLogsTotal > 20 && (
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                    <button
+                      onClick={() => {
+                        const newPage = clickLogsPage - 1;
+                        setClickLogsPage(newPage);
+                        fetchClickLogs(viewingDetail.id, newPage);
+                      }}
+                      disabled={clickLogsPage === 1}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ChevronLeft size={14} />
+                      Sebelumnya
+                    </button>
+                    <span className="text-sm text-gray-500">
+                      Hal. {clickLogsPage} / {Math.ceil(clickLogsTotal / 20)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const newPage = clickLogsPage + 1;
+                        setClickLogsPage(newPage);
+                        fetchClickLogs(viewingDetail.id, newPage);
+                      }}
+                      disabled={clickLogsPage >= Math.ceil(clickLogsTotal / 20)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Berikutnya
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="p-6 pt-0">
+            <div className="p-6 pt-0 flex-none">
               <button
                 onClick={() => setViewingDetail(null)}
                 className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors"

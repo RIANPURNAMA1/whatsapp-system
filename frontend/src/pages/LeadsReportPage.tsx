@@ -12,6 +12,8 @@ import {
   Users,
   MessageSquare,
   AlertCircle,
+  Table,
+  Download,
 } from "lucide-react";
 
 const DAYS = [
@@ -30,6 +32,7 @@ export const LeadsReportPage: React.FC = () => {
     reportTime: "17:00",
     reportDays: "1,2,3,4,5",
     targetGroups: [] as string[],
+    queueDelay: 3000,
   });
 
   const [groups, setGroups] = useState<any[]>([]);
@@ -38,6 +41,8 @@ export const LeadsReportPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [reportData, setReportData] = useState<any>(null);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
 
   const fetchSettings = async () => {
     try {
@@ -52,6 +57,7 @@ export const LeadsReportPage: React.FC = () => {
           reportTime: data.report_time ? data.report_time.substring(0, 5) : "17:00",
           reportDays: data.report_days || "1,2,3,4,5",
           targetGroups: data.target_groups || [],
+          queueDelay: data.queue_delay || 3000,
         });
       }
     } catch (err) {
@@ -123,6 +129,7 @@ export const LeadsReportPage: React.FC = () => {
           reportTime: settings.reportTime + ":00",
           reportDays: settings.reportDays,
           targetGroups: settings.targetGroups,
+          queueDelay: settings.queueDelay,
         },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
@@ -158,6 +165,27 @@ export const LeadsReportPage: React.FC = () => {
       toast.error(err.response?.data?.message || "Gagal mengirim laporan");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const fetchReportData = async () => {
+    setIsLoadingReport(true);
+    try {
+      const params = selectedSessionId !== "all" ? { sessionId: selectedSessionId } : {};
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL}/leads-report/data`,
+        {
+          params,
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        }
+      );
+      if (res.data.success) {
+        setReportData(res.data.data);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Gagal mengambil data laporan");
+    } finally {
+      setIsLoadingReport(false);
     }
   };
 
@@ -303,6 +331,31 @@ export const LeadsReportPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Queue Delay Setting */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <RefreshCw className="text-orange-500" size={20} />
+                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                  Delay Antar Device
+                </h2>
+              </div>
+              <div className="flex items-center gap-4">
+                <input
+                  type="number"
+                  min="1000"
+                  max="30000"
+                  step="500"
+                  value={settings.queueDelay}
+                  onChange={(e) => setSettings({ ...settings, queueDelay: parseInt(e.target.value) || 3000 })}
+                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 w-32"
+                />
+                <div>
+                  <p className="text-xs text-gray-500">Jeda antar device (milidetik)</p>
+                  <p className="text-xs text-gray-400 mt-1">1000ms = 1 detik. Default: 3000ms (3 detik)</p>
+                </div>
+              </div>
+            </div>
+
             {/* Save Button */}
             <button
               onClick={handleSave}
@@ -402,6 +455,149 @@ export const LeadsReportPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Report Table Section */}
+        <div className="mt-8">
+          <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <Table className="text-blue-500" size={20} />
+                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                  Rekap Laporan Leads
+                </h2>
+              </div>
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedSessionId}
+                  onChange={(e) => setSelectedSessionId(e.target.value)}
+                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">Semua Device</option>
+                  {activeSessions
+                    .filter((s) => s.status === "connected")
+                    .map((session) => (
+                      <option key={session.id} value={session.id}>
+                        {session.name}
+                      </option>
+                    ))}
+                </select>
+                <button
+                  onClick={fetchReportData}
+                  disabled={isLoadingReport}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                    isLoadingReport
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-100"
+                  }`}
+                >
+                  {isLoadingReport ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <BarChart3 className="w-4 h-4" />
+                  )}
+                  {isLoadingReport ? "Memuat..." : "Tampilkan Laporan"}
+                </button>
+              </div>
+            </div>
+
+            {isLoadingReport ? (
+              <div className="flex items-center justify-center py-10">
+                <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : reportData ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-700">
+                  <thead className="text-xs uppercase bg-gray-50 text-gray-700">
+                    <tr>
+                      <th className="px-4 py-3 rounded-l-lg">Device</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Total Leads</th>
+                      <th className="px-4 py-3">Leads Organik</th>
+                      <th className="px-4 py-3">Total Closing</th>
+                      <th className="px-4 py-3">Conv Rate</th>
+                      <th className="px-4 py-3 rounded-r-lg">Platform Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.stats?.sessionStats?.map((session: any, idx: number) => (
+                      <tr key={idx} className="border-b hover:bg-gray-50">
+                        <td className="px-4 py-3 font-semibold">{session.sessionName}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
+                            session.sessionStatus === "connected" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          }`}>
+                            {session.sessionStatus === "connected" ? "🟢" : "🔴"} {session.sessionStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-blue-600">{session.totalLeads || 0}</td>
+                        <td className="px-4 py-3">{session.totalOrganik || 0}</td>
+                        <td className="px-4 py-3 font-bold text-green-600">{session.totalClosing || 0}</td>
+                        <td className="px-4 py-3">
+                          <span className={`font-bold ${session.totalLeads > 0 && session.totalClosing / session.totalLeads >= 0.5 ? 'text-green-600' : 'text-orange-600'}`}>
+                            {session.totalLeads > 0 ? Math.round((session.totalClosing / session.totalLeads) * 100) : 0}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(session)
+                              .filter(([key]) => key.startsWith("leads_") && session[key] > 0)
+                              .map(([key, count]: [string, any]) => (
+                                <span key={key} className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                                  {key.replace("leads_", "").charAt(0).toUpperCase() + key.replace("leads_", "").slice(1)}: {count}
+                                </span>
+                              ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {/* Total Row */}
+                    {reportData.stats?.sessionStats && reportData.stats.sessionStats.length > 1 && (
+                      <tr className="bg-gray-100 font-bold">
+                        <td className="px-4 py-3">TOTAL</td>
+                        <td className="px-4 py-3">-</td>
+                        <td className="px-4 py-3 text-blue-600">{reportData.stats.grandTotalLeads || 0}</td>
+                        <td className="px-4 py-3">{reportData.stats.grandTotalOrganik || 0}</td>
+                        <td className="px-4 py-3 text-green-600">{reportData.stats.grandTotalClosing || 0}</td>
+                        <td className="px-4 py-3">{reportData.stats.convRate || 0}%</td>
+                        <td className="px-4 py-3">-</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {/* TikTok Leads Section */}
+                {reportData.stats?.tiktokLeads && reportData.stats.tiktokLeads[0] && reportData.stats.tiktokLeads[0].total > 0 && (
+                  <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
+                    <h3 className="text-sm font-bold text-purple-700 mb-3">🎵 TikTok Leads</h3>
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="bg-white p-3 rounded-lg text-center">
+                        <p className="text-xs text-gray-500">Total</p>
+                        <p className="text-lg font-bold text-purple-600">{reportData.stats.tiktokLeads[0].total}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg text-center">
+                        <p className="text-xs text-gray-500">Baru</p>
+                        <p className="text-lg font-bold text-blue-600">{reportData.stats.tiktokLeads[0].new_count || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg text-center">
+                        <p className="text-xs text-gray-500">Dihubungi</p>
+                        <p className="text-lg font-bold text-orange-600">{reportData.stats.tiktokLeads[0].contacted_count || 0}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg text-center">
+                        <p className="text-xs text-gray-500">Converted</p>
+                        <p className="text-lg font-bold text-green-600">{reportData.stats.tiktokLeads[0].converted_count || 0}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-10 text-center">
+                <Table className="w-10 h-10 text-gray-300 mb-3" />
+                <p className="text-sm text-gray-500">Klik "Tampilkan Laporan" untuk melihat data</p>
               </div>
             )}
           </div>

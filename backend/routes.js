@@ -1254,6 +1254,42 @@ router.get("/rotators/:id/stats", authenticateToken, async (req, res) => {
   }
 });
 
+// GET: Detail log klik per rotator
+router.get("/rotators/:id/clicks", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const clicks = await query(
+      `SELECT id, ip_address, user_agent, referer, country, city, device_type, browser, os, created_at 
+       FROM rotator_clicks 
+       WHERE rotator_id = ? 
+       ORDER BY created_at DESC 
+       LIMIT ? OFFSET ?`,
+      [id, parseInt(limit), offset]
+    );
+
+    const totalResult = await queryOne(
+      "SELECT COUNT(*) as total FROM rotator_clicks WHERE rotator_id = ?",
+      [id]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        clicks: clicks,
+        total: totalResult?.total || 0,
+        page: parseInt(page),
+        limit: parseInt(limit),
+      }
+    });
+  } catch (error) {
+    console.error("GET Rotator Clicks Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // ===============================================
 // TRACKED LINKS - Lacak klik URL eksternal
 // ===============================================
@@ -3501,8 +3537,8 @@ router.get("/leads-report/settings", authenticateToken, async (req, res) => {
     let settings = await queryOne("SELECT * FROM leads_report_settings LIMIT 1");
     if (!settings) {
       await query(`
-        INSERT INTO leads_report_settings (is_enabled, report_time, report_days, target_groups)
-        VALUES (0, '17:00:00', '1,2,3,4,5', '[]')
+        INSERT INTO leads_report_settings (is_enabled, report_time, report_days, target_groups, queue_delay)
+        VALUES (0, '17:00:00', '1,2,3,4,5', '[]', 3000)
       `);
       settings = await queryOne("SELECT * FROM leads_report_settings LIMIT 1");
     }
@@ -3520,19 +3556,19 @@ router.get("/leads-report/settings", authenticateToken, async (req, res) => {
 // POST: Update leads report settings
 router.post("/leads-report/settings", authenticateToken, async (req, res) => {
   try {
-    const { isEnabled, reportTime, reportDays, targetGroups } = req.body;
+    const { isEnabled, reportTime, reportDays, targetGroups, queueDelay } = req.body;
 
     const hasExisting = await queryOne("SELECT id FROM leads_report_settings LIMIT 1");
-    
+
     if (hasExisting) {
       await query(
-        `UPDATE leads_report_settings SET is_enabled = ?, report_time = ?, report_days = ?, target_groups = ?, last_sent_date = NULL WHERE id = ?`,
-        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || []), hasExisting.id]
+        `UPDATE leads_report_settings SET is_enabled = ?, report_time = ?, report_days = ?, target_groups = ?, queue_delay = ?, last_sent_date = NULL WHERE id = ?`,
+        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || []), queueDelay || 3000, hasExisting.id]
       );
     } else {
       await query(
-        `INSERT INTO leads_report_settings (is_enabled, report_time, report_days, target_groups) VALUES (?, ?, ?, ?)`,
-        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || [])]
+        `INSERT INTO leads_report_settings (is_enabled, report_time, report_days, target_groups, queue_delay) VALUES (?, ?, ?, ?, ?)`,
+        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || []), queueDelay || 3000]
       );
     }
 
@@ -3559,7 +3595,42 @@ router.get("/leads-report/groups", authenticateToken, async (req, res) => {
   }
 });
 
-// POST: Generate and send leads report now - per device
+// GET: Get leads report data for table display
+router.get("/leads-report/data", authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, startDate, endDate } = req.query;
+    const { generateDeviceReport, generateLeadsReport } = await import("./services/leadsReportService.js");
+
+    if (sessionId && sessionId !== "all") {
+      const report = await generateDeviceReport(sessionId, startDate, endDate);
+      if (!report) {
+        return res.status(404).json({ success: false, message: "Device tidak ditemukan" });
+      }
+      // Normalize structure for frontend table
+      return res.json({
+        success: true,
+        data: {
+          stats: {
+            sessionStats: [{
+              ...report.stats,
+              sessionName: report.sessionName,
+              sessionStatus: report.stats.sessionStatus || 'unknown',
+            }],
+            tiktokLeads: report.stats.tiktokLeads,
+          }
+        }
+      });
+    }
+
+    const report = await generateLeadsReport(startDate, endDate);
+    res.json({ success: true, data: report });
+  } catch (err) {
+    console.error("Error get leads report data:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST: Generate and send leads report now - per device with queue
 router.post("/leads-report/send-now", authenticateToken, async (req, res) => {
   try {
     const { groupJids, sessionId } = req.body;
@@ -3568,6 +3639,10 @@ router.post("/leads-report/send-now", authenticateToken, async (req, res) => {
     }
 
     const { generateDeviceReport, generateLeadsReport, sendReportToGroups } = await import("./services/leadsReportService.js");
+
+    // Get queue delay from settings
+    const settings = await queryOne("SELECT queue_delay FROM leads_report_settings LIMIT 1");
+    const QUEUE_DELAY = settings?.queue_delay || 3000; // Default 3 seconds
 
     let results = [];
 
@@ -3579,18 +3654,45 @@ router.post("/leads-report/send-now", authenticateToken, async (req, res) => {
       }
       results = await sendReportToGroups(groupJids, report, sessionId);
     } else {
-      // Send individual report per device
-      const activeSessions = await query("SELECT id, name FROM wa_sessions WHERE status = 'connected'");
-      for (const session of activeSessions) {
-        try {
-          const report = await generateDeviceReport(session.id);
-          if (!report) continue;
-          const sessionResults = await sendReportToGroups(groupJids, report, session.id);
-          results = results.concat(sessionResults);
-        } catch (err) {
-          console.error(`Error sending report for ${session.name}:`, err.message);
+      // Send individual report per device with queue (delay between devices)
+      const activeSessions = await query("SELECT id, name, status FROM wa_sessions WHERE status = 'connected'");
+      
+      // Send initial response to client (async processing)
+      res.json({
+        success: true,
+        message: `Memproses laporan untuk ${activeSessions.length} device dengan antrian (delay: ${QUEUE_DELAY}ms)...`,
+        isQueued: true,
+        totalDevices: activeSessions.length,
+        queueDelay: QUEUE_DELAY
+      });
+
+      // Process queue in background
+      setImmediate(async () => {
+        for (let i = 0; i < activeSessions.length; i++) {
+          const session = activeSessions[i];
+          try {
+            console.log(`[Queue] Processing device ${i + 1}/${activeSessions.length}: ${session.name}`);
+            const report = await generateDeviceReport(session.id);
+            if (!report) {
+              console.log(`[Queue] Skip ${session.name}: no report generated`);
+              continue;
+            }
+            const sessionResults = await sendReportToGroups(groupJids, report, session.id);
+            results = results.concat(sessionResults);
+            
+            // Delay before next device (except for the last one)
+            if (i < activeSessions.length - 1) {
+              console.log(`[Queue] Waiting ${QUEUE_DELAY}ms before next device...`);
+              await new Promise(resolve => setTimeout(resolve, QUEUE_DELAY));
+            }
+          } catch (err) {
+            console.error(`[Queue] Error sending report for ${session.name}:`, err.message);
+          }
         }
-      }
+        console.log(`[Queue] All done. Sent: ${results.filter(r => r.status === "sent").length}, Failed: ${results.filter(r => r.status === "failed").length}`);
+      });
+      
+      return; // Early return because response already sent
     }
 
     const sent = results.filter((r) => r.status === "sent").length;

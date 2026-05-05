@@ -172,6 +172,8 @@ export async function generateDeviceReport(sessionId, startDate, endDate) {
     sessionName: session.name,
     stats: {
       ...stats,
+      sessionName: session.name,
+      sessionStatus: session.status,
       convRate,
       tiktokLeads,
     },
@@ -209,8 +211,12 @@ export async function generateLeadsReport(startDate, endDate) {
 
   for (const s of allowedSessions) {
     const report = await generateDeviceReport(s.id, startFull, endFull);
-    if (report) {
-      sessionStats.push(report.stats);
+    if (report && report.stats) {
+      sessionStats.push({
+        ...report.stats,
+        sessionName: report.sessionName || s.name,
+        sessionStatus: s.status,
+      });
       grandTotalLeads += report.stats.totalLeads;
       grandTotalClosing += report.stats.totalClosing;
       grandTotalOrganik += report.stats.totalOrganik;

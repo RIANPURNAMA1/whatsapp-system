@@ -284,12 +284,16 @@ async function checkAndSendScheduledReport() {
 
     const { generateDeviceReport, sendReportToGroups } = await import("./services/leadsReportService.js");
 
+    // Get queue delay from settings (dynamic)
+    const queueDelay = settings.queue_delay || 3000;
+
     // Get all active sessions
     const activeSessions = await query("SELECT id, name FROM wa_sessions WHERE status = 'connected'");
 
-    for (const session of activeSessions) {
+    for (let i = 0; i < activeSessions.length; i++) {
+      const session = activeSessions[i];
       try {
-        console.log(`📊 Generating report for device: ${session.name} (${session.id})`);
+        console.log(`📊 [${i + 1}/${activeSessions.length}] Generating report for device: ${session.name} (${session.id})`);
 
         // Generate report for this device only
         const report = await generateDeviceReport(session.id);
@@ -301,6 +305,12 @@ async function checkAndSendScheduledReport() {
         const sent = results.filter((r) => r.status === "sent").length;
         const failed = results.filter((r) => r.status === "failed").length;
         console.log(`📊 ${session.name}: ${sent} sukses, ${failed} gagal`);
+
+        // Delay before next device (except for the last one)
+        if (i < activeSessions.length - 1) {
+          console.log(`📊 Waiting ${queueDelay}ms before next device...`);
+          await new Promise(resolve => setTimeout(resolve, queueDelay));
+        }
       } catch (err) {
         console.error(`❌ Error sending report for ${session.name}:`, err.message);
       }

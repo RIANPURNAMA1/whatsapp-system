@@ -548,7 +548,7 @@ CREATE TABLE IF NOT EXISTS wa_rules (
     // Add last_sent_date column to existing leads_report_settings table
     try {
       await db.promise().query(`
-        ALTER TABLE leads_report_settings 
+        ALTER TABLE leads_report_settings
         ADD COLUMN IF NOT EXISTS last_sent_date DATE DEFAULT NULL AFTER target_groups
       `);
       console.log("✅ Added last_sent_date to leads_report_settings");
@@ -558,6 +558,21 @@ CREATE TABLE IF NOT EXISTS wa_rules (
         console.log("✅ last_sent_date already exists in leads_report_settings");
       } else {
         console.warn("⚠️ Migration warning for last_sent_date:", err.message);
+      }
+    }
+
+    // Add queue_delay column to existing leads_report_settings table
+    try {
+      await db.promise().query(`
+        ALTER TABLE leads_report_settings
+        ADD COLUMN IF NOT EXISTS queue_delay INT DEFAULT 3000 AFTER last_sent_date
+      `);
+      console.log("✅ Added queue_delay to leads_report_settings");
+    } catch (err) {
+      if (err.code === "ER_DUP_FIELDNAME") {
+        console.log("✅ queue_delay already exists in leads_report_settings");
+      } else {
+        console.warn("⚠️ Migration warning for queue_delay:", err.message);
       }
     }
 
