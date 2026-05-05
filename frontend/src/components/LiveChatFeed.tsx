@@ -6,15 +6,39 @@ interface LiveFeedProps {
   messages: any[];
   totalPesan: number;
   dark?: boolean;
+  onNavigate?: (tab: string) => void;
 }
 
-const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan }) => {
-  const { selectChat, chats } = useStore();
+const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan, onNavigate }) => {
+  const { selectChat, chats, setActiveSession, sessions } = useStore();
 
-  const handleItemClick = (sender: string) => {
-    const cleanSender = sender.replace(/\D/g, "");
-    const target = chats.find((c) => c.jid === sender || c.jid.includes(cleanSender));
-    if (target) selectChat(target);
+  const handleItemClick = (chat: any) => {
+    const sessionId = chat.session_id;
+    const senderJid = chat.sender_jid || chat.sender;
+    const cleanSender = senderJid.replace(/\D/g, "");
+
+    const target = chats.find((c) => c.jid === senderJid || c.jid?.includes(cleanSender));
+
+    if (sessionId) {
+      const session = sessions.find((s) => s.id === sessionId);
+      if (session) {
+        setActiveSession(session);
+      }
+    }
+
+    if (target) {
+      selectChat(target);
+    } else {
+      selectChat({
+        jid: senderJid,
+        display_name: chat.sender || "Unknown",
+        session_id: sessionId,
+      } as any);
+    }
+
+    if (onNavigate) {
+      onNavigate("chats");
+    }
   };
 
   const formatTime = (timeStr: string | undefined) => {
@@ -61,7 +85,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan }) => {
           messages.map((chat, idx) => (
             <button
               key={idx}
-              onClick={() => handleItemClick(chat.sender_jid || chat.sender)}
+              onClick={() => handleItemClick(chat)}
               className="group w-full text-left flex items-center gap-3 p-3.5 rounded-xl bg-gray-50/60 hover:bg-white border border-transparent hover:border-gray-200 hover:shadow-md transition-all duration-200 active:scale-[0.99]"
             >
               {/* Avatar */}

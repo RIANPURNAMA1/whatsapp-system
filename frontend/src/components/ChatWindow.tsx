@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useSettings } from "../context/SettingsContext";
 import {
   Search,
   MoreVertical,
@@ -49,6 +50,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     updateChat,
   } = useStore();
 
+  const { settings } = useSettings();
+
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -57,69 +60,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewCaption, setPreviewCaption] = useState("");
 
-  useEffect(() => {
-    if (!sessionId || !selectedChat) return;
-    
-    const fetchAndScroll = async () => {
-      try {
-        await fetchMessages(sessionId, selectedChat.jid);
-        setTimeout(() => scrollToBottom("smooth"), 100);
-      } catch (err) {
-        console.error("Polling error:", err);
-      }
-    };
-    
-    fetchAndScroll();
-    
-    const pollInterval = setInterval(fetchAndScroll, 2000);
-    return () => clearInterval(pollInterval);
-  }, [sessionId, selectedChat?.jid, fetchMessages]);
-
-  useEffect(() => {
-    if (selectedChat && sessionId) {
-      fetchMessages(sessionId, selectedChat.jid);
-      resetUnread(selectedChat.jid);
-      chatApi.markRead(sessionId, selectedChat.jid).catch(() => {});
-    }
-  }, [selectedChat?.jid, sessionId, fetchMessages, resetUnread]);
-
-  // Socket listener for real-time messages (including AI replies)
-  useEffect(() => {
-    if (!sessionId || !selectedChat) return;
-
-    const socket = getSocket();
-    
-    const handleNewMessage = (msg: any) => {
-      const msgJid = msg.chat_jid?.toLowerCase()?.trim();
-      const currentJid = selectedChat.jid?.toLowerCase()?.trim();
-      
-      if (msgJid === currentJid) {
-        // Check for duplicates
-        const isDuplicate = messages.some(m => m.message_id === msg.message_id);
-        if (!isDuplicate) {
-          addMessage(msg);
-          setTimeout(() => scrollToBottom("smooth"), 100);
-        }
-      }
-    };
-
-    socket.on(`message:new:${sessionId}`, handleNewMessage);
-    
-    return () => {
-      socket.off(`message:new:${sessionId}`, handleNewMessage);
-    };
-  }, [sessionId, selectedChat?.jid, messages, addMessage]);
-
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior });
       setShowScrollBtn(false);
+      setIsNearBottom(true);
     }
   }, []);
 
@@ -127,7 +80,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const container = messagesContainerRef.current;
     if (!container) return;
     const { scrollTop, scrollHeight, clientHeight } = container;
-    setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 300);
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    setShowScrollBtn(distanceFromBottom > 300);
+    setIsNearBottom(distanceFromBottom < 50);
 
     if (scrollTop < 50 && hasMoreMessages && !isLoadingMore && selectedChat) {
       const loadMore = async () => {
@@ -142,6 +97,66 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       loadMore();
     }
   }, [hasMoreMessages, isLoadingMore, selectedChat, sessionId, fetchMessages]);
+
+  useEffect(() => {
+    if (!sessionId || !selectedChat) return;
+    
+    const fetchAndScroll = async () => {
+      try {
+        await fetchMessages(sessionId, selectedChat.jid);
+        if (isNearBottom) {
+          setTimeout(() => scrollToBottom("smooth"), 100);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    };
+    
+    fetchAndScroll();
+    
+    const pollMs = settings.autoRefresh ? 2000 : parseInt(settings.refreshInterval, 10) * 1000;
+    const pollInterval = setInterval(fetchAndScroll, pollMs);
+    return () => clearInterval(pollInterval);
+  }, [sessionId, selectedChat?.jid, fetchMessages, isNearBottom, settings.autoRefresh, settings.refreshInterval]);
+
+  useEffect(() => {
+    if (selectedChat && sessionId) {
+      fetchMessages(sessionId, selectedChat.jid).then(() => {
+        setTimeout(() => scrollToBottom(), 150);
+      });
+      resetUnread(selectedChat.jid);
+      chatApi.markRead(sessionId, selectedChat.jid).catch(() => {});
+      setIsNearBottom(true);
+    }
+  }, [selectedChat?.jid, sessionId, fetchMessages, resetUnread, scrollToBottom]);
+
+  // Socket listener for real-time messages
+  useEffect(() => {
+    if (!sessionId || !selectedChat) return;
+
+    const socket = getSocket();
+    
+    const handleNewMessage = (msg: any) => {
+      const msgJid = msg.chat_jid?.toLowerCase()?.trim();
+      const currentJid = selectedChat.jid?.toLowerCase()?.trim();
+      
+      if (msgJid === currentJid) {
+        const isDuplicate = messages.some(m => m.message_id === msg.message_id);
+        if (!isDuplicate) {
+          addMessage(msg);
+          if (isNearBottom) {
+            setTimeout(() => scrollToBottom("smooth"), 100);
+          }
+        }
+      }
+    };
+
+    socket.on(`message:new:${sessionId}`, handleNewMessage);
+    
+    return () => {
+      socket.off(`message:new:${sessionId}`, handleNewMessage);
+    };
+  }, [sessionId, selectedChat?.jid, messages, addMessage, isNearBottom, scrollToBottom]);
 
   const handleSend = async () => {
     if (!inputText.trim() || !selectedChat || isSending) return;

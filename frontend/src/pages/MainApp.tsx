@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSettings } from "../context/SettingsContext";
 import Swal from "sweetalert2";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -27,6 +28,7 @@ import { LinkRotatorSection } from "../components/LinkRotatorSection";
 import AISettingPage from "../components/AISettingPage";
 import GroupList from "@/components/Grouplist";
 import TikTokPanel from "../components/tiktok/TikTokPanel";
+import { LeadsReportPage } from "./LeadsReportPage";
 import type { GroupChat } from "../types/Group";
 
 interface UserData {
@@ -57,6 +59,8 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
     deleteSession,
   } = useStore();
 
+  const { settings } = useSettings();
+
   // 2. Local State
   const [activeTab, setActiveTab] = useState<string>(
     user?.role_type === "system" || user?.role_type === "manager"
@@ -80,10 +84,12 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
   useEffect(() => {
     if (activeSession?.id) {
       fetchStats(activeSession.id);
-      const interval = setInterval(() => fetchStats(activeSession.id), 30000);
+      const intervalMs = settings.autoRefresh ? parseInt(settings.refreshInterval, 10) * 1000 : 0;
+      if (intervalMs <= 0) return;
+      const interval = setInterval(() => fetchStats(activeSession.id), intervalMs);
       return () => clearInterval(interval);
     }
-  }, [activeSession?.id, fetchStats]);
+  }, [activeSession?.id, fetchStats, settings.autoRefresh, settings.refreshInterval]);
 
   // Jika ada chat terpilih, otomatis pindah ke view chat (Mobile)
   useEffect(() => {
@@ -223,6 +229,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
           "link-rotator",
           "ai-setting",
           "tiktok",
+          "leads-report",
         ].includes(activeTab) ? (
           <div className="flex flex-1 flex-col overflow-hidden relative">
             <button
@@ -234,7 +241,10 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
 
             {activeTab === "dashboard" && (
               <div className="flex-1 overflow-y-auto h-full">
-                <StatDashboard />
+                <StatDashboard onNavigate={(tab) => {
+                  setActiveTab(tab);
+                  setMobileView("chat");
+                }} />
               </div>
             )}
             {activeTab === "role-management" && (
@@ -294,6 +304,12 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
             {activeTab === "tiktok" && (
               <div className="flex-1 overflow-y-auto h-full">
                 <TikTokPanel onBack={() => setActiveTab("chats")} />
+              </div>
+            )}
+
+            {activeTab === "leads-report" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <LeadsReportPage />
               </div>
             )}
           </div>
@@ -396,6 +412,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
                 )
               ) : (
                 <ChatWindow
+                  key={`${selectedChat?.session_id}-${selectedChat?.jid}`}
                   sessionId={currentSessionId}
                   onBack={() => setMobileView("list")}
                 />

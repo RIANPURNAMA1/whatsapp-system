@@ -1,5 +1,6 @@
-import React from 'react';
-import { Users, TrendingUp, Target, Zap, Leaf } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Loader2, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 interface OverallLeadsCardProps {
   isDarkMode: boolean;
@@ -7,7 +8,6 @@ interface OverallLeadsCardProps {
   totalLeads: number;
   totalClosing: number;
   conversionRate: string | number;
-  totalOrganik?: number;
 }
 
 const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
@@ -16,154 +16,121 @@ const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
   totalLeads,
   totalClosing,
   conversionRate,
-  totalOrganik = 0,
 }) => {
-  const totalWithOrganik = totalLeads + totalOrganik;
-  const rate = Number(conversionRate) || 0;
-  const circumference = 2 * Math.PI * 36;
-  const strokeDashoffset = circumference - (rate / 100) * circumference;
+  const remaining = Math.max(totalLeads - totalClosing, 0);
+
+  const pieData = useMemo(() => {
+    if (totalLeads === 0) return [];
+    return [
+      { name: 'Closing', value: totalClosing },
+      { name: 'Belum Closing', value: remaining },
+    ].filter(d => d.value > 0);
+  }, [totalLeads, totalClosing, remaining]);
+
+  const COLORS = ['#10b981', isDarkMode ? '#374151' : '#e5e7eb'];
 
   return (
-    <div className={`relative overflow-hidden rounded-3xl border transition-all duration-500 ${
-      isDarkMode 
-        ? "bg-[#111B21] border-white/10 shadow-2xl" 
-        : "bg-gradient-to-br from-white to-blue-50/30 border-gray-100 shadow-xl shadow-blue-500/5"
+    <div className={`rounded-2xl border p-5 transition-all ${
+      isDarkMode ? 'bg-[#111B21] border-white/10' : 'bg-white border-gray-100 shadow-sm'
     }`}>
-      
-      {/* Background Decorations */}
-      <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-blue-400/20 to-indigo-400/10 blur-3xl rounded-full" />
-      <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-gradient-to-tr from-blue-500/10 to-transparent blur-2xl rounded-full" />
-      
-      {/* Top Gradient Bar */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-500" />
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-1">
+        <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-blue-500/20' : 'bg-blue-50'}`}>
+          <ArrowUpRight size={16} className="text-blue-500" />
+        </div>
+        <span className={`text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          Leads Overview
+        </span>
+      </div>
 
-      <div className="p-6 relative z-10">
-        <div className="flex justify-between items-start mb-5">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-blue-500/20' : 'bg-gradient-to-br from-blue-100 to-indigo-100'}`}>
-                <Users size={16} className="text-blue-600" />
-              </div>
-              <span className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Total Leads Masuk
-              </span>
+      {/* Main Content: Chart + Stats side by side */}
+      <div className="flex items-center gap-4 mt-4 mb-4">
+        {/* Donut Chart */}
+        <div className="relative w-24 h-24 flex-shrink-0">
+          {loading || pieData.length === 0 ? (
+            <div className="w-full h-full flex items-center justify-center">
+              {loading ? <Loader2 className="animate-spin text-blue-500" size={18} /> : (
+                <p className={`text-[10px] ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>No data</p>
+              )}
             </div>
-            
-            <div className="flex items-end gap-4">
-              <h2 className={`text-5xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {loading ? (
-                  <span className="text-gray-400">...</span>
-                ) : (
-                  <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    {totalWithOrganik.toLocaleString()}
-                  </span>
-                )}
-              </h2>
-            </div>
-          </div>
-
-          {/* Circular Progress */}
-          <div className="relative">
-            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-              <circle
-                cx="40"
-                cy="40"
-                r="36"
-                fill="none"
-                stroke={isDarkMode ? "#313D45" : "#e5e7eb"}
-                strokeWidth="6"
-              />
-              <circle
-                cx="40"
-                cy="40"
-                r="36"
-                fill="none"
-                stroke="url(#blueGradient)"
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                className="transition-all duration-1000 ease-out"
-              />
-              <defs>
-                <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="100%" stopColor="#6366f1" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <p className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {loading ? "..." : `${Math.round(rate)}%`}
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={32}
+                    outerRadius={44}
+                    paddingAngle={2}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {pieData.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: any) => [`${value}`, '']}
+                    contentStyle={{
+                      backgroundColor: isDarkMode ? '#202C33' : '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                      fontSize: 12,
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Center text */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {totalLeads}
                 </p>
+                <p className={`text-[8px] font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>total</p>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
-        {/* Stats Row */}
-        <div className={`p-4 rounded-2xl flex justify-between items-center ${
-          isDarkMode ? "bg-black/30 border border-white/5" : "bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm"
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-blue-500/20' : 'bg-gradient-to-br from-blue-100 to-indigo-100'}`}>
-              <Target size={18} className={isDarkMode ? "text-blue-400" : "text-blue-600"} />
+        {/* Stats */}
+        <div className="flex-1 space-y-3">
+          <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDarkMode ? 'bg-black/30' : 'bg-gray-50'}`}>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Closing</span>
             </div>
-            <div>
-              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                Conversion Rate
-              </p>
-              <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {loading ? "..." : `${conversionRate}%`}
-              </p>
-            </div>
+            <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {loading ? '...' : totalClosing}
+            </span>
           </div>
 
-          <div className={`h-10 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`} />
-
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-emerald-500/20' : 'bg-gradient-to-br from-emerald-100 to-teal-100'}`}>
-              <TrendingUp size={18} className={isDarkMode ? "text-emerald-400" : "text-emerald-600"} />
+          <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDarkMode ? 'bg-black/30' : 'bg-gray-50'}`}>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Rate</span>
             </div>
-            <div>
-              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                Total Closing
-              </p>
-              <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {loading ? "..." : totalClosing.toLocaleString()}
-              </p>
-            </div>
+            <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {loading ? '...' : `${conversionRate}%`}
+            </span>
           </div>
-
-          <div className={`h-10 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`} />
-
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-purple-500/20' : 'bg-gradient-to-br from-purple-100 to-pink-100'}`}>
-              <Leaf size={18} className={isDarkMode ? "text-purple-400" : "text-purple-600"} />
-            </div>
-            <div>
-              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                Leads Organik
-              </p>
-              <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {loading ? "..." : totalOrganik.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Live Indicator */}
-        <div className="flex items-center gap-2 mt-4 justify-center">
-          <div className="relative flex items-center gap-1.5">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-semibold text-blue-500">LIVE</span>
-          </div>
-          <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-            Data realtime dari semua platform
-          </span>
         </div>
       </div>
+
+      {/* Legend */}
+      {pieData.length > 0 && (
+        <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+            <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Closing</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2.5 h-2.5 rounded-sm ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`} />
+            <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Belum Closing</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

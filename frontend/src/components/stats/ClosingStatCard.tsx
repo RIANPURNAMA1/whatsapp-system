@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { TrendingUp, Loader2, Users, CheckCircle2, Target, Zap, Leaf } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, Tooltip } from 'recharts';
+import { TrendingUp, Loader2, CheckCircle2 } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface ClosingStatCardProps {
   isDarkMode: boolean;
@@ -8,8 +8,7 @@ interface ClosingStatCardProps {
   totalClosing: number;
   conversionRate: string | number;
   totalLeads: number;
-  chartData: any[];
-  totalOrganik?: number;
+  deviceData?: any[];
 }
 
 const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
@@ -18,225 +17,98 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
   totalClosing,
   conversionRate,
   totalLeads,
-  chartData,
-  totalOrganik = 0,
+  deviceData = [],
 }) => {
   const rawRate = Number(conversionRate) || 0;
-  const circumference = 2 * Math.PI * 36;
-  const strokeDashoffset = circumference - (rawRate / 100) * circumference;
 
-  const processedChartData = useMemo(() => {
-    if (!chartData || chartData.length === 0) {
-      return Array(7).fill({ leads: 0, closing: 0, organik: 0 });
-    }
-    return chartData.map(item => ({
-      leads: Number(item.leads || item.masuk || item.lead_count || 0),
-      closing: Number(item.closing || item.keluar || item.closing_count || item.value || 0),
-      organik: Number(item.leads_organik || 0)
-    }));
-  }, [chartData]);
-
-  const hasChartData = processedChartData.length > 0 && processedChartData.some(item => item.leads > 0 || item.closing > 0);
+  const chartData = useMemo(() => {
+    if (!deviceData || deviceData.length === 0) return [];
+    return deviceData
+      .filter(d => d.lead_count > 0 || d.closing_count > 0)
+      .map(d => ({
+        device: d.name,
+        leads: d.lead_count,
+        closing: d.closing_count,
+      }));
+  }, [deviceData]);
 
   return (
-    <div className={`relative overflow-hidden rounded-3xl border transition-all duration-500 ${
-      isDarkMode 
-        ? "bg-[#111B21] border-white/10 shadow-2xl" 
-        : "bg-gradient-to-br from-white to-emerald-50/30 border-gray-100 shadow-xl shadow-emerald-500/5"
+    <div className={`rounded-2xl border p-5 transition-all ${
+      isDarkMode ? 'bg-[#111B21] border-white/10' : 'bg-white border-gray-100 shadow-sm'
     }`}>
-      
-      {/* Background Decorations */}
-      <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-emerald-400/20 to-teal-400/10 blur-3xl rounded-full" />
-      <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-gradient-to-tr from-emerald-500/10 to-transparent blur-2xl rounded-full" />
-      
-      {/* Top Gradient Bar */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" />
-
-      <div className="p-6 relative z-10">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-emerald-500/20' : 'bg-emerald-50'}`}>
+            <CheckCircle2 size={16} className="text-emerald-500" />
+          </div>
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-emerald-500/20' : 'bg-gradient-to-br from-emerald-100 to-teal-100'}`}>
-                <CheckCircle2 size={16} className="text-emerald-600" />
-              </div>
-              <span className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Closing Performance
-              </span>
-            </div>
-            
-            <div className="flex items-end gap-4">
-              <h2 className={`text-6xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {loading ? (
-                  <Loader2 className="animate-spin text-emerald-400" size={36} />
-                ) : (
-                  <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                    {totalClosing}
-                  </span>
-                )}
-              </h2>
+            <span className={`text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              Closing Performance
+            </span>
+            <p className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Leads keyword → Closing</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className={`text-2xl font-bold ${rawRate > 100 ? 'text-amber-500' : isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : `${rawRate}%`}
+          </p>
+          <p className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Conversion Rate</p>
+        </div>
+      </div>
+
+      <div className={`grid grid-cols-2 gap-3 mb-4 p-3 rounded-xl ${isDarkMode ? 'bg-black/30' : 'bg-gray-50'}`}>
+        <div className="text-center">
+          <p className={`text-[10px] font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Leads Sosmed</p>
+          <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            {loading ? '...' : totalLeads}
+          </p>
+        </div>
+        <div className="text-center">
+          <p className={`text-[10px] font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Total Closing</p>
+          <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            {loading ? '...' : totalClosing}
+          </p>
+        </div>
+      </div>
+
+      <div className="h-44">
+        {loading || chartData.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <TrendingUp size={20} className={`mx-auto mb-1 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+              <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Belum ada data leads</p>
             </div>
           </div>
-
-          {/* Circular Progress - Conversion Rate */}
-          <div className="relative">
-            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-              <circle
-                cx="40"
-                cy="40"
-                r="36"
-                fill="none"
-                stroke={isDarkMode ? "#313D45" : "#e5e7eb"}
-                strokeWidth="6"
-              />
-              <circle
-                cx="40"
-                cy="40"
-                r="36"
-                fill="none"
-                stroke="url(#emeraldGradient)"
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                className="transition-all duration-1000 ease-out"
-              />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
               <defs>
-                <linearGradient id="emeraldGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#10b981" />
-                  <stop offset="100%" stopColor="#14b8a6" />
+                <linearGradient id="leadsArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="closingArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <p className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {loading ? "..." : `${Math.round(rawRate)}%`}
-                </p>
-                <p className={`text-[8px] font-semibold uppercase ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Rate
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Area Chart */}
-        <div className={`h-32 w-full relative ${isDarkMode ? '' : 'bg-gradient-to-br from-emerald-50/50 to-teal-50/50 rounded-2xl p-2'}`}>
-          {!loading && !hasChartData ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center">
-                <TrendingUp className={`w-8 h-8 mx-auto mb-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} />
-                <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                  {loading ? 'Memuat...' : 'Belum ada data'}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={processedChartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="closingGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.5} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="leadsGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: isDarkMode ? '#202C33' : '#fff', 
-                    border: 'none', 
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="leads"
-                  stroke="#818cf8"
-                  strokeWidth={2}
-                  fill="url(#leadsGrad)"
-                  dot={false}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="closing"
-                  stroke="#10b981"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  fill="url(#closingGrad)"
-                  dot={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-          
-          {/* Chart Legend */}
-          <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-6">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-0.5 bg-indigo-400 rounded" />
-              <span className={`text-[9px] font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Leads</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-0.5 bg-emerald-500 rounded" />
-              <span className={`text-[9px] font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Closing</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Footer */}
-        <div className={`mt-5 p-4 rounded-2xl flex justify-between items-center ${
-          isDarkMode ? "bg-black/30 border border-white/5" : "bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm"
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-indigo-500/20' : 'bg-gradient-to-br from-indigo-100 to-purple-100'}`}>
-              <Users size={18} className={isDarkMode ? "text-indigo-400" : "text-indigo-600"} />
-            </div>
-            <div>
-              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                Total Leads
-              </p>
-              <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {loading ? "..." : totalLeads.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <div className={`h-10 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`} />
-
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-purple-500/20' : 'bg-gradient-to-br from-purple-100 to-pink-100'}`}>
-              <Leaf size={18} className={isDarkMode ? "text-purple-400" : "text-purple-600"} />
-            </div>
-            <div>
-              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                Leads Organik
-              </p>
-              <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {loading ? "..." : totalOrganik.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <div className={`h-10 w-[1px] ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`} />
-
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-emerald-500/20' : 'bg-gradient-to-br from-emerald-100 to-teal-100'}`}>
-              <Zap size={18} className={isDarkMode ? "text-emerald-400" : "text-emerald-600"} />
-            </div>
-            <div className="text-right">
-              <p className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                Conv. Rate
-              </p>
-              <p className={`text-lg font-bold ${rawRate > 100 ? "text-orange-500" : isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>
-                {loading ? "..." : `${conversionRate}%`}
-              </p>
-            </div>
-          </div>
-        </div>
+              <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#1f2937' : '#f3f4f6'} vertical={false} />
+              <XAxis dataKey="device" tick={{ fontSize: 10, fill: isDarkMode ? '#6b7280' : '#9ca3af' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: isDarkMode ? '#6b7280' : '#9ca3af' }} axisLine={false} tickLine={false} width={25} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: isDarkMode ? '#202C33' : '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                  fontSize: 12,
+                }}
+              />
+              <Area type="monotone" dataKey="leads" stroke="#6366f1" strokeWidth={2} fill="url(#leadsArea)" dot={{ r: 3, fill: '#6366f1' }} />
+              <Area type="monotone" dataKey="closing" stroke="#10b981" strokeWidth={2} fill="url(#closingArea)" dot={{ r: 3, fill: '#10b981' }} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

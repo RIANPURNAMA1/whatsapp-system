@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { getSocket, joinSession } from '../services/socket';
 import useStore from '../store/useStore';
+import { useSettings } from '../context/SettingsContext';
 import type { Message, Session } from '../types';
 import toast from 'react-hot-toast';
 
@@ -14,6 +15,8 @@ export function useSocket(sessionId: string | null) {
     selectedChat,
     fetchChats,
   } = useStore();
+
+  const { settings } = useSettings();
 
   const handleQR = useCallback((data: { qr: string }) => {
     if (!sessionId) return;
@@ -54,10 +57,19 @@ export function useSocket(sessionId: string | null) {
     if (!message.is_from_me && !isCurrentChat) {
       incrementUnread(message.chat_jid);
       
+      if (settings.desktopNotification && "Notification" in window && Notification.permission === "granted") {
+        new Notification("Pesan Baru", {
+          body: message.content || "Media",
+          icon: "/favicon.ico",
+        });
+      }
 
-     
+      if (settings.notificationSound) {
+        const audio = new Audio("/notification.mp3");
+        audio.play().catch(() => {});
+      }
     }
-  }, [sessionId, addMessage, updateChat, incrementUnread, selectedChat]);
+  }, [sessionId, addMessage, updateChat, incrementUnread, selectedChat, settings.desktopNotification, settings.notificationSound]);
 
   const handleMessageStatus = useCallback((data: {
     messageId: string;

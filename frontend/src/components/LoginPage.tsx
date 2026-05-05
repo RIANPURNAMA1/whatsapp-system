@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, EyeOff, RefreshCw } from 'lucide-react';
+import api from '../lib/api';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 interface LoginPageProps {
   onLogin: (userData: any) => void;
@@ -13,8 +16,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
   const [captchaCode, setCaptchaCode] = useState('');
   const [captchaInput, setCaptchaInput] = useState('');
-
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
   const generateCaptcha = useCallback(() => {
     const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';

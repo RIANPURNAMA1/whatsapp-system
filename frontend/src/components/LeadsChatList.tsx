@@ -263,6 +263,7 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
                     jid: lead.remoteJid,
                     name: lead.pushName || lead.remoteJid.split("@")[0],
                     last_message: lead.content,
+                    session_id: lead.session_id,
                   })}
                   className={`group flex items-center px-4 py-3 cursor-pointer transition-all duration-150 relative border-b border-gray-50 ${
                     isSelected ? "bg-blue-50" : "hover:bg-gray-50"

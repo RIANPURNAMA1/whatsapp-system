@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { log } from "console";
 import { query, queryOne } from "./db.js";
+import { generateLeadsReport, sendReportToGroups } from "./services/leadsReportService.js";
 import {
   createSession,
   sendTextMessage,
@@ -1064,15 +1065,46 @@ router.delete("/rotators/:id", authenticateToken, async (req, res) => {
 
 // GET: Statistik klik rotator berdasarkan tanggal
 router.get("/rotators/stats", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const roleType = req.user.role_type.toLowerCase().trim();
-    const { start_date, end_date } = req.query;
+   try {
+     const userId = req.user.id;
+     const roleType = req.user.role_type.toLowerCase().trim();
+     const { period, start_date, end_date } = req.query;
 
-    // Default: hari ini
-    const today = new Date().toISOString().split('T')[0];
-    const startDate = start_date || today;
-    const endDate = end_date || today;
+     // Handle period parameter
+     let startDate, endDate;
+     const today = new Date().toISOString().split('T')[0];
+     
+     if (period) {
+       switch (period) {
+         case "today":
+           startDate = endDate = today;
+           break;
+         case "yesterday":
+           const yesterday = new Date();
+           yesterday.setDate(yesterday.getDate() - 1);
+           startDate = endDate = yesterday.toISOString().split('T')[0];
+           break;
+         case "week":
+           const weekAgo = new Date();
+           weekAgo.setDate(weekAgo.getDate() - 7);
+           startDate = weekAgo.toISOString().split('T')[0];
+           endDate = today;
+           break;
+         case "month":
+           const monthAgo = new Date();
+           monthAgo.setMonth(monthAgo.getMonth() - 1);
+           startDate = monthAgo.toISOString().split('T')[0];
+           endDate = today;
+           break;
+         default:
+           // Default to today if period not recognized
+           startDate = endDate = today;
+       }
+     } else {
+       // Use start_date and end_date if provided
+       startDate = start_date || today;
+       endDate = end_date || today;
+     }
 
     // Ambil semua rotator
     let rotatorSql = "SELECT id, name, short_code FROM link_rotators";
@@ -2067,7 +2099,7 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
       query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`, [...finalSessionIds]),
       query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
       query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
-      query(`SELECT m.id, COALESCE(ct.push_name, m.chat_jid) AS sender, m.content AS message_text, s.name AS received_via, m.timestamp AS received_at FROM wa_messages m INNER JOIN (SELECT MAX(id) as max_id FROM wa_messages WHERE is_from_me = 0 GROUP BY chat_jid) last_msg ON m.id = last_msg.max_id LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid LEFT JOIN wa_sessions s ON s.id = m.session_id WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${sessionFilter} ORDER BY m.timestamp DESC LIMIT 15`, [...finalSessionIds]),
+      query(`SELECT m.id, m.chat_jid AS sender_jid, m.session_id, COALESCE(ct.push_name, m.chat_jid) AS sender, m.content AS message_text, s.name AS received_via, m.timestamp AS received_at FROM wa_messages m INNER JOIN (SELECT MAX(id) as max_id FROM wa_messages WHERE is_from_me = 0 GROUP BY chat_jid) last_msg ON m.id = last_msg.max_id LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid LEFT JOIN wa_sessions s ON s.id = m.session_id WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${sessionFilter} ORDER BY m.timestamp DESC LIMIT 15`, [...finalSessionIds]),
       query(`SELECT ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, SUM(m.is_from_me = 0) AS masuk, SUM(m.is_from_me = 1) AS keluar FROM wa_messages m WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} GROUP BY time ORDER BY time ASC`, [...finalSessionIds]),
       query(`SELECT s.name, (SELECT COUNT(DISTINCT m2.chat_jid) FROM wa_messages m2 WHERE m2.session_id = s.id AND m2.is_from_me = 0 AND m2.chat_jid NOT LIKE '%@g.us' AND ${periodFilter.replace(/m\./g, "m2.")} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m2.chat_jid AND older.timestamp < ?)) AS lead_count, (SELECT COUNT(*) FROM wa_messages mo WHERE mo.session_id = s.id AND mo.is_from_me = 1 AND mo.chat_jid NOT LIKE '%@g.us' AND mo.chat_jid NOT LIKE '%@newsletter' ${organikFilter.replace('content', 'mo.content')} AND ${periodFilter.replace(/m\./g, "mo.")}) AS leads_organik FROM wa_sessions s WHERE s.id IN (${placeholders})`, [minPeriodTimestamp, ...finalSessionIds]),
     ]);
@@ -2283,7 +2315,7 @@ router.post("/ai-settings/save", authenticateToken, upload.array('files'), async
       scheduleEnabled ? 1 : 0,
       scheduleStartTime || "08:00:00",
       scheduleEndTime || "17:00:00",
-      scheduleDays || "1,2,3,4,5,6,7"
+      scheduleDays || "0,1,2,3,4,5,6"
     ];
 
     await query(sql, values);
@@ -3455,6 +3487,122 @@ router.put("/settings/:platform/:key", authenticateToken, async (req, res) => {
     res.json({ success: true, message: "Setting updated" });
   } catch (err) {
     console.error("Error update setting:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ===============================================
+// LEADS REPORT - MANAGEMENT
+// ===============================================
+
+// GET: Get leads report settings
+router.get("/leads-report/settings", authenticateToken, async (req, res) => {
+  try {
+    let settings = await queryOne("SELECT * FROM leads_report_settings LIMIT 1");
+    if (!settings) {
+      await query(`
+        INSERT INTO leads_report_settings (is_enabled, report_time, report_days, target_groups)
+        VALUES (0, '17:00:00', '1,2,3,4,5', '[]')
+      `);
+      settings = await queryOne("SELECT * FROM leads_report_settings LIMIT 1");
+    }
+    // Parse target_groups if it's a string
+    if (settings && typeof settings.target_groups === 'string') {
+      settings.target_groups = JSON.parse(settings.target_groups);
+    }
+    res.json({ success: true, data: settings });
+  } catch (err) {
+    console.error("Error get leads report settings:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST: Update leads report settings
+router.post("/leads-report/settings", authenticateToken, async (req, res) => {
+  try {
+    const { isEnabled, reportTime, reportDays, targetGroups } = req.body;
+
+    const hasExisting = await queryOne("SELECT id FROM leads_report_settings LIMIT 1");
+    
+    if (hasExisting) {
+      await query(
+        `UPDATE leads_report_settings SET is_enabled = ?, report_time = ?, report_days = ?, target_groups = ?, last_sent_date = NULL WHERE id = ?`,
+        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || []), hasExisting.id]
+      );
+    } else {
+      await query(
+        `INSERT INTO leads_report_settings (is_enabled, report_time, report_days, target_groups) VALUES (?, ?, ?, ?)`,
+        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || [])]
+      );
+    }
+
+    res.json({ success: true, message: "Pengaturan laporan leads berhasil disimpan. Jadwal akan aktif kembali." });
+  } catch (err) {
+    console.error("Error update leads report settings:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET: Get available groups from all sessions
+router.get("/leads-report/groups", authenticateToken, async (req, res) => {
+  try {
+    const groups = await query(
+      `SELECT g.id, g.session_id, g.jid, g.subject, g.participant_count, s.name as session_name
+       FROM wa_groups g
+       LEFT JOIN wa_sessions s ON g.session_id = s.id
+       ORDER BY g.subject ASC`
+    );
+    res.json({ success: true, data: groups });
+  } catch (err) {
+    console.error("Error get groups:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST: Generate and send leads report now - per device
+router.post("/leads-report/send-now", authenticateToken, async (req, res) => {
+  try {
+    const { groupJids, sessionId } = req.body;
+    if (!groupJids || groupJids.length === 0) {
+      return res.status(400).json({ success: false, message: "Pilih minimal 1 grup tujuan" });
+    }
+
+    const { generateDeviceReport, generateLeadsReport, sendReportToGroups } = await import("./services/leadsReportService.js");
+
+    let results = [];
+
+    if (sessionId) {
+      // Send report for specific device only
+      const report = await generateDeviceReport(sessionId);
+      if (!report) {
+        return res.status(404).json({ success: false, message: "Device tidak ditemukan" });
+      }
+      results = await sendReportToGroups(groupJids, report, sessionId);
+    } else {
+      // Send individual report per device
+      const activeSessions = await query("SELECT id, name FROM wa_sessions WHERE status = 'connected'");
+      for (const session of activeSessions) {
+        try {
+          const report = await generateDeviceReport(session.id);
+          if (!report) continue;
+          const sessionResults = await sendReportToGroups(groupJids, report, session.id);
+          results = results.concat(sessionResults);
+        } catch (err) {
+          console.error(`Error sending report for ${session.name}:`, err.message);
+        }
+      }
+    }
+
+    const sent = results.filter((r) => r.status === "sent").length;
+    const failed = results.filter((r) => r.status === "failed").length;
+
+    res.json({
+      success: true,
+      message: `Laporan berhasil dikirim (${sent} sukses, ${failed} gagal)`,
+      results
+    });
+  } catch (err) {
+    console.error("Error send leads report:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

@@ -38,7 +38,7 @@ const AISettingPage: React.FC = () => {
     schedule_enabled: 0,
     schedule_start_time: "08:00",
     schedule_end_time: "17:00",
-    schedule_days: "1,2,3,4,5,6,7",
+    schedule_days: "0,1,2,3,4,5,6",
   });
 
   const fetchConfigs = async () => {
@@ -109,7 +109,11 @@ const AISettingPage: React.FC = () => {
       schedule_enabled: cfg.schedule_enabled || 0,
       schedule_start_time: cfg.schedule_start_time ? cfg.schedule_start_time.substring(0, 5) : "08:00",
       schedule_end_time: cfg.schedule_end_time ? cfg.schedule_end_time.substring(0, 5) : "17:00",
-      schedule_days: cfg.schedule_days || "1,2,3,4,5,6,7",
+      schedule_days: (() => {
+        const raw = cfg.schedule_days || "0,1,2,3,4,5,6";
+        if (raw === "1,2,3,4,5,6,7") return "0,1,2,3,4,5,6";
+        return raw;
+      })(),
     });
     setKbMode("text");
     toast.success(`Editing: ${getSessionName(cfg.session_id)}`);

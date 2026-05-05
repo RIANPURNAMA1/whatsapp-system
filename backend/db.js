@@ -293,7 +293,7 @@ async function initDatabase() {
       schedule_enabled TINYINT(1) DEFAULT 0,
       schedule_start_time TIME DEFAULT '08:00:00',
       schedule_end_time TIME DEFAULT '17:00:00',
-      schedule_days VARCHAR(20) DEFAULT '1,2,3,4,5,6,7',
+      schedule_days VARCHAR(20) DEFAULT '0,1,2,3,4,5,6',
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
 `,
@@ -318,6 +318,12 @@ async function initDatabase() {
         rotator_id INT NOT NULL,
         ip_address VARCHAR(45) DEFAULT NULL,
         user_agent TEXT DEFAULT NULL,
+        referer TEXT DEFAULT NULL,
+        country VARCHAR(100) DEFAULT NULL,
+        city VARCHAR(100) DEFAULT NULL,
+        device_type VARCHAR(50) DEFAULT NULL,
+        browser VARCHAR(100) DEFAULT NULL,
+        os VARCHAR(100) DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX (rotator_id),
         INDEX (created_at),
@@ -499,12 +505,59 @@ CREATE TABLE IF NOT EXISTS wa_rules (
 
     try {
       await db.promise().query(`
-        ALTER TABLE wa_ai_settings ADD COLUMN schedule_days VARCHAR(20) DEFAULT '1,2,3,4,5,6,7' AFTER schedule_end_time
+        ALTER TABLE wa_ai_settings ADD COLUMN schedule_days VARCHAR(20) DEFAULT '0,1,2,3,4,5,6' AFTER schedule_end_time
       `);
       console.log("✅ Added schedule_days column to wa_ai_settings");
     } catch (err) {
       if (!err.message.includes('Duplicate column')) {
         console.warn("⚠️ Migration warning for schedule_days:", err.message);
+      }
+    }
+
+    // Fix existing schedule_days values (convert 1-7 to 0-6)
+    try {
+      await db.promise().query(`
+        UPDATE wa_ai_settings 
+        SET schedule_days = '0,1,2,3,4,5,6' 
+        WHERE schedule_days = '1,2,3,4,5,6,7'
+      `);
+      console.log("✅ Fixed schedule_days values from 1-7 to 0-6 format");
+    } catch (err) {
+      console.warn("⚠️ Migration warning for fixing schedule_days:", err.message);
+    }
+
+    // Leads Report Settings
+    try {
+      await db.promise().query(`
+        CREATE TABLE IF NOT EXISTS leads_report_settings (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          is_enabled TINYINT(1) DEFAULT 0,
+          report_time TIME DEFAULT '17:00:00',
+          report_days VARCHAR(20) DEFAULT '1,2,3,4,5',
+          target_groups JSON DEFAULT NULL,
+          last_sent_date DATE DEFAULT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Created leads_report_settings table");
+    } catch (err) {
+      console.warn("⚠️ Migration warning for leads_report_settings:", err.message);
+    }
+
+    // Add last_sent_date column to existing leads_report_settings table
+    try {
+      await db.promise().query(`
+        ALTER TABLE leads_report_settings 
+        ADD COLUMN IF NOT EXISTS last_sent_date DATE DEFAULT NULL AFTER target_groups
+      `);
+      console.log("✅ Added last_sent_date to leads_report_settings");
+    } catch (err) {
+      // MySQL < 8.0.19 doesn't support IF NOT EXISTS in ALTER TABLE
+      if (err.code === "ER_DUP_FIELDNAME") {
+        console.log("✅ last_sent_date already exists in leads_report_settings");
+      } else {
+        console.warn("⚠️ Migration warning for last_sent_date:", err.message);
       }
     }
 

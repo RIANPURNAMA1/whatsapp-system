@@ -708,7 +708,7 @@ async function syncGroupMetadata(sessionId, metadata, sock) {
           : "member";
 
       await query(
-        `INSERT INTO wa_group_participants (session_id, group_jid, participant_jid, role, created_at) 
+        `INSERT IGNORE INTO wa_group_participants (session_id, group_jid, participant_jid, role, created_at) 
          VALUES (?, ?, ?, ?, NOW())`,
         [sessionId, jid, participantJid, role],
       );

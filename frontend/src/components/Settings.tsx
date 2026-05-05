@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useSettings } from "../context/SettingsContext";
 
 interface SettingsProps {
   onBack?: () => void;
@@ -38,6 +39,7 @@ interface PlatformSetting {
 const API_URL = import.meta.env.VITE_API_URL;
 
 export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
+  const { settings, updateSetting, refreshSettings } = useSettings();
   const [activeTab, setActiveTab] = useState("whatsapp");
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,60 +60,12 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
         { label: "Read Receipt", key: "readReceipt", type: "toggle", value: true },
       ],
     },
-    {
-      id: "tiktok",
-      name: "TikTok",
-      color: "text-rose-500",
-      bgColor: "bg-rose-500",
-      enabled: false,
-      settings: [
-        { label: "Auto Reply", key: "autoReply", type: "toggle", value: false },
-        { label: "Notifikasi Komentar", key: "notifyComment", type: "toggle", value: true },
-        { label: "Auto Like Komentar", key: "autoLike", type: "toggle", value: false },
-      ],
-    },
-    {
-      id: "instagram",
-      name: "Instagram",
-      color: "text-purple-500",
-      bgColor: "bg-purple-500",
-      enabled: false,
-      settings: [
-        { label: "Auto Reply DM", key: "autoReply", type: "toggle", value: false },
-        { label: "Auto Reply Komentar", key: "autoReplyComment", type: "toggle", value: false },
-        { label: "Story Notification", key: "storyNotify", type: "toggle", value: true },
-      ],
-    },
-    {
-      id: "facebook",
-      name: "Facebook",
-      color: "text-blue-600",
-      bgColor: "bg-blue-600",
-      enabled: false,
-      settings: [
-        { label: "Auto Reply Messenger", key: "autoReply", type: "toggle", value: false },
-        { label: "Auto Reply Komentar", key: "autoReplyComment", type: "toggle", value: false },
-        { label: "Kirim Otomatis ke Inbox", key: "autoInbox", type: "toggle", value: true },
-      ],
-    },
   ]);
 
-  const [generalSettings, setGeneralSettings] = useState({
-    sessionTimeout: "60",
-    theme: "light",
-    language: "id",
-    timezone: "Asia/Jakarta",
-    notificationSound: true,
-    desktopNotification: true,
-    autoRefresh: true,
-    refreshInterval: "30",
-  });
+
 
   const [webhookUrls, setWebhookUrls] = useState<Record<string, string>>({
     whatsapp: "",
-    tiktok: "",
-    instagram: "",
-    facebook: "",
   });
 
   // Load settings from API
@@ -120,17 +74,13 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
       setIsLoading(true);
       const token = localStorage.getItem("token");
       
-      const [platformRes, generalRes] = await Promise.all([
+      const [platformRes] = await Promise.all([
         fetch(`${API_URL}/settings/platforms`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_URL}/settings/general`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
 
       const platformData = await platformRes.json();
-      const generalData = await generalRes.json();
 
       if (platformData.success && platformData.data) {
         const loadedPlatforms = platforms.map(platform => {
@@ -147,25 +97,17 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
         setPlatforms(loadedPlatforms);
         setWebhookUrls({
           whatsapp: platformData.data.whatsapp?.webhookUrl || "",
-          tiktok: platformData.data.tiktok?.webhookUrl || "",
-          instagram: platformData.data.instagram?.webhookUrl || "",
-          facebook: platformData.data.facebook?.webhookUrl || "",
         });
       }
 
-      if (generalData.success && generalData.data) {
-        setGeneralSettings(prev => ({
-          ...prev,
-          ...generalData.data,
-        }));
-      }
+      await refreshSettings();
     } catch (err) {
       console.error("Failed to load settings:", err);
       toast.error("Gagal memuat pengaturan");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshSettings]);
 
   useEffect(() => {
     loadSettings();
@@ -200,18 +142,6 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
           }),
         });
       }
-
-      // Save general settings
-      await fetch(`${API_URL}/settings/general`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          settings: generalSettings,
-        }),
-      });
 
       toast.success("Pengaturan berhasil disimpan!");
     } catch (err) {
@@ -314,9 +244,6 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
 
   const tabs = [
     { id: "whatsapp", label: "WhatsApp", color: "text-green-500" },
-    { id: "tiktok", label: "TikTok", color: "text-rose-500" },
-    { id: "instagram", label: "Instagram", color: "text-purple-500" },
-    { id: "facebook", label: "Facebook", color: "text-blue-600" },
     { id: "general", label: "Umum", color: "text-gray-600" },
   ];
 
@@ -365,9 +292,6 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
               >
                 <div className="flex items-center gap-3">
                   {tab.id === "whatsapp" && <MessageSquare className={`w-5 h-5 ${tab.color}`} />}
-                  {tab.id === "tiktok" && <span className={`w-5 h-5 ${tab.color} font-bold text-sm flex items-center justify-center`}>T</span>}
-                  {tab.id === "instagram" && <span className={`w-5 h-5 ${tab.color} font-bold text-xs flex items-center justify-center`}>IG</span>}
-                  {tab.id === "facebook" && <span className={`w-5 h-5 ${tab.color} font-bold text-xs flex items-center justify-center`}>FB</span>}
                   {tab.id === "general" && <Settings2 className={`w-5 h-5 ${tab.color}`} />}
                   <span className="text-sm font-medium">{tab.label}</span>
                 </div>
@@ -520,8 +444,8 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
                       <span className="text-xs text-gray-400">Auto logout setelah tidak aktif</span>
                     </div>
                     <select
-                      value={generalSettings.sessionTimeout}
-                      onChange={(e) => setGeneralSettings({...generalSettings, sessionTimeout: e.target.value})}
+                      value={settings.sessionTimeout}
+                      onChange={(e) => updateSetting("sessionTimeout", e.target.value)}
                       className="bg-gray-50 px-4 py-2 rounded-lg border border-gray-200 outline-none text-sm"
                     >
                       <option value="15">15 menit</option>
@@ -536,17 +460,34 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
                       <span className="text-xs text-gray-400">Muat ulang data secara otomatis</span>
                     </div>
                     <button
-                      onClick={() => setGeneralSettings({...generalSettings, autoRefresh: !generalSettings.autoRefresh})}
+                      onClick={() => updateSetting("autoRefresh", !settings.autoRefresh)}
                       className={`relative w-12 h-6 rounded-full transition-colors ${
-                        generalSettings.autoRefresh ? "bg-blue-500" : "bg-gray-300"
+                        settings.autoRefresh ? "bg-blue-500" : "bg-gray-300"
                       }`}
                     >
                       <span
                         className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          generalSettings.autoRefresh ? "left-6" : "left-0.5"
+                          settings.autoRefresh ? "left-6" : "left-0.5"
                         }`}
                       />
                     </button>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <div>
+                      <span className="text-gray-700 block">Interval Refresh</span>
+                      <span className="text-xs text-gray-400">Frekuensi muat ulang data</span>
+                    </div>
+                    <select
+                      value={settings.refreshInterval}
+                      onChange={(e) => updateSetting("refreshInterval", e.target.value)}
+                      className="bg-gray-50 px-4 py-2 rounded-lg border border-gray-200 outline-none text-sm"
+                    >
+                      <option value="10">10 detik</option>
+                      <option value="30">30 detik</option>
+                      <option value="60">1 menit</option>
+                      <option value="120">2 menit</option>
+                      <option value="300">5 menit</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -564,14 +505,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
                       <span className="text-xs text-gray-400">Bunyi saat pesan masuk</span>
                     </div>
                     <button
-                      onClick={() => setGeneralSettings({...generalSettings, notificationSound: !generalSettings.notificationSound})}
+                      onClick={() => updateSetting("notificationSound", !settings.notificationSound)}
                       className={`relative w-12 h-6 rounded-full transition-colors ${
-                        generalSettings.notificationSound ? "bg-blue-500" : "bg-gray-300"
+                        settings.notificationSound ? "bg-blue-500" : "bg-gray-300"
                       }`}
                     >
                       <span
                         className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          generalSettings.notificationSound ? "left-6" : "left-0.5"
+                          settings.notificationSound ? "left-6" : "left-0.5"
                         }`}
                       />
                     </button>
@@ -582,14 +523,14 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
                       <span className="text-xs text-gray-400">Popup notifikasi di browser</span>
                     </div>
                     <button
-                      onClick={() => setGeneralSettings({...generalSettings, desktopNotification: !generalSettings.desktopNotification})}
+                      onClick={() => updateSetting("desktopNotification", !settings.desktopNotification)}
                       className={`relative w-12 h-6 rounded-full transition-colors ${
-                        generalSettings.desktopNotification ? "bg-blue-500" : "bg-gray-300"
+                        settings.desktopNotification ? "bg-blue-500" : "bg-gray-300"
                       }`}
                     >
                       <span
                         className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          generalSettings.desktopNotification ? "left-6" : "left-0.5"
+                          settings.desktopNotification ? "left-6" : "left-0.5"
                         }`}
                       />
                     </button>
@@ -601,24 +542,24 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
               <div className="bg-white rounded-2xl border border-gray-200 p-6">
                 <h3 className="text-gray-900 font-semibold mb-4 flex items-center gap-2">
                   <Globe className="w-5 h-5 text-gray-500" />
-                  Tampilan
+                  Tampilan & Regional
                 </h3>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between py-2 border-b border-gray-100">
                     <span className="text-gray-700">Tema</span>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setGeneralSettings({...generalSettings, theme: "light"})}
+                        onClick={() => updateSetting("theme", "light")}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                          generalSettings.theme === "light" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"
+                          settings.theme === "light" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"
                         }`}
                       >
                         <Sun className="w-4 h-4" /> Light
                       </button>
                       <button
-                        onClick={() => setGeneralSettings({...generalSettings, theme: "dark"})}
+                        onClick={() => updateSetting("theme", "dark")}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                          generalSettings.theme === "dark" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"
+                          settings.theme === "dark" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"
                         }`}
                       >
                         <Moon className="w-4 h-4" /> Dark
@@ -627,12 +568,26 @@ export const Settings: React.FC<SettingsProps> = ({ onBack: _onBack }) => {
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-gray-100">
                     <div>
-                      <span className="text-gray-700 block">Zona Waktu</span>
-                      <span className="text-xs text-gray-400">Asia/Jakarta (GMT+7)</span>
+                      <span className="text-gray-700 block">Bahasa</span>
+                      <span className="text-xs text-gray-400">Bahasa antarmuka</span>
                     </div>
                     <select
-                      value={generalSettings.timezone}
-                      onChange={(e) => setGeneralSettings({...generalSettings, timezone: e.target.value})}
+                      value={settings.language}
+                      onChange={(e) => updateSetting("language", e.target.value)}
+                      className="bg-gray-50 px-4 py-2 rounded-lg border border-gray-200 outline-none text-sm"
+                    >
+                      <option value="id">Indonesia</option>
+                      <option value="en">English</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <div>
+                      <span className="text-gray-700 block">Zona Waktu</span>
+                      <span className="text-xs text-gray-400">Untuk timestamp & laporan</span>
+                    </div>
+                    <select
+                      value={settings.timezone}
+                      onChange={(e) => updateSetting("timezone", e.target.value)}
                       className="bg-gray-50 px-4 py-2 rounded-lg border border-gray-200 outline-none text-sm"
                     >
                       <option value="Asia/Jakarta">Asia/Jakarta (GMT+7)</option>

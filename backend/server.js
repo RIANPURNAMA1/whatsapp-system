@@ -235,6 +235,87 @@ io.on("connection", (socket) => {
 });
 
 // ===============================================
+// Leads Report Auto-Scheduler - Per Device
+// ===============================================
+
+async function checkAndSendScheduledReport() {
+  try {
+    const settings = await queryOne("SELECT * FROM leads_report_settings LIMIT 1");
+    if (!settings || settings.is_enabled !== 1) return;
+
+    const now = new Date();
+    const currentDay = now.getDay(); // 0=Minggu, 1=Senin, ...
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const todayStr = now.toISOString().split("T")[0];
+
+    // Skip if already sent today (check DB)
+    if (settings.last_sent_date === todayStr) return;
+
+    // Check if today is in the scheduled days
+    const allowedDays = (settings.report_days || "1,2,3,4,5").split(",").map((d) => parseInt(d.trim()));
+    if (!allowedDays.includes(currentDay)) return;
+
+    // Parse report time (HH:MM)
+    const reportTime = settings.report_time ? settings.report_time.substring(0, 5) : "17:00";
+    const [targetHour, targetMinute] = reportTime.split(":").map(Number);
+
+    // Time window: if current time >= scheduled time, allow sending
+    const currentTimeMinutes = currentHour * 60 + currentMinute;
+    const targetTimeMinutes = targetHour * 60 + targetMinute;
+    if (currentTimeMinutes < targetTimeMinutes) return;
+
+    // Get target groups
+    let targetGroups = [];
+    try {
+      targetGroups = typeof settings.target_groups === "string"
+        ? JSON.parse(settings.target_groups)
+        : settings.target_groups || [];
+    } catch {
+      targetGroups = [];
+    }
+
+    if (targetGroups.length === 0) return;
+
+    // Mark as sent in DB BEFORE sending to prevent duplicate if interval fires again
+    await query("UPDATE leads_report_settings SET last_sent_date = ? WHERE id = ?", [todayStr, settings.id]);
+
+    console.log(`📊 Mengirim laporan leads per device ke ${targetGroups.length} grup...`);
+
+    const { generateDeviceReport, sendReportToGroups } = await import("./services/leadsReportService.js");
+
+    // Get all active sessions
+    const activeSessions = await query("SELECT id, name FROM wa_sessions WHERE status = 'connected'");
+
+    for (const session of activeSessions) {
+      try {
+        console.log(`📊 Generating report for device: ${session.name} (${session.id})`);
+
+        // Generate report for this device only
+        const report = await generateDeviceReport(session.id);
+        if (!report) continue;
+
+        // Send to groups using this specific session
+        const results = await sendReportToGroups(targetGroups, report, session.id);
+
+        const sent = results.filter((r) => r.status === "sent").length;
+        const failed = results.filter((r) => r.status === "failed").length;
+        console.log(`📊 ${session.name}: ${sent} sukses, ${failed} gagal`);
+      } catch (err) {
+        console.error(`❌ Error sending report for ${session.name}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error("❌ Error sending scheduled report:", err.message);
+  }
+}
+
+// Check every 30 seconds
+setInterval(checkAndSendScheduledReport, 30000);
+// Run immediately on startup (after DB is ready) so missed reports from today get sent
+setTimeout(checkAndSendScheduledReport, 5000);
+
+// ===============================================
 // Startup: Reconnect sesi aktif
 // ===============================================
 async function startActiveSessions() {

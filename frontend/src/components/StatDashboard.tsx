@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useSettings } from "../context/SettingsContext";
 import {
   MessageSquare,
   CheckCircle,
@@ -32,8 +33,13 @@ const FILTER_MAP: Record<string, string> = {
   Custom: "Custom",
 };
 
-const StatDashboard: React.FC = () => {
+interface StatDashboardProps {
+  onNavigate?: (tab: string) => void;
+}
 
+const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
+
+  const { settings } = useSettings();
 
   const now = new Date();
   const todayStart = new Date(new Date(now).setHours(0, 0, 0, 0))
@@ -300,14 +306,16 @@ const StatDashboard: React.FC = () => {
     loadData();
 
     if (activeFilter !== "Custom") {
+      const intervalMs = settings.autoRefresh ? parseInt(settings.refreshInterval, 10) * 1000 : 0;
+      if (intervalMs <= 0) return;
       const interval = setInterval(() => {
         fetchDashboard(false); 
         fetchSocialStats();
         fetchOverallLeads();
-      }, 30000);
+      }, intervalMs);
       return () => clearInterval(interval);
     }
-  }, [fetchDashboard, fetchSocialStats, fetchOverallLeads, activeFilter, appliedDates, selectedDevice]);
+  }, [fetchDashboard, fetchSocialStats, fetchOverallLeads, activeFilter, appliedDates, selectedDevice, settings.autoRefresh, settings.refreshInterval]);
 
   useEffect(() => {
     if (data.sessions.length > 0) {
@@ -453,7 +461,7 @@ const StatDashboard: React.FC = () => {
         )}
 
         {/* AI Analytic Section */}
-        <AIAnalyticSection stats={data.stats} dark={false} />
+    
 
         {/* Stats Overview Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
@@ -543,29 +551,35 @@ const StatDashboard: React.FC = () => {
         </div>
 
         {/* Bottom Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
-          <LiveFeed
-            messages={data.messages}
-            totalPesan={data.stats.pesanMasukAllTime}
-            dark={false}
-          />
-          <ClosingStatCard
-            isDarkMode={false}
-            loading={loadingSocial}
-            totalClosing={overallSummary.totalClosing}
-            conversionRate={overallSummary.averageConversionRate}
-            totalLeads={overallSummary.totalLeads}
-            chartData={data?.chartData || []}
-            totalOrganik={overallSummary.totalOrganik}
-          />
-          <OverallLeadsCard
-            isDarkMode={false}
-            loading={loadingSocial}
-            totalLeads={overallSummary.totalLeads}
-            totalClosing={overallSummary.totalClosing}
-            conversionRate={overallSummary.averageConversionRate}
-            totalOrganik={overallSummary.totalOrganik}
-          />
+        <div className="mb-8">
+          {/* Live Feed full width */}
+          <div className="mb-4">
+            <LiveFeed
+              messages={data.messages}
+              totalPesan={data.stats.pesanMasukAllTime}
+              dark={false}
+              onNavigate={onNavigate}
+            />
+          </div>
+
+          {/* Stat cards side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ClosingStatCard
+              isDarkMode={false}
+              loading={loadingSocial}
+              totalClosing={overallSummary.totalClosing}
+              conversionRate={overallSummary.averageConversionRate}
+              totalLeads={overallSummary.totalLeads}
+              deviceData={deviceLeadsData}
+            />
+            <OverallLeadsCard
+              isDarkMode={false}
+              loading={loadingSocial}
+              totalLeads={overallSummary.totalLeads}
+              totalClosing={overallSummary.totalClosing}
+              conversionRate={overallSummary.averageConversionRate}
+            />
+          </div>
         </div>
 
         {/* Label & Social Sections */}

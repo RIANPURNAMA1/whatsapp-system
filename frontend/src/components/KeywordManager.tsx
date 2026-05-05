@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import {
   Plus,
   Trash2,
@@ -18,6 +17,7 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
+import api from "../lib/api";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import { Button } from "@/components/ui/button";
@@ -58,10 +58,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
 
   const fetchSessions = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/sessions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get("/sessions");
       setSessions(res.data?.data || []);
     } catch (err) {
       console.error("Gagal mengambil sessions:", err);
@@ -71,10 +68,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
   const fetchKeywords = async () => {
     setFetching(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/keywords`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get("/keywords");
       const result = res.data?.data || res.data;
       setKeywords(Array.isArray(result) ? result : []);
     } catch (err: any) {
@@ -87,15 +81,8 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
 
   const fetchOrganikKeywords = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/organik-keywords`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
+      const res = await api.get("/organik-keywords");
       console.log("Organik API Response:", res.data);
-      
       if (res.data?.success) {
         console.log("Setting organik keywords:", res.data.data);
         setOrganikKeywords(res.data.data || []);
@@ -121,16 +108,11 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      await axios.post(
-        `${import.meta.env.VITE_API_URL}/keywords/save`,
-        {
-          platform: newKw.platform.toLowerCase(),
-          keyword_text: newKw.text,
-          session_id: newKw.session_id,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.post("/keywords/save", {
+        platform: newKw.platform.toLowerCase(),
+        keyword_text: newKw.text,
+        session_id: newKw.session_id,
+      });
 
       toast.success("Keyword berhasil ditambahkan");
       setNewKw({ platform: "", text: "", session_id: "" });
@@ -159,10 +141,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
 
     if (result.isConfirmed) {
       try {
-        const token = localStorage.getItem("token");
-        await axios.delete(`${import.meta.env.VITE_API_URL}/keywords/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await api.delete(`/keywords/${id}`);
         fetchKeywords();
         toast.success("Keyword berhasil dihapus");
       } catch (error) {
@@ -190,16 +169,11 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL}/keywords/update/${editKw.id}`,
-        {
-          platform: editKw.platform.toLowerCase(),
-          keyword_text: editKw.text,
-          session_id: editKw.session_id,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.put(`/keywords/update/${editKw.id}`, {
+        platform: editKw.platform.toLowerCase(),
+        keyword_text: editKw.text,
+        session_id: editKw.session_id,
+      });
 
       toast.success("Keyword berhasil diperbarui");
       setIsEditOpen(false);
@@ -221,12 +195,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      await axios.post(
-        `${import.meta.env.VITE_API_URL}/organik-keywords`,
-        { keyword: newOrganik.keyword, is_active: newOrganik.is_active },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.post("/organik-keywords", { keyword: newOrganik.keyword, is_active: newOrganik.is_active });
       toast.success("Keyword organik berhasil ditambahkan");
       setNewOrganik({ keyword: "", is_active: true });
       setIsOrganikFormOpen(false);
@@ -252,12 +221,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL}/organik-keywords/${editOrganik.id}`,
-        { keyword: editOrganik.keyword, is_active: editOrganik.is_active },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.put(`/organik-keywords/${editOrganik.id}`, { keyword: editOrganik.keyword, is_active: editOrganik.is_active });
       toast.success("Keyword organik berhasil diperbarui");
       setIsOrganikEditOpen(false);
       setEditOrganik(null);
@@ -285,10 +249,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
 
     if (result.isConfirmed) {
       try {
-        const token = localStorage.getItem("token");
-        await axios.delete(`${import.meta.env.VITE_API_URL}/organik-keywords/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await api.delete(`/organik-keywords/${id}`);
         fetchOrganikKeywords();
         toast.success("Keyword organik berhasil dihapus");
       } catch (error) {

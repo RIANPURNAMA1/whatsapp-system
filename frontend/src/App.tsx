@@ -2,11 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { MainApp } from "./pages/MainApp";
 import LoginPage from "./components/LoginPage";
+import { SettingsProvider, useSettings } from "./context/SettingsContext";
 
-function App() {
+function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
+
+  const { settings } = useSettings();
 
   const socketRef = useRef<Socket | null>(null);
   const lastSpeakTime = useRef<number>(0);
@@ -19,7 +22,7 @@ function App() {
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
     setIsLoggedIn(true);
-    console.log("Login sukses! Sesi 1 jam dimulai.");
+    console.log("Login sukses! Sesi dimulai.");
   };
 
   const handleLogout = useCallback(() => {
@@ -40,12 +43,11 @@ function App() {
     setIsLoggedIn(false);
   }, []);
 
-  // --- LOGIKA AUTO-LOGOUT STATIS (1 JAM) ---
+  // --- LOGIKA AUTO-LOGOUT DINAMIS (dari settings) ---
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    // 1 jam = 3.600.000 ms
-    const SESSION_DURATION = 3600000;
+    const SESSION_DURATION = parseInt(settings.sessionTimeout, 10) * 60 * 1000;
 
     const timer = setTimeout(() => {
       handleLogout();
@@ -53,10 +55,12 @@ function App() {
 
     // Cleanup jika komponen unmount atau user logout manual
     return () => clearTimeout(timer);
-  }, [isLoggedIn, handleLogout]);
+  }, [isLoggedIn, handleLogout, settings.sessionTimeout]);
 
-  // --- LOGIKA SUARA GLOBAL ---
+  // --- LOGIKA SUARA GLOBAL (respect settings) ---
   const speakNotification = () => {
+    if (!settings.notificationSound) return;
+
     const now = Date.now();
     if (now - lastSpeakTime.current < 4000) return;
 
@@ -129,6 +133,14 @@ function App() {
         <LoginPage onLogin={handleLogin} />
       )}
     </>
+  );
+}
+
+function App() {
+  return (
+    <SettingsProvider>
+      <AppContent />
+    </SettingsProvider>
   );
 }
 
