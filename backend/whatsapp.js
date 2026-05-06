@@ -727,7 +727,7 @@ async function syncGroupMetadata(sessionId, metadata, sock) {
 
 async function processMessage(sessionId, msg, sock) {
   try {
-    const jid = msg.key.remoteJid;
+    const jid = jidNormalizedUser(msg.key.remoteJid);
     const isFromMe = msg.key.fromMe;
     const messageId = msg.key.id;
     const fromJid = isFromMe
