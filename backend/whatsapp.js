@@ -442,6 +442,12 @@ sock.ev.on("messages.upsert", async ({ messages, type }) => {
       "documentMessage",
     ].includes(messageType);
 
+    // Tolak download untuk image/video
+    if (messageType === "imageMessage" || messageType === "videoMessage") {
+      console.log(`⏭️ Media ditolak (tidak didownload): ${messageType}`);
+      continue;
+    }
+
     if (isMedia) {
       try {
         console.log(`📩 Downloading media: ${messageType}...`);
@@ -739,7 +745,7 @@ async function processMessage(sessionId, msg, sock) {
 
     const contentType = getContentType(msg.message);
 
-    if (!contentType || contentType === "senderKeyDistributionMessage")
+    if (!contentType || contentType === "senderKeyDistributionMessage" || contentType === "imageMessage" || contentType === "videoMessage")
       return null;
 
     let messageType = "unknown"; // Default ke unknown jika tidak terdaftar di ENUM
