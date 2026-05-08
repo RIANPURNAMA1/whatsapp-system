@@ -1,0 +1,16 @@
+╔════════════════════════════════════════╗
+║      WhatsApp & Rotator System         ║
+╚════════════════════════════════════════╝
+✅ MySQL Pool Connected (WhatsApp System)
+✅ Fixed schedule_days values from 1-7 to 0-6 format
+✅ Created leads_report_settings table
+✅ Added last_sent_date to leads_report_settings
+✅ Added queue_delay to leads_report_settings
+✅ Semua tabel dan data awal WhatsApp System siap digunakan
+🔄 Migrating TikTok tables...
+✅ TikTok tables migration completed
+🚀 Backend Run: http://localhost:3001
+🔗 Link Dashboard: http://localhost:5173
+📲 Rotator Endpoint: http://localhost:3001/r/[slug]
+🔄 Reconnect 1 sesi...
+Err device_1776655578019: makeWASocket is not a function

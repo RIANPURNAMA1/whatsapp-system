@@ -51,9 +51,9 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // ===============================================
 app.get("/r/:slug", async (req, res) => {
   const { slug } = req.params;
+  const { source } = req.query;
 
   try {
-    // 1. Ambil data rotator berdasarkan slug/short_code
     const rotator = await queryOne(
       "SELECT * FROM link_rotators WHERE short_code = ?",
       [slug]
@@ -68,7 +68,6 @@ app.get("/r/:slug", async (req, res) => {
       `);
     }
 
-    // 2. Parsing Data Nomor WA (Menangani JSON atau String biasa)
     let waData = [];
     const rawWa = rotator.wa_numbers || "";
 
@@ -76,69 +75,125 @@ app.get("/r/:slug", async (req, res) => {
       if (typeof rawWa === 'string' && rawWa.trim().startsWith('[')) {
         waData = JSON.parse(rawWa);
       } else if (typeof rawWa === 'string' && rawWa.trim() !== "") {
-        // Fallback jika data di DB hanya string nomor biasa (comma separated)
         waData = rawWa.split(",").map(num => ({ number: num.trim(), weight: 1 }));
       }
     } catch (e) {
-      // Fallback terakhir jika JSON korup
       waData = [{ number: String(rawWa).trim(), weight: 1 }];
     }
 
-    // Filter nomor yang tidak valid
     waData = waData.filter(item => item && item.number && /\d/.test(item.number));
 
     if (waData.length === 0) {
       return res.status(404).send("Nomor tujuan WhatsApp tidak tersedia.");
     }
 
-    // 3. Logika Pemilihan Nomor Berdasarkan Bobot (Weighted Random)
-    let selected = waData[0]; // Default nomor pertama
+    let selected = waData[0];
 
     if (rotator.target_type === "rotator" && waData.length > 1) {
       const totalWeight = waData.reduce((sum, item) => sum + (Number(item.weight) || 1), 0);
       let randomValue = Math.random() * totalWeight;
-
       for (const item of waData) {
         const itemWeight = Number(item.weight) || 1;
-        if (randomValue < itemWeight) {
-          selected = item;
-          break;
-        }
+        if (randomValue < itemWeight) { selected = item; break; }
         randomValue -= itemWeight;
       }
     }
 
     const targetNumber = selected.number;
+    const cleanNumber = targetNumber.toString().replace(/\D/g, "");
+    const baseMessage = rotator.message || "";
 
-    // 4. Proses Logging & Analytics (Async/Background)
     const userAgent = req.headers['user-agent'] || 'Unknown Device';
     const referer = req.headers['referer'] || 'Direct';
     const ipAddress = req.ip || req.connection?.remoteAddress || 'Unknown';
-    
-    // Update counter klik total
+
     query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [rotator.id])
       .catch(err => console.error("Error update click count:", err));
 
-    // Simpan log detail kunjungan
     query(
       "INSERT INTO rotator_clicks (rotator_id, ip_address, user_agent, referer, created_at) VALUES (?, ?, ?, ?, NOW())",
       [rotator.id, ipAddress, userAgent, referer]
     ).catch(err => console.error("Error saving log:", err));
 
-    // 5. Konstruksi URL WhatsApp
-    const cleanNumber = targetNumber.toString().replace(/\D/g, "");
-    const encodedMessage = encodeURIComponent(rotator.message || "");
-    const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
+    if (source === "admin_live" || source === "admin_rindu") {
+      const sourceText = source === "admin_live" ? "sumber dari admin live" : "sumber dari admin rindu";
+      const encodedMessage = encodeURIComponent(baseMessage + "\n\n" + sourceText);
+      const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
 
-    // 6. Header Anti-Cache (Sangat Penting untuk Akurasi Rotator)
-    // Mencegah browser melakukan redirect otomatis dari cache tanpa bertanya ke server
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
+      console.log(`[Rotator] ${slug} -> ${cleanNumber} (${sourceText})`);
+      return res.redirect(302, waUrl);
+    }
+
+    const waUrlLive = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + "\n\nsumber dari admin live")}`;
+    const waUrlRindu = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + "\n\nsumber dari admin rindu")}`;
+
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    // 7. Execute Redirect
-    console.log(`[Rotator] ${slug} -> ${cleanNumber} (W:${selected.weight || 1})`);
-    return res.redirect(302, waUrl);
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="id">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${rotator.name}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+          }
+          .card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 32px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+          }
+          .card h1 { font-size: 20px; color: #1a1a2e; margin-bottom: 8px; }
+          .card p { font-size: 14px; color: #64748b; margin-bottom: 28px; }
+          .btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+          }
+          .btn:hover { transform: translateY(-2px); }
+          .btn-live { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; box-shadow: 0 4px 15px rgba(59,130,246,0.4); }
+          .btn-live:hover { box-shadow: 0 6px 20px rgba(59,130,246,0.6); }
+          .btn-rindu { background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
+          .btn-rindu:hover { box-shadow: 0 6px 20px rgba(16,185,129,0.6); }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h1>${rotator.name}</h1>
+          <p>Informasi ini sumbernya dari mana kak?</p>
+          <a href="?source=admin_live" class="btn btn-live">Admin Live</a>
+          <a href="?source=admin_rindu" class="btn btn-rindu">Admin Rindu</a>
+        </div>
+      </body>
+      </html>
+    `);
 
   } catch (error) {
     console.error("SERVER ERROR AT REDIRECT:", error);
