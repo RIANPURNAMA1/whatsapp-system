@@ -100,6 +100,18 @@ export const LinkRotatorSection: React.FC = () => {
 
   const [waList, setWaList] = useState<WANumber[]>([{ number: "", weight: 1 }]);
 
+  const [landerConfig, setLanderConfig] = useState({
+    button1: { label: "LIVE TIKTOK", source: "admin_live", sourceText: "sumber dari admin live" },
+    button2: { label: "KONTEN TIKTOK", source: "admin_rindu", sourceText: "sumber dari admin rindu" },
+  });
+
+  const updateLanderBtn = (btn: 'button1' | 'button2', field: string, value: string) => {
+    setLanderConfig(prev => ({
+      ...prev,
+      [btn]: { ...prev[btn], [field]: value },
+    }));
+  };
+
   const fetchRotators = async () => {
     setLoading(true);
     try {
@@ -187,6 +199,23 @@ export const LinkRotatorSection: React.FC = () => {
     } catch {
       setWaList([{ number: String(rawWa), weight: 1 }]);
     }
+
+    try {
+      const raw = (item as any).lander_config;
+      if (raw) {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (parsed.button1) setLanderConfig(prev => ({ ...prev, button1: { ...prev.button1, ...parsed.button1 } }));
+        if (parsed.button2) setLanderConfig(prev => ({ ...prev, button2: { ...prev.button2, ...parsed.button2 } }));
+      } else {
+        setLanderConfig({
+          button1: { label: "LIVE TIKTOK", source: "admin_live", sourceText: "sumber dari admin live" },
+          button2: { label: "KONTEN TIKTOK", source: "admin_rindu", sourceText: "sumber dari admin rindu" },
+        });
+      }
+    } catch {
+      // default
+    }
+
     setIsFormOpen(true);
   };
 
@@ -200,6 +229,10 @@ export const LinkRotatorSection: React.FC = () => {
       message: "",
     });
     setWaList([{ number: "", weight: 1 }]);
+    setLanderConfig({
+      button1: { label: "LIVE TIKTOK", source: "admin_live", sourceText: "sumber dari admin live" },
+      button2: { label: "KONTEN TIKTOK", source: "admin_rindu", sourceText: "sumber dari admin rindu" },
+    });
     setIsFormOpen(false);
   };
 
@@ -211,7 +244,7 @@ export const LinkRotatorSection: React.FC = () => {
 
     setSubmitting(true);
 
-    const payload = {
+    const payload: Record<string, any> = {
       name: formData.name,
       short_code: formData.shortCode,
       type: formData.type,
@@ -221,6 +254,10 @@ export const LinkRotatorSection: React.FC = () => {
         formData.targetType === "single" ? [waList[0]] : validNumbers,
       ),
     };
+
+    if (formData.type === "lander") {
+      payload.lander_config = JSON.stringify(landerConfig);
+    }
 
     try {
       if (editingId) {
@@ -411,9 +448,18 @@ export const LinkRotatorSection: React.FC = () => {
                         <MousePointerClick size={22} />
                       </div>
                       <div>
-                        <p className="font-bold text-gray-900 text-lg">
-                          {item.name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-gray-900 text-lg">
+                            {item.name}
+                          </p>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            item.type === 'direct'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {item.type === 'direct' ? 'Direct' : 'Lander'}
+                          </span>
+                        </div>
                         <div className="flex items-center gap-2 text-sm text-blue-600 font-medium mt-1">
                           <span className="opacity-70 font-mono">{displayLink}</span>
                           <button
@@ -588,6 +634,48 @@ export const LinkRotatorSection: React.FC = () => {
                 rows={3}
               />
             </div>
+
+            {formData.type === "lander" && (
+              <div className="space-y-3 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <p className="text-sm font-bold text-blue-800">Pengaturan Tombol Lander</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(["button1", "button2"] as const).map((btn, i) => {
+                    const cfg = landerConfig[btn];
+                    return (
+                      <div key={btn} className="space-y-2 p-3 bg-white rounded-lg border border-blue-100">
+                        <p className="text-xs font-bold text-blue-700">Tombol {i + 1}</p>
+                        <Input
+                          value={cfg.label}
+                          onChange={(e) => updateLanderBtn(btn, "label", e.target.value)}
+                          placeholder="Label tombol"
+                          className="h-9 text-sm bg-blue-50 border-blue-200"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-500">Source</label>
+                            <Input
+                              value={cfg.source}
+                              onChange={(e) => updateLanderBtn(btn, "source", e.target.value)}
+                              placeholder="admin_xxx"
+                              className="h-9 text-sm bg-blue-50 border-blue-200"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-500">Teks WA</label>
+                            <Input
+                              value={cfg.sourceText}
+                              onChange={(e) => updateLanderBtn(btn, "sourceText", e.target.value)}
+                              placeholder="sumber dari..."
+                              className="h-9 text-sm bg-blue-50 border-blue-200"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <DialogFooter className="gap-2 pt-2">
               <Button type="button" variant="outline" onClick={resetForm}>

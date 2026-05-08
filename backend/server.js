@@ -115,84 +115,158 @@ app.get("/r/:slug", async (req, res) => {
       [rotator.id, ipAddress, userAgent, referer]
     ).catch(err => console.error("Error saving log:", err));
 
-    if (source === "admin_live" || source === "admin_rindu") {
-      const sourceText = source === "admin_live" ? "sumber dari admin live" : "sumber dari admin rindu";
-      const encodedMessage = encodeURIComponent(baseMessage + "\n\n" + sourceText);
+    // CEK TIPE: direct = langsung redirect, lander = tampilkan halaman UI
+    if (rotator.type === "direct") {
+      const encodedMessage = encodeURIComponent(baseMessage);
       const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
 
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
 
-      console.log(`[Rotator] ${slug} -> ${cleanNumber} (${sourceText})`);
+      console.log(`[Rotator] ${slug} -> ${cleanNumber} (direct)`);
       return res.redirect(302, waUrl);
     }
 
-    const waUrlLive = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + "\n\nsumber dari admin live")}`;
-    const waUrlRindu = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + "\n\nsumber dari admin rindu")}`;
+    // type = lander: parse konfigurasi tombol
+    let landerConfig = {
+      button1: { label: "LIVE TIKTOK", source: "admin_live", sourceText: "sumber dari admin live" },
+      button2: { label: "KONTEN TIKTOK", source: "admin_rindu", sourceText: "sumber dari admin rindu" }
+    };
+
+    try {
+      if (rotator.lander_config) {
+        const parsed = JSON.parse(rotator.lander_config);
+        if (parsed.button1) landerConfig.button1 = { ...landerConfig.button1, ...parsed.button1 };
+        if (parsed.button2) landerConfig.button2 = { ...landerConfig.button2, ...parsed.button2 };
+      }
+    } catch (e) {
+      // pakai default
+    }
+
+    // cek source parameter dari kedua tombol
+    if (source === landerConfig.button1.source || source === landerConfig.button2.source) {
+      const srcCfg = source === landerConfig.button1.source ? landerConfig.button1 : landerConfig.button2;
+      const encodedMessage = encodeURIComponent(baseMessage + "\n\n" + srcCfg.sourceText);
+      const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
+
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
+      console.log(`[Rotator] ${slug} -> ${cleanNumber} (${srcCfg.source})`);
+      return res.redirect(302, waUrl);
+    }
+
+    const waUrl1 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + "\n\n" + landerConfig.button1.sourceText)}`;
+    const waUrl2 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + "\n\n" + landerConfig.button2.sourceText)}`;
 
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
     res.send(`
-      <!DOCTYPE html>
-      <html lang="id">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${rotator.name}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-          }
-          .card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px 32px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            text-align: center;
-          }
-          .card h1 { font-size: 20px; color: #1a1a2e; margin-bottom: 8px; }
-          .card p { font-size: 14px; color: #64748b; margin-bottom: 28px; }
-          .btn {
-            display: block;
-            width: 100%;
-            padding: 16px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.2s;
-            margin-bottom: 12px;
-          }
-          .btn:hover { transform: translateY(-2px); }
-          .btn-live { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; box-shadow: 0 4px 15px rgba(59,130,246,0.4); }
-          .btn-live:hover { box-shadow: 0 6px 20px rgba(59,130,246,0.6); }
-          .btn-rindu { background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
-          .btn-rindu:hover { box-shadow: 0 6px 20px rgba(16,185,129,0.6); }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <h1>${rotator.name}</h1>
-          <p>Informasi ini sumbernya dari mana kak?</p>
-          <a href="?source=admin_live" class="btn btn-live">Admin Live</a>
-          <a href="?source=admin_rindu" class="btn btn-rindu">Admin Rindu</a>
-        </div>
-      </body>
-      </html>
+  <!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${rotator.name}</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: #ffffff;
+      width: 100%;
+      max-width: 360px;
+      border-radius: 5px;
+      padding: 30px 24px;
+      border: 1px solid #e5e7eb;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 20px;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    p {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+
+    .info {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      text-decoration: none;
+      border-radius: 3px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      transition: 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-blue {
+      background: #2563eb;
+      color: white;
+    }
+
+    .btn-green {
+      background: #16a34a;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>${rotator.name}</h1>
+
+    <p>Tau Mendunia dari mana 😊?</p>
+
+    <div class="info">
+      Silahkan klik salah satu tombol untuk konsultasi dengan admin.
+    </div>
+
+    <a href="?source=${landerConfig.button1.source}" class="btn btn-blue">
+      ${landerConfig.button1.label}
+    </a>
+
+    <a href="?source=${landerConfig.button2.source}" class="btn btn-green">
+      ${landerConfig.button2.label}
+    </a>
+  </div>
+</body>
+</html>
     `);
 
   } catch (error) {

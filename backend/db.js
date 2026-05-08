@@ -607,6 +607,18 @@ CREATE TABLE IF NOT EXISTS wa_rules (
       }
     }
 
+    // ⭐ Migrasi: Tambah kolom lander_config ke link_rotators
+    try {
+      await db.promise().query(`
+        ALTER TABLE link_rotators ADD COLUMN lander_config TEXT DEFAULT NULL AFTER message
+      `);
+      console.log("✅ Added lander_config column to link_rotators");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for lander_config:", err.message);
+      }
+    }
+
     console.log("✅ Semua tabel dan data awal WhatsApp System siap digunakan");
   } catch (err) {
     console.error("❌ Gagal inisialisasi tabel:", err.message);

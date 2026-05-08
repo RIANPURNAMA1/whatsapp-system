@@ -915,10 +915,12 @@ router.post("/rotators", authenticateToken, async (req, res) => {
       });
     }
 
+    const landerConfig = req.body.lander_config || null;
+
     const sql = `
       INSERT INTO link_rotators 
-      (user_id, name, short_code, type, target_type, wa_numbers, message, clicks, created_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())
+      (user_id, name, short_code, type, target_type, wa_numbers, message, lander_config, clicks, created_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
     `;
 
     const result = await query(sql, [
@@ -927,8 +929,9 @@ router.post("/rotators", authenticateToken, async (req, res) => {
       cleanSlug,
       type || "direct",
       target_type || "single",
-      wa_numbers, // Pastikan ini string JSON dari Frontend
+      wa_numbers,
       message || "",
+      landerConfig,
     ]);
 
     res.json({
@@ -997,6 +1000,8 @@ router.put("/rotators/:id", authenticateToken, async (req, res) => {
     }
 
     // 4. Proses Update ke Database
+    const landerConfig = req.body.lander_config || null;
+
     const sql = `
       UPDATE link_rotators 
       SET 
@@ -1006,6 +1011,7 @@ router.put("/rotators/:id", authenticateToken, async (req, res) => {
         target_type = ?, 
         wa_numbers = ?, 
         message = ?,
+        lander_config = ?,
         updated_at = NOW()
       WHERE id = ?
     `;
@@ -1015,8 +1021,9 @@ router.put("/rotators/:id", authenticateToken, async (req, res) => {
       newSlug,
       type || "direct",
       target_type || "single",
-      wa_numbers, // Data JSON dari frontend
+      wa_numbers,
       message || "",
+      landerConfig,
       id,
     ]);
 
