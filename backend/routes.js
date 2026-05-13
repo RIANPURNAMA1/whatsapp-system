@@ -1518,6 +1518,26 @@ router.put("/tracked-links/:id", authenticateToken, async (req, res) => {
   }
 });
 
+// Update keyword by ID (harus sebelum route :platform agar tidak di-intercept)
+router.put("/keywords/update/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { platform, keyword_text, session_id } = req.body;
+
+  if (!platform || !keyword_text || !session_id) {
+    return res.status(400).json({ success: false, message: "Semua kolom wajib diisi" });
+  }
+
+  try {
+    await query(
+      "UPDATE lead_keywords SET platform = ?, keyword_text = ?, session_id = ? WHERE id = ?",
+      [platform.toLowerCase(), keyword_text, session_id, id]
+    );
+    res.json({ success: true, message: "Keyword berhasil diperbarui" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // PUT: Update keyword berdasarkan platform
 router.put("/keywords/:platform", authenticateToken, async (req, res) => {
   const { platform } = req.params;

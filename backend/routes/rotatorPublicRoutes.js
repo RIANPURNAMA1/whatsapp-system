@@ -111,8 +111,10 @@ router.get("/r/:slug", async (req, res) => {
       return res.redirect(302, waUrl);
     }
 
-    const waUrl1 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + "\n\n" + landerConfig.button1.sourceText)}`;
-    const waUrl2 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + "\n\n" + landerConfig.button2.sourceText)}`;
+
+    const waUrl1 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + " " + landerConfig.button1.sourceText)}`;
+
+const waUrl2 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + " " + landerConfig.button2.sourceText)}`;
 
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
