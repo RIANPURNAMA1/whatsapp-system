@@ -619,6 +619,18 @@ CREATE TABLE IF NOT EXISTS wa_rules (
       }
     }
 
+    // ⭐ Migrasi: Tambah kolom source ke rotator_clicks
+    try {
+      await db.promise().query(`
+        ALTER TABLE rotator_clicks ADD COLUMN source VARCHAR(100) DEFAULT NULL AFTER referer
+      `);
+      console.log("✅ Added source column to rotator_clicks");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for source:", err.message);
+      }
+    }
+
     console.log("✅ Semua tabel dan data awal WhatsApp System siap digunakan");
   } catch (err) {
     console.error("❌ Gagal inisialisasi tabel:", err.message);

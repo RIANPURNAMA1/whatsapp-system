@@ -1,4 +1,5 @@
-import makeWASocket, {
+import {
+  makeWASocket,
   DisconnectReason,
   fetchLatestBaileysVersion,
   useMultiFileAuthState,
@@ -6,13 +7,13 @@ import makeWASocket, {
   isJidBroadcast,
   isJidGroup,
   getContentType,
+  downloadMediaMessage,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import QRCode from "qrcode";
 import pino from "pino";
 import { query, queryOne } from "./db.js";
 import qrcodeTerminal from "qrcode-terminal"; // Tambahkan ini
-import { downloadMediaMessage } from "@whiskeysockets/baileys";
 import fs from "fs";
 import path from "path";
 

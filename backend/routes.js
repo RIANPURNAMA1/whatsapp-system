@@ -1165,10 +1165,31 @@ router.get("/rotators/stats", authenticateToken, async (req, res) => {
     
     const totalData = await query(totalSql, [...rotatorIds, startDate, endDate]);
 
+    // Ambil breakdown per source
+    const sourceSql = `
+      SELECT 
+        rotator_id,
+        COALESCE(source, 'lander_view') as click_source,
+        COUNT(*) as source_count
+      FROM rotator_clicks 
+      WHERE rotator_id IN (${placeholders})
+        AND DATE(created_at) BETWEEN ? AND ?
+      GROUP BY rotator_id, click_source
+    `;
+    const sourceData = await query(sourceSql, [...rotatorIds, startDate, endDate]);
+
     // Buat mapping
     const totalMap = {};
     totalData.forEach(item => {
       totalMap[item.rotator_id] = item.total_clicks;
+    });
+
+    const sourceMap = {};
+    sourceData.forEach(item => {
+      if (!sourceMap[item.rotator_id]) {
+        sourceMap[item.rotator_id] = {};
+      }
+      sourceMap[item.rotator_id][item.click_source] = item.source_count;
     });
 
     const dailyMap = {};
@@ -1188,15 +1209,25 @@ router.get("/rotators/stats", authenticateToken, async (req, res) => {
       name: rotator.name,
       short_code: rotator.short_code,
       total: totalMap[rotator.id] || 0,
-      daily: dailyMap[rotator.id] || []
+      daily: dailyMap[rotator.id] || [],
+      source_breakdown: sourceMap[rotator.id] || {}
     }));
 
     const totalClicks = Object.values(totalMap).reduce((sum, val) => sum + parseInt(val), 0);
+
+    // Global source breakdown
+    const globalSourceBreakdown = {};
+    Object.values(sourceMap).forEach(rotatorSources => {
+      Object.entries(rotatorSources).forEach(([src, count]) => {
+        globalSourceBreakdown[src] = (globalSourceBreakdown[src] || 0) + count;
+      });
+    });
 
     res.json({ 
       success: true, 
       data: { 
         total_clicks: totalClicks,
+        source_breakdown: globalSourceBreakdown,
         links: links 
       } 
     });
@@ -1242,6 +1273,19 @@ router.get("/rotators/:id/stats", authenticateToken, async (req, res) => {
       [id, startDate, endDate]
     );
 
+    // Source breakdown
+    const sourceResult = await query(
+      `SELECT COALESCE(source, 'lander_view') as click_source, COUNT(*) as source_count
+       FROM rotator_clicks 
+       WHERE rotator_id = ? AND DATE(created_at) BETWEEN ? AND ?
+       GROUP BY click_source`,
+      [id, startDate, endDate]
+    );
+    const sourceBreakdown = {};
+    sourceResult.forEach(item => {
+      sourceBreakdown[item.click_source] = item.source_count;
+    });
+
     res.json({ 
       success: true, 
       data: {
@@ -1252,7 +1296,8 @@ router.get("/rotators/:id/stats", authenticateToken, async (req, res) => {
         daily: statsData.map(item => ({
           date: item.click_date,
           count: item.click_count
-        }))
+        })),
+        source_breakdown: sourceBreakdown
       }
     });
   } catch (error) {
@@ -1269,7 +1314,7 @@ router.get("/rotators/:id/clicks", authenticateToken, async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const clicks = await query(
-      `SELECT id, ip_address, user_agent, referer, country, city, device_type, browser, os, created_at 
+      `SELECT id, ip_address, user_agent, referer, source, country, city, device_type, browser, os, created_at 
        FROM rotator_clicks 
        WHERE rotator_id = ? 
        ORDER BY created_at DESC 

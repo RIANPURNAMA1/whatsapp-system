@@ -65,6 +65,7 @@ interface ClickLog {
   ip_address: string;
   user_agent: string;
   referer: string;
+  source: string | null;
   country: string | null;
   city: string | null;
   device_type: string | null;
@@ -89,6 +90,9 @@ export const LinkRotatorSection: React.FC = () => {
   const [period, setPeriod] = useState<"today" | "yesterday" | "week" | "month">("today");
   const [periodClicks, setPeriodClicks] = useState<Record<number, number>>({});
   const [totalPeriodClicks, setTotalPeriodClicks] = useState(0);
+  const [sourceBreakdown, setSourceBreakdown] = useState<Record<string, number>>({});
+  const [rotatorSourceBreakdown, setRotatorSourceBreakdown] = useState<Record<number, Record<string, number>>>({});
+  const [detailSourceBreakdown, setDetailSourceBreakdown] = useState<Record<string, number>>({});
 
   const [formData, setFormData] = useState({
     name: "",
@@ -124,11 +128,15 @@ export const LinkRotatorSection: React.FC = () => {
       });
       if (statsRes.success) {
         setTotalPeriodClicks(statsRes.data.total_clicks || 0);
+        setSourceBreakdown(statsRes.data.source_breakdown || {});
         const map: Record<number, number> = {};
+        const sbMap: Record<number, Record<string, number>> = {};
         (statsRes.data.links || []).forEach((l: any) => {
           map[l.id] = l.total || 0;
+          sbMap[l.id] = l.source_breakdown || {};
         });
         setPeriodClicks(map);
+        setRotatorSourceBreakdown(sbMap);
       }
     } catch (error) {
       toast.error("Gagal sinkronisasi data");
@@ -289,6 +297,7 @@ export const LinkRotatorSection: React.FC = () => {
   const openDetail = (item: Rotator) => {
     setViewingDetail(item);
     setClickLogsPage(1);
+    setDetailSourceBreakdown(rotatorSourceBreakdown[item.id] || {});
     fetchClickLogs(item.id, 1);
   };
 
@@ -351,7 +360,7 @@ export const LinkRotatorSection: React.FC = () => {
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
           <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -374,37 +383,57 @@ export const LinkRotatorSection: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm col-span-2">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-amber-600" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-2xl font-bold text-gray-900">{totalPeriodClicks}</p>
-                  <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-                    {[
-                      { value: "today", label: "Hari Ini" },
-                      { value: "yesterday", label: "Kemarin" },
-                      { value: "week", label: "Minggu" },
-                      { value: "month", label: "Bulan" },
-                    ].map((p) => (
-                      <button
-                        key={p.value}
-                        onClick={() => setPeriod(p.value as any)}
-                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                          period === p.value
-                            ? "bg-white text-blue-600 shadow-sm"
-                            : "text-gray-600 hover:text-gray-900"
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
+          {[
+            { label: 'Admin Live', key: 'admin_live' },
+            { label: 'Admin TikTok', key: 'admin_rindu' },
+          ].map(({ label, key }, i) => {
+            const count = sourceBreakdown[key] || 0;
+            const colors = ['bg-violet-100 text-violet-600', 'bg-rose-100 text-rose-600'];
+            return (
+              <div key={key} className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors[i % 2]}`}>
+                    <MousePointerClick className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{count}</p>
+                    <p className="text-sm text-gray-500 capitalize">{label}</p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-500">Klik Periode</p>
               </div>
+            );
+          })}
+        </div>
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-2xl font-bold text-gray-900">{totalPeriodClicks}</p>
+                <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                  {[
+                    { value: "today", label: "Hari Ini" },
+                    { value: "yesterday", label: "Kemarin" },
+                    { value: "week", label: "Minggu" },
+                    { value: "month", label: "Bulan" },
+                  ].map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => setPeriod(p.value as any)}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                        period === p.value
+                          ? "bg-white text-blue-600 shadow-sm"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-sm text-gray-500">Klik Periode</p>
             </div>
           </div>
         </div>
@@ -513,6 +542,25 @@ export const LinkRotatorSection: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {item.type === 'lander' && rotatorSourceBreakdown[item.id] && Object.keys(rotatorSourceBreakdown[item.id]).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {Object.entries(rotatorSourceBreakdown[item.id]).map(([src, count]) => {
+                        const total = Object.values(rotatorSourceBreakdown[item.id]).reduce((a, b) => a + b, 0);
+                        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                        const label = src === 'lander_view' ? 'Halaman' : src;
+                        return (
+                          <div key={src} className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500 capitalize truncate">{label}</span>
+                            <span className="font-bold text-gray-800">{count}</span>
+                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -737,6 +785,36 @@ export const LinkRotatorSection: React.FC = () => {
                 </div>
               </div>
 
+              {/* Source Breakdown */}
+              {Object.keys(detailSourceBreakdown).length > 0 && (
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-[10px] uppercase font-bold text-gray-500 mb-3">
+                    Klik per Sumber
+                  </p>
+                  <div className="space-y-2">
+                    {Object.entries(detailSourceBreakdown).map(([src, count]) => {
+                      const total = Object.values(detailSourceBreakdown).reduce((a, b) => a + b, 0);
+                      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                      const label = src === 'lander_view' ? 'Halaman Lander' : src;
+                      return (
+                        <div key={src}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="font-medium text-gray-700 capitalize">{label}</span>
+                            <span className="text-gray-600 font-bold">{count} <span className="text-gray-400 font-normal">({pct}%)</span></span>
+                          </div>
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* WA Numbers */}
               <div className="p-4 bg-gray-50 rounded-xl">
                 <p className="text-[10px] uppercase font-bold text-gray-500 mb-3">
@@ -788,6 +866,11 @@ export const LinkRotatorSection: React.FC = () => {
                               <span className="text-xs font-mono text-gray-500 truncate">
                                 {log.ip_address}
                               </span>
+                              {log.source && (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded font-medium truncate">
+                                  {log.source}
+                                </span>
+                              )}
                               {log.referer && log.referer !== "Direct" && (
                                 <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-medium truncate">
                                   {log.referer}

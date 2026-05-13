@@ -19,6 +19,7 @@ async function migrate() {
     { name: "browser", table: "rotator_clicks", sql: "ALTER TABLE rotator_clicks ADD COLUMN browser VARCHAR(100) DEFAULT NULL" },
     { name: "os", table: "rotator_clicks", sql: "ALTER TABLE rotator_clicks ADD COLUMN os VARCHAR(100) DEFAULT NULL" },
     { name: "queue_delay", table: "leads_report_settings", sql: "ALTER TABLE leads_report_settings ADD COLUMN queue_delay INT DEFAULT 3000 AFTER last_sent_date" },
+    { name: "source", table: "rotator_clicks", sql: "ALTER TABLE rotator_clicks ADD COLUMN source VARCHAR(100) DEFAULT NULL AFTER referer" },
   ];
 
   for (const col of columnsToAdd) {
