@@ -98,18 +98,25 @@ router.get("/r/:slug", async (req, res) => {
       // pakai default
     }
 
-    if (source === landerConfig.button1.source || source === landerConfig.button2.source) {
-      const srcCfg = source === landerConfig.button1.source ? landerConfig.button1 : landerConfig.button2;
-      const encodedMessage = encodeURIComponent(baseMessage + "\n\n" + srcCfg.sourceText);
-      const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
+  if (source === landerConfig.button1.source || source === landerConfig.button2.source) {
+  const srcCfg =
+    source === landerConfig.button1.source
+      ? landerConfig.button1
+      : landerConfig.button2;
 
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
+  const encodedMessage = encodeURIComponent(
+    baseMessage + " " + srcCfg.sourceText
+  );
 
-      console.log(`[Rotator] ${slug} -> ${cleanNumber} (${srcCfg.source})`);
-      return res.redirect(302, waUrl);
-    }
+  const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
+
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  console.log(`[Rotator] ${slug} -> ${cleanNumber} (${srcCfg.source})`);
+  return res.redirect(302, waUrl);
+}
 
 
     const waUrl1 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + " " + landerConfig.button1.sourceText)}`;
