@@ -341,7 +341,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
                               </div>
                               {uniquePlatforms.length > 0 ? (
                                 <div className="space-y-2">
-                                  {uniquePlatforms.slice(0, 3).map((platform) => (
+                                  {uniquePlatforms.map((platform) => (
                                     <div
                                       key={platform}
                                       className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
