@@ -10,7 +10,7 @@ router.get("/r/:slug", async (req, res) => {
   try {
     const rotator = await queryOne(
       "SELECT * FROM link_rotators WHERE short_code = ?",
-      [slug]
+      [slug],
     );
 
     if (!rotator) {
@@ -26,16 +26,20 @@ router.get("/r/:slug", async (req, res) => {
     const rawWa = rotator.wa_numbers || "";
 
     try {
-      if (typeof rawWa === 'string' && rawWa.trim().startsWith('[')) {
+      if (typeof rawWa === "string" && rawWa.trim().startsWith("[")) {
         waData = JSON.parse(rawWa);
-      } else if (typeof rawWa === 'string' && rawWa.trim() !== "") {
-        waData = rawWa.split(",").map(num => ({ number: num.trim(), weight: 1 }));
+      } else if (typeof rawWa === "string" && rawWa.trim() !== "") {
+        waData = rawWa
+          .split(",")
+          .map((num) => ({ number: num.trim(), weight: 1 }));
       }
     } catch (e) {
       waData = [{ number: String(rawWa).trim(), weight: 1 }];
     }
 
-    waData = waData.filter(item => item && item.number && /\d/.test(item.number));
+    waData = waData.filter(
+      (item) => item && item.number && /\d/.test(item.number),
+    );
 
     if (waData.length === 0) {
       return res.status(404).send("Nomor tujuan WhatsApp tidak tersedia.");
@@ -44,11 +48,17 @@ router.get("/r/:slug", async (req, res) => {
     let selected = waData[0];
 
     if (rotator.target_type === "rotator" && waData.length > 1) {
-      const totalWeight = waData.reduce((sum, item) => sum + (Number(item.weight) || 1), 0);
+      const totalWeight = waData.reduce(
+        (sum, item) => sum + (Number(item.weight) || 1),
+        0,
+      );
       let randomValue = Math.random() * totalWeight;
       for (const item of waData) {
         const itemWeight = Number(item.weight) || 1;
-        if (randomValue < itemWeight) { selected = item; break; }
+        if (randomValue < itemWeight) {
+          selected = item;
+          break;
+        }
         randomValue -= itemWeight;
       }
     }
@@ -57,77 +67,99 @@ router.get("/r/:slug", async (req, res) => {
     const cleanNumber = targetNumber.toString().replace(/\D/g, "");
     const baseMessage = rotator.message || "";
 
-    const userAgent = req.headers['user-agent'] || 'Unknown Device';
-    const referer = req.headers['referer'] || 'Direct';
-    const ipAddress = req.ip || req.connection?.remoteAddress || 'Unknown';
+    const userAgent = req.headers["user-agent"] || "Unknown Device";
+    const referer = req.headers["referer"] || "Direct";
+    const ipAddress = req.ip || req.connection?.remoteAddress || "Unknown";
 
-    query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [rotator.id])
-      .catch(err => console.error("Error update click count:", err));
+    query("UPDATE link_rotators SET clicks = clicks + 1 WHERE id = ?", [
+      rotator.id,
+    ]).catch((err) => console.error("Error update click count:", err));
 
     const clickSource = source || null;
 
     query(
       "INSERT INTO rotator_clicks (rotator_id, ip_address, user_agent, referer, source, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
-      [rotator.id, ipAddress, userAgent, referer, clickSource]
-    ).catch(err => console.error("Error saving log:", err));
+      [rotator.id, ipAddress, userAgent, referer, clickSource],
+    ).catch((err) => console.error("Error saving log:", err));
 
     if (rotator.type === "direct") {
       const encodedMessage = encodeURIComponent(baseMessage);
       const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
 
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate",
+      );
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
 
       console.log(`[Rotator] ${slug} -> ${cleanNumber} (direct)`);
       return res.redirect(302, waUrl);
     }
 
     let landerConfig = {
-      button1: { label: "LIVE TIKTOK", source: "admin_live", sourceText: "sumber dari admin live" },
-      button2: { label: "KONTEN TIKTOK", source: "admin_rindu", sourceText: "sumber dari admin rindu" }
+      button1: {
+        label: "LIVE TIKTOK",
+        source: "admin_live",
+        sourceText: "sumber dari admin live",
+      },
+      button2: {
+        label: "KONTEN TIKTOK",
+        source: "admin_rindu",
+        sourceText: "sumber dari admin rindu",
+      },
     };
 
     try {
       if (rotator.lander_config) {
         const parsed = JSON.parse(rotator.lander_config);
-        if (parsed.button1) landerConfig.button1 = { ...landerConfig.button1, ...parsed.button1 };
-        if (parsed.button2) landerConfig.button2 = { ...landerConfig.button2, ...parsed.button2 };
+        if (parsed.button1)
+          landerConfig.button1 = { ...landerConfig.button1, ...parsed.button1 };
+        if (parsed.button2)
+          landerConfig.button2 = { ...landerConfig.button2, ...parsed.button2 };
       }
     } catch (e) {
       // pakai default
     }
 
-  if (source === landerConfig.button1.source || source === landerConfig.button2.source) {
-  const srcCfg =
-    source === landerConfig.button1.source
-      ? landerConfig.button1
-      : landerConfig.button2;
+    if (
+      source === landerConfig.button1.source ||
+      source === landerConfig.button2.source
+    ) {
+      const srcCfg =
+        source === landerConfig.button1.source
+          ? landerConfig.button1
+          : landerConfig.button2;
 
-  const encodedMessage = encodeURIComponent(
-    baseMessage + " " + srcCfg.sourceText
-  );
+      const encodedMessage = encodeURIComponent(
+        baseMessage + " " + srcCfg.sourceText,
+      );
 
-  const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
+      const waUrl = `https://wa.me/${cleanNumber}?text=${encodedMessage}`;
 
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate",
+      );
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
 
-  console.log(`[Rotator] ${slug} -> ${cleanNumber} (${srcCfg.source})`);
-  return res.redirect(302, waUrl);
-}
-
+      console.log(`[Rotator] ${slug} -> ${cleanNumber} (${srcCfg.source})`);
+      return res.redirect(302, waUrl);
+    }
 
     const waUrl1 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + " " + landerConfig.button1.sourceText)}`;
 
-const waUrl2 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + " " + landerConfig.button2.sourceText)}`;
+    const waUrl2 = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(baseMessage + " " + landerConfig.button2.sourceText)}`;
 
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate",
+    );
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
 
-res.send(`
+    res.send(`
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -265,7 +297,6 @@ res.send(`
 </body>
 </html>
 `);
-
   } catch (error) {
     console.error("SERVER ERROR AT REDIRECT:", error);
     res.status(500).send("Terjadi kesalahan pada sistem redirect.");

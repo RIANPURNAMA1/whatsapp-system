@@ -138,8 +138,7 @@ export async function generateDeviceReport(sessionId, startDate, endDate) {
   message += `📌 *RINGKASAN HARIAN*\n`;
   message += `👥 Total Leads: *${stats.totalLeads}*\n`;
   message += `🌿 Leads Organik: *${stats.totalOrganik}*\n`;
-  message += `✅ Total Closing: *${stats.totalClosing}*\n`;
-  message += `💬 Pesan Masuk: *${stats.totalPesanMasuk}*\n\n`;
+  message += `✅ Total Closing: *${stats.totalClosing}*\n\n`;
 
   // Platform breakdown
   const platformEntries = Object.entries(stats).filter(([key]) => key.startsWith("leads_") && stats[key] > 0);
@@ -253,7 +252,6 @@ export async function generateLeadsReport(startDate, endDate) {
     message += `\n${statusEmoji} *${d.sessionName}*\n`;
     message += `  Leads: *${d.totalLeads}* | Organik: *${d.totalOrganik}*\n`;
     message += `  Closing: *${d.totalClosing}* | Conv: *${deviceConvRate}%*\n`;
-    message += `  Pesan Masuk: *${d.totalPesanMasuk}*\n`;
 
     const platformEntries = Object.entries(d).filter(([key]) => key.startsWith("leads_") && d[key] > 0);
     if (platformEntries.length > 0) {
