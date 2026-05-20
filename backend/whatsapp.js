@@ -18,6 +18,8 @@ import fs from "fs";
 import path from "path";
 
 import { handleAIResponse } from "./services/aiService.js";
+import { saveClosingEvent } from "./services/closingTrafficService.js";
+import { saveKendala } from "./services/leadAnalysisService.js";
 
 const logger = pino({ level: "silent" });
 
@@ -76,6 +78,7 @@ export async function createSession(sessionId, io) {
       );
 
       io.emit(`qr:${sessionId}`, { qr: qrDataURL });
+      io.emit("session:update", { id: sessionId, status: "connecting", qr_code: qrDataURL });
       console.log(`📱 QR Code baru untuk sesi: ${sessionId}`);
     }
 
@@ -87,9 +90,7 @@ export async function createSession(sessionId, io) {
       // 401 = Logged Out
       const shouldReconnect = statusCode !== 440 && statusCode !== 401;
 
-      console.log(
-        `🔴 Koneksi ditutup (Sesi: ${sessionId}). Status: ${statusCode}. Reconnect: ${shouldReconnect}`,
-      );
+      const newStatus = shouldReconnect ? "connecting" : "disconnected";
 
       console.log(
         `🔴 Koneksi ditutup (Sesi: ${sessionId}). Status: ${statusCode}. Reconnect: ${shouldReconnect}`,
@@ -97,8 +98,10 @@ export async function createSession(sessionId, io) {
 
       await query(
         "UPDATE wa_sessions SET status = ?, qr_code = NULL WHERE id = ?",
-        [shouldReconnect ? "connecting" : "disconnected", sessionId],
+        [newStatus, sessionId],
       );
+
+      io.emit("session:update", { id: sessionId, status: newStatus, qr_code: null });
 
       if (shouldReconnect) {
         setTimeout(() => createSession(sessionId, io), 5000);
@@ -125,11 +128,18 @@ export async function createSession(sessionId, io) {
       );
 
       // Beri tahu frontend
+      const connectedData = {
+        id: sessionId,
+        status: "connected",
+        phone_number: phoneNumber,
+        qr_code: null,
+      };
       io.emit(`session:connected:${sessionId}`, {
         sessionId,
         phoneNumber,
         status: "connected",
       });
+      io.emit("session:update", connectedData);
 
       // Proses sinkronisasi label (Gunakan delay agar data metadata dari WA siap)
       setTimeout(async () => {
@@ -512,6 +522,20 @@ sock.ev.on("messages.upsert", async ({ messages, type }) => {
       // Tetap simpan pesan dari Admin (isFromMe) agar dashboard sinkron
       await saveMessage(sessionId, processed);
       await updateChat(sessionId, processed);
+
+      // Auto-detect closing: lead sends back confirmation format
+      if (!msg.key.fromMe && processed.content) {
+        const lowerContent = processed.content.toLowerCase();
+        if (
+          (lowerContent.includes('nama') && lowerContent.includes('rekening') && lowerContent.includes('pengirim')) ||
+          (lowerContent.includes('total') && lowerContent.includes('transfer') && lowerContent.includes('rp')) ||
+          (lowerContent.includes('bank') && lowerContent.includes('transfer') && lowerContent.includes('total')) ||
+          (lowerContent.includes('nama') && lowerContent.includes('rekening') && lowerContent.includes('pembayaran'))
+        ) {
+          const ts = processed.timestamp || new Date().toISOString();
+          await saveClosingEvent(sessionId, processed.chatJid, ts, 'incoming_confirmation');
+        }
+      }
 
       // 6. NOTIFIKASI REALTIME (Socket.io)
       const payload = {
@@ -1067,6 +1091,24 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
     const io = session.io;
     io.emit(`message:new:${sessionId}`, processed);
     io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
+
+    // Auto-detect closing: admin sends payment template
+    const lower = (text || '').toLowerCase();
+    if (
+      lower.includes('mohon bantu kirimkan bukti pembayaran') ||
+      lower.includes('format konfirmasi pembayaran') ||
+      (lower.includes('bukti pembayaran') && lower.includes('konfirmasi'))
+    ) {
+      await saveClosingEvent(sessionId, jid, new Date().toISOString(), 'outgoing_template');
+    }
+
+    // Auto-detect lead kendala: usia / biaya
+    if (lower.includes('terkendala usia') || lower.includes('kendala usia') || lower.includes('usia ya kak')) {
+      await saveKendala(sessionId, jid, 'usia', 'Admin membalas dengan kendala usia');
+    }
+    if (lower.includes('kendalanya biaya') || lower.includes('kendala biaya') || lower.includes('biaya ya kak')) {
+      await saveKendala(sessionId, jid, 'biaya', 'Admin membalas dengan kendala biaya');
+    }
   }
 
   return sent;
@@ -1168,7 +1210,7 @@ export async function deleteMessage(
   );
 }
 
-export async function logoutSession(sessionId) {
+export async function logoutSession(sessionId, io = null) {
   const session = sessions.get(sessionId);
 
   if (session && session.sock) {
@@ -1201,6 +1243,11 @@ export async function logoutSession(sessionId) {
       "UPDATE wa_sessions SET status = ?, qr_code = NULL WHERE id = ?",
       ["disconnected", sessionId],
     );
+
+    if (io) {
+      io.emit("session:update", { id: sessionId, status: "disconnected", qr_code: null });
+    }
+
     console.log(`Database updated for session: ${sessionId}`);
   } catch (dbErr) {
     console.error("Database update failed:", dbErr);

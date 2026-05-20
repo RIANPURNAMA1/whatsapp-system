@@ -165,27 +165,27 @@ const UserManagementView = () => {
 
   const getRoleColor = (roleName: string | undefined) => {
     const lower = roleName?.toLowerCase() || '';
-    if (lower.includes('admin')) return 'bg-purple-100 text-purple-700 border-purple-200';
-    if (lower.includes('super')) return 'bg-amber-100 text-amber-700 border-amber-200';
-    return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (lower.includes('admin')) return 'bg-[#E7F3FF] text-[#1877F2] border-[#1877F2]';
+    if (lower.includes('super')) return 'bg-[#FFF8E7] text-[#F5A623] border-[#F5A623]';
+    return 'bg-[#F0F2F5] text-[#65676B] border-[#E4E6EB]';
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-[#F0F2F5]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* HEADER */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <Users className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 bg-[#1877F2] rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
+                <h1 className="text-2xl md:text-3xl font-bold text-[#050505]">
                   Manajemen Admin
                 </h1>
-                <p className="text-slate-500 text-sm mt-0.5">
+                <p className="text-[#65676B] text-sm mt-0.5">
                   Kelola akses administrator cabang sistem
                 </p>
               </div>
@@ -193,18 +193,18 @@ const UserManagementView = () => {
 
             <div className="flex flex-col sm:flex-row items-stretch gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#65676B]" />
                 <Input 
                   type="text" 
                   placeholder="Cari admin..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full sm:w-72 pl-10 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20"
+                  className="w-full sm:w-72 pl-10"
                 />
               </div>
               <Button 
                 onClick={() => handleOpenModal()}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 gap-2"
+                className="gap-2"
               >
                 <UserPlus className="w-4 h-4" />
                 Tambah Admin
@@ -215,38 +215,38 @@ const UserManagementView = () => {
 
         {/* STATS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+          <div className="bg-white rounded-lg p-5 border border-[#E4E6EB]">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-[#1877F2]" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">{users.length}</p>
-                <p className="text-sm text-slate-500">Total Admin</p>
+                <p className="text-2xl font-bold text-[#050505]">{users.length}</p>
+                <p className="text-sm text-[#65676B]">Total Admin</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+          <div className="bg-white rounded-lg p-5 border border-[#E4E6EB]">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <BadgeCheck className="w-6 h-6 text-emerald-600" />
+              <div className="w-12 h-12 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
+                <BadgeCheck className="w-6 h-6 text-[#31A24C]" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-2xl font-bold text-[#050505]">
                   {users.filter(u => getOnlineStatus(u.last_login || '')).length}
                 </p>
-                <p className="text-sm text-slate-500">Sedang Aktif</p>
+                <p className="text-sm text-[#65676B]">Sedang Aktif</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm">
+          <div className="bg-white rounded-lg p-5 border border-[#E4E6EB]">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-                <Shield className="w-6 h-6 text-amber-600" />
+              <div className="w-12 h-12 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
+                <Shield className="w-6 h-6 text-[#1877F2]" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">{roles.length}</p>
-                <p className="text-sm text-slate-500">Role Aktif</p>
+                <p className="text-2xl font-bold text-[#050505]">{roles.length}</p>
+                <p className="text-sm text-[#65676B]">Role Aktif</p>
               </div>
             </div>
           </div>
@@ -255,16 +255,16 @@ const UserManagementView = () => {
         {/* GRID KONTEN */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-            <p className="text-slate-500 mt-4">Memuat data...</p>
+            <div className="w-12 h-12 border-4 border-[#E4E6EB] border-t-[#1877F2] rounded-full animate-spin" />
+            <p className="text-[#65676B] mt-4">Memuat data...</p>
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200/60 p-12 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-slate-400" />
+          <div className="bg-white rounded-lg border border-[#E4E6EB] p-12 text-center">
+            <div className="w-16 h-16 bg-[#F0F2F5] rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-[#65676B]" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-700 mb-1">Belum ada admin</h3>
-            <p className="text-slate-500 text-sm mb-4">Tambahkan admin baru untuk memulai</p>
+            <h3 className="text-lg font-semibold text-[#050505] mb-1">Belum ada admin</h3>
+            <p className="text-[#65676B] text-sm mb-4">Tambahkan admin baru untuk memulai</p>
             <Button 
               onClick={() => handleOpenModal()}
               variant="outline" 
@@ -281,20 +281,20 @@ const UserManagementView = () => {
               return (
                 <div 
                   key={user.id} 
-                  className="bg-white rounded-2xl border border-slate-200/60 p-6 hover:shadow-lg hover:border-slate-300/80 transition-all duration-200 group"
+                  className="bg-white rounded-lg border border-[#E4E6EB] p-5 hover:border-[#CCD0D5] transition-all group"
                 >
                   <div className="flex items-start justify-between mb-5">
                     <div className="flex items-center gap-4">
                       <div className="relative">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md">
+                        <div className="w-12 h-12 bg-[#1877F2] rounded-lg flex items-center justify-center text-white font-bold text-lg">
                           {user.full_name?.charAt(0)}
                         </div>
                         {isOnline && (
-                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm" />
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#31A24C] rounded-full border-2 border-white" />
                         )}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-slate-900 text-base">{user.full_name}</h3>
+                        <h3 className="font-semibold text-[#050505] text-base">{user.full_name}</h3>
                         <div className="flex items-center gap-1.5 mt-1">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(user.role_name)}`}>
                             <Shield className="w-3 h-3" />
@@ -303,27 +303,27 @@ const UserManagementView = () => {
                         </div>
                       </div>
                     </div>
-                    <button className="p-2 hover:bg-slate-100 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
-                      <MoreHorizontal className="w-5 h-5 text-slate-400" />
+                    <button className="p-2 hover:bg-[#F2F3F5] rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                      <MoreHorizontal className="w-5 h-5 text-[#65676B]" />
                     </button>
                   </div>
 
                   <div className="space-y-3 mb-5">
-                    <div className="flex items-center gap-3 text-sm text-slate-600">
-                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <Mail className="w-4 h-4 text-slate-500" />
+                    <div className="flex items-center gap-3 text-sm text-[#65676B]">
+                      <div className="w-8 h-8 bg-[#F0F2F5] rounded-lg flex items-center justify-center">
+                        <Mail className="w-4 h-4 text-[#65676B]" />
                       </div>
                       <span className="truncate">@{user.username}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-600">
-                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <MapPin className="w-4 h-4 text-slate-500" />
+                    <div className="flex items-center gap-3 text-sm text-[#65676B]">
+                      <div className="w-8 h-8 bg-[#F0F2F5] rounded-lg flex items-center justify-center">
+                        <MapPin className="w-4 h-4 text-[#65676B]" />
                       </div>
                       <span className="truncate">{user.branch || 'Pusat'}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-600">
-                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <Clock className="w-4 h-4 text-slate-500" />
+                    <div className="flex items-center gap-3 text-sm text-[#65676B]">
+                      <div className="w-8 h-8 bg-[#F0F2F5] rounded-lg flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-[#65676B]" />
                       </div>
                       <span className="truncate">
                         {user.last_login 
@@ -334,9 +334,9 @@ const UserManagementView = () => {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
-                    <div className={`flex items-center gap-1.5 text-xs font-medium ${isOnline ? 'text-emerald-600' : 'text-slate-400'}`}>
-                      <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  <div className="pt-4 border-t border-[#E4E6EB] flex justify-between items-center">
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${isOnline ? 'text-[#31A24C]' : 'text-[#65676B]'}`}>
+                      <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-[#31A24C]' : 'bg-[#E4E6EB]'}`} />
                       {isOnline ? 'Online' : 'Offline'}
                     </div>
                     <div className="flex gap-1">
@@ -344,7 +344,7 @@ const UserManagementView = () => {
                         variant="ghost" 
                         size="sm"
                         onClick={() => handleOpenModal(user)}
-                        className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 gap-1"
+                        className="gap-1"
                       >
                         <Edit2 className="w-4 h-4" />
                         Edit
@@ -353,7 +353,7 @@ const UserManagementView = () => {
                         variant="ghost" 
                         size="sm"
                         onClick={() => handleDeleteClick(user.id)}
-                        className="text-slate-500 hover:text-red-600 hover:bg-red-50 gap-1"
+                        className="gap-1 text-[#65676B] hover:text-red-500"
                       >
                         <Trash2 className="w-4 h-4" />
                         Hapus
@@ -385,7 +385,6 @@ const UserManagementView = () => {
                 onChange={(e) => setFormData({...formData, full_name: e.target.value})}
                 placeholder="Masukkan nama lengkap"
                 required
-                className="h-11"
               />
             </div>
             <div className="space-y-2">
@@ -397,7 +396,6 @@ const UserManagementView = () => {
                 onChange={(e) => setFormData({...formData, username: e.target.value})}
                 placeholder="Masukkan username"
                 required
-                className="h-11"
               />
             </div>
             <div className="space-y-2">
@@ -410,7 +408,6 @@ const UserManagementView = () => {
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
                 placeholder={editingUser ? 'Kosongkan jika tidak diubah' : 'Masukkan password'}
                 required={!editingUser}
-                className="h-11"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -421,7 +418,7 @@ const UserManagementView = () => {
                   onValueChange={(value) => setFormData({...formData, role_id: parseInt(value)})}
                   required
                 >
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger>
                     <SelectValue placeholder="Pilih role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -440,22 +437,14 @@ const UserManagementView = () => {
                   onChange={(e) => setFormData({...formData, branch: e.target.value})}
                   placeholder="Nama cabang"
                   required
-                  className="h-11"
                 />
               </div>
             </div>
             <DialogFooter className="gap-2 pt-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsModalOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
                 Batal
               </Button>
-              <Button 
-                type="submit"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-              >
+              <Button type="submit">
                 Simpan
               </Button>
             </DialogFooter>
@@ -470,24 +459,15 @@ const UserManagementView = () => {
             <DialogTitle className="text-xl">Hapus Admin</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p className="text-slate-600">
+            <p className="text-[#65676B]">
               Apakah Anda yakin ingin menghapus admin ini? Tindakan ini tidak dapat dibatalkan.
             </p>
           </div>
           <DialogFooter className="gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Batal
             </Button>
-            <Button 
-              type="button"
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-              className="bg-red-600 hover:bg-red-700"
-            >
+            <Button type="button" variant="destructive" onClick={handleDeleteConfirm}>
               Hapus
             </Button>
           </DialogFooter>

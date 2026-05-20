@@ -16,10 +16,10 @@ interface Props {
 }
 
 export const SessionSelector: React.FC<Props> = ({ sessions, selectedId, onSelect, onRefresh, isFetching }) => (
-  <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm mb-6">
+  <div className="bg-white p-5 rounded-lg border border-[#E4E6EB] mb-6">
     <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
-      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Pilih Perangkat Aktif</label>
-      <button onClick={onRefresh} className="text-gray-400 hover:text-blue-600 transition-colors">
+      <label className="text-xs font-bold text-[#050505] uppercase tracking-wider">Pilih Perangkat Aktif</label>
+      <button onClick={onRefresh} className="text-[#65676B] hover:text-[#1877F2] transition-colors">
         <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
       </button>
     </div>
@@ -29,18 +29,18 @@ export const SessionSelector: React.FC<Props> = ({ sessions, selectedId, onSelec
           <button
             key={s.id}
             onClick={() => onSelect(s.id)}
-            className={`px-4 py-2.5 rounded-xl border text-sm transition-all flex items-center gap-2 font-medium ${
+            className={`px-4 py-2.5 rounded-lg border text-sm transition-all flex items-center gap-2 font-medium ${
               selectedId === s.id 
-                ? "border-blue-500 bg-blue-50 text-blue-700" 
-                : "border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300 hover:bg-gray-100"
+                ? "border-[#1877F2] bg-[#E7F3FF] text-[#1877F2]" 
+                : "border-[#E4E6EB] bg-white text-[#65676B] hover:bg-[#F2F3F5] hover:border-[#E4E6EB]"
             }`}
           >
-            <div className={`w-2 h-2 rounded-full ${s.status === "connected" ? "bg-emerald-500" : "bg-orange-500"}`} />
+            <div className={`w-2 h-2 rounded-full ${s.status === "connected" ? "bg-[#31A24C]" : "bg-[#F5A623]"}`} />
             {s.name || s.id}
           </button>
         ))
       ) : (
-        <p className="text-sm text-gray-400 italic">Tidak ada device ditemukan...</p>
+        <p className="text-sm text-[#65676B] italic">Tidak ada device ditemukan...</p>
       )}
     </div>
   </div>

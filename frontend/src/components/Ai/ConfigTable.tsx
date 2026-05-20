@@ -94,13 +94,13 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
   };
 
   return (
-    <div className="mb-10 mt-6 overflow-hidden bg-white border border-slate-200/60 rounded-2xl shadow-sm">
-      <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-700">
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+    <div className="mb-10 mt-6 overflow-hidden bg-white border border-[#E4E6EB] rounded-lg">
+      <div className="p-4 border-b border-[#E4E6EB] bg-[#F0F2F5] flex justify-between items-center">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#050505]">
+          <div className="w-2 h-2 bg-[#1877F2] rounded-full" />
           <span>Perangkat Terkonfigurasi</span>
         </div>
-        <button onClick={onRefresh} className="text-gray-400 hover:text-blue-600 transition-all hover:rotate-180 duration-500">
+        <button onClick={onRefresh} className="text-[#65676B] hover:text-[#1877F2] transition-colors">
           <RefreshCw size={14} />
         </button>
       </div>
@@ -108,7 +108,7 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="text-[10px] uppercase tracking-widest text-gray-500 bg-gray-50">
+            <tr className="text-[10px] uppercase tracking-widest text-[#65676B] bg-[#F0F2F5]">
               <th className="p-4 font-bold">ID & Perangkat</th>
               <th className="p-4 font-bold text-center">CS AI</th>
               <th className="p-4 font-bold text-center">Auto Rules</th>
@@ -120,7 +120,7 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
               <th className="p-4 font-bold text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody className="text-sm divide-y divide-gray-100">
+          <tbody className="text-sm divide-y divide-[#E4E6EB]">
             {configs.length > 0 ? configs.map((cfg: any) => {
               const sId = cfg.session_id || cfg.sessionId;
               
@@ -136,14 +136,14 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
               const isSchedule = Number(cfg.schedule_enabled) === 1;
 
               return (
-                <tr key={sId} className="border-b border-gray-100 hover:bg-gray-50/50 transition-all">
+                <tr key={sId} className="hover:bg-[#F2F3F5] transition-colors">
                   <td className="p-4">
                     <div className="flex flex-col">
-                      <span className="text-blue-600 font-semibold flex items-center gap-2">
-                        <Smartphone size={14} className="text-gray-400" />
+                      <span className="text-[#1877F2] font-semibold flex items-center gap-2">
+                        <Smartphone size={14} className="text-[#65676B]" />
                         {getSessionName(sId)}
                       </span>
-                      <span className="text-[10px] text-gray-400 font-mono mt-1 opacity-60 uppercase">{sId}</span>
+                      <span className="text-[10px] text-[#65676B] font-mono mt-1 uppercase">{sId}</span>
                     </div>
                   </td>
 
@@ -152,13 +152,13 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                       type="button"
                       onClick={() => handleToggleAi(sId, isActive as boolean)}
                       disabled={loadingStatus === sId}
-                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-all duration-300 ${
-                        isActive ? "bg-blue-500" : "bg-gray-200"
+                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-all ${
+                        isActive ? "bg-[#1877F2]" : "bg-[#E4E6EB]"
                       }`}
                     >
-                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform duration-300 ${isActive ? "translate-x-6" : "translate-x-1"}`} />
+                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isActive ? "translate-x-6" : "translate-x-1"}`} />
                     </button>
-                    <div className={`text-[9px] mt-1 font-bold uppercase ${isActive ? "text-blue-600" : "text-gray-400"}`}>
+                    <div className={`text-[9px] mt-1 font-bold uppercase ${isActive ? "text-[#1877F2]" : "text-[#65676B]"}`}>
                       {isActive ? "AI ON" : "AI OFF"}
                     </div>
                   </td>
@@ -168,13 +168,13 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                       type="button"
                       onClick={() => handleToggleRules(sId, isRulesActive as boolean)}
                       disabled={loadingRules === sId}
-                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-all duration-300 ${
-                        isRulesActive ? "bg-blue-500" : "bg-gray-200"
+                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-all ${
+                        isRulesActive ? "bg-[#1877F2]" : "bg-[#E4E6EB]"
                       }`}
                     >
-                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform duration-300 ${isRulesActive ? "translate-x-6" : "translate-x-1"}`} />
+                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isRulesActive ? "translate-x-6" : "translate-x-1"}`} />
                     </button>
-                    <div className={`text-[9px] mt-1 font-bold uppercase ${isRulesActive ? "text-blue-600" : "text-gray-400"}`}>
+                    <div className={`text-[9px] mt-1 font-bold uppercase ${isRulesActive ? "text-[#1877F2]" : "text-[#65676B]"}`}>
                       {isRulesActive ? "Rules ON" : "Rules OFF"}
                     </div>
                   </td>
@@ -183,9 +183,9 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                     <div className="flex flex-col items-center gap-1">
                       <CheckCircle2 
                         size={16} 
-                        className={isAutoRead ? "text-green-500" : "text-gray-300"} 
+                        className={isAutoRead ? "text-[#31A24C]" : "text-[#E4E6EB]"} 
                       />
-                      <span className={`text-[9px] font-bold uppercase ${isAutoRead ? "text-green-600" : "text-gray-400"}`}>
+                      <span className={`text-[9px] font-bold uppercase ${isAutoRead ? "text-[#31A24C]" : "text-[#65676B]"}`}>
                         {isAutoRead ? "ON" : "OFF"}
                       </span>
                     </div>
@@ -195,20 +195,20 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                     <div className="flex flex-col items-center gap-1">
                       <Calendar 
                         size={16} 
-                        className={isSchedule ? "text-purple-500" : "text-gray-300"} 
+                        className={isSchedule ? "text-[#1877F2]" : "text-[#E4E6EB]"} 
                       />
-                      <span className={`text-[9px] font-bold uppercase ${isSchedule ? "text-purple-600" : "text-gray-400"}`}>
+                      <span className={`text-[9px] font-bold uppercase ${isSchedule ? "text-[#1877F2]" : "text-[#65676B]"}`}>
                         {isSchedule ? cfg.schedule_start_time?.substring(0,5) + "-" + cfg.schedule_end_time?.substring(0,5) : "OFF"}
                       </span>
                     </div>
                   </td>
 
-                  <td className="p-4 font-medium text-gray-900 truncate max-w-[120px]">{cfg.bot_name || "-"}</td>
+                  <td className="p-4 font-medium text-[#050505] truncate max-w-[120px]">{cfg.bot_name || "-"}</td>
 
                   <td className="p-4">
                     <div className="flex items-center gap-2 max-w-[150px]">
-                      <BookOpen size={12} className="text-blue-500 shrink-0" />
-                      <p className={`truncate text-[11px] ${getKbContent(cfg).includes('[PDF') ? 'text-blue-500' : 'text-gray-500'}`}>
+                      <BookOpen size={12} className="text-[#1877F2] shrink-0" />
+                      <p className={`truncate text-[11px] ${getKbContent(cfg).includes('[PDF') ? 'text-[#1877F2]' : 'text-[#65676B]'}`}>
                         {getKbContent(cfg)}
                       </p>
                     </div>
@@ -216,10 +216,10 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
 
                   <td className="p-4 text-center">
                     <div className="flex flex-col items-center gap-1">
-                      <span className="flex items-center gap-1 text-orange-500 text-[10px] font-mono bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                      <span className="flex items-center gap-1 text-[#65676B] text-[10px] font-mono bg-[#F0F2F5] px-2 py-0.5 rounded border border-[#E4E6EB]">
                         <Zap size={10} /> {cfg.min_delay}-{cfg.max_delay}s
                       </span>
-                      <span className="flex items-center gap-1 text-blue-500 text-[10px] font-mono bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      <span className="flex items-center gap-1 text-[#65676B] text-[10px] font-mono bg-[#F0F2F5] px-2 py-0.5 rounded border border-[#E4E6EB]">
                         <MessageSquareText size={10} /> {cfg.max_messages_per_day}
                       </span>
                     </div>
@@ -227,15 +227,15 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
 
                   <td className="p-4">
                     <div className="flex justify-center gap-2">
-                      <button onClick={() => onEdit(cfg)} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-all"><Edit3 size={14} /></button>
-                      <button onClick={() => onCopy(sId)} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-all"><Copy size={14} /></button>
-                      <button onClick={() => onDelete(cfg)} className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-all"><Trash2 size={14} /></button>
+                      <button onClick={() => onEdit(cfg)} className="p-2 bg-[#E7F3FF] hover:bg-[#D0E6FF] text-[#1877F2] rounded-lg transition-all"><Edit3 size={14} /></button>
+                      <button onClick={() => onCopy(sId)} className="p-2 bg-[#E7F3FF] hover:bg-[#D0E6FF] text-[#1877F2] rounded-lg transition-all"><Copy size={14} /></button>
+                      <button onClick={() => onDelete(cfg)} className="p-2 bg-[#F0F2F5] hover:bg-[#FFEBEE] text-[#65676B] hover:text-red-500 rounded-lg transition-all"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
               );
             }) : (
-              <tr><td colSpan={9} className="p-16 text-center text-gray-400 italic">Belum ada perangkat terhubung.</td></tr>
+              <tr><td colSpan={9} className="p-16 text-center text-[#65676B] italic">Belum ada perangkat terhubung.</td></tr>
             )}
           </tbody>
         </table>

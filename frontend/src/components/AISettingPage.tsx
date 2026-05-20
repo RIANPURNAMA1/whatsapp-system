@@ -213,8 +213,8 @@ const AISettingPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-[#F0F2F5]">
+      <div className=" mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AiHeader onSave={handleSave} isSaving={isSaving} canSave={!!selectedSessionId} />
         
         <SessionSelector
@@ -239,22 +239,22 @@ const AISettingPage: React.FC = () => {
 
         {selectedSessionId && (
           <div className="space-y-6 mt-10">
-            <div className="flex gap-6 border-b border-gray-200 bg-white rounded-t-xl px-6 pt-4">
+            <div className="flex gap-6 border-b border-[#E4E6EB] bg-white rounded-lg px-6 pt-4">
               {[
-                { id: "materi", label: "Materi & Sifat AI", color: "bg-blue-500" },
-                { id: "rules", label: "Auto Reply (Rules)", color: "bg-blue-500" },
-                { id: "antiban", label: "Fitur Keamanan", color: "bg-orange-500" },
+                { id: "materi", label: "Materi & Sifat AI" },
+                { id: "rules", label: "Auto Reply (Rules)" },
+                { id: "antiban", label: "Fitur Keamanan" },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
                   className={`pb-4 text-sm font-semibold transition-all relative ${
-                    activeTab === tab.id ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
+                    activeTab === tab.id ? "text-[#050505]" : "text-[#65676B] hover:text-[#050505]"
                   }`}
                 >
                   {tab.label}
                   {activeTab === tab.id && (
-                    <div className={`absolute bottom-0 w-full h-1 ${tab.color} rounded-t-full`} />
+                    <div className="absolute bottom-0 w-full h-0.5 bg-[#1877F2] rounded-t-full" />
                   )}
                 </button>
               ))}

@@ -7,12 +7,12 @@ import {
   Loader2,
   QrCode,
   Tag,
-  Filter,
   X,
   Users,
   MessageSquare,
   Mail,
   MailOpen,
+  Pin
 } from "lucide-react";
 import useStore from "../store/useStore";
 import Avatar from "./Avatar";
@@ -94,7 +94,7 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
   };
 
   const handleLogout = async () => {
-    if (!confirm("Logout dari WhatsApp?")) return;
+    if (!confirm("Konfirmasi kelur dari sesi WhatsApp ini?")) return;
     try {
       await sessionApi.logout(sessionId);
       toast.success("Berhasil logout");
@@ -179,165 +179,150 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
   }, [processedChats]);
 
   return (
-    <div className="flex flex-col h-full bg-white border-r border-gray-200">
+    <div className="flex flex-col h-full bg-white border-r" style={{ borderColor: "#E4E6EB" }}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
-        <div className="flex items-center gap-3">
-          <Avatar name={activeSession?.name || "W"} size="sm" className="ring-2 ring-blue-200" />
-          <div className="flex flex-col min-w-0">
-            <span className="text-gray-900 text-sm font-semibold truncate max-w-[150px]">
-              {activeSession?.name || "WhatsApp Device"}
+      <div className="h-[52px] px-3 flex items-center justify-between border-b shrink-0" style={{ borderColor: "#E4E6EB" }}>
+        <div className="flex items-center gap-2 min-w-0">
+          <Avatar name={activeSession?.name || "W"} size="sm" className="w-[32px] h-[32px] ring-1 ring-[#E4E6EB]" />
+          <div className="flex flex-col min-w-0 leading-tight justify-center">
+            <span className="text-[13px] font-semibold truncate max-w-[120px]" style={{ color: "#050505" }}>
+              {activeSession?.name || "WhatsApp"}
             </span>
-            <span className="flex items-center gap-1 text-[10px] text-gray-500">
-              <span className={`w-1.5 h-1.5 rounded-full ${activeSession?.status === "connected" ? "bg-emerald-500" : "bg-orange-400"}`} />
-              {activeSession?.status === "connected" ? "Terhubung" : "Terputus"}
-            </span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${activeSession?.status === "connected" ? "bg-[#31A24C]" : "bg-[#F5A623]"}`} />
+              <span className="text-[10px] font-medium" style={{ color: "#65676B" }}>
+                {activeSession?.status === "connected" ? "Online" : "Offline"}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+
+        <div className="flex items-center gap-0.5 shrink-0">
           {activeSession?.status !== "connected" && (
-            <Button variant="ghost" size="sm" onClick={() => setShowQRModal(true)} className="text-orange-500 hover:text-orange-600 hover:bg-orange-50" title="Hubungkan">
-              <QrCode className="w-5 h-5" />
+            <Button variant="ghost" size="icon" onClick={() => setShowQRModal(true)} className="h-7 w-7 hover:bg-[#F2F3F5]" title="Hubungkan Ulang">
+              <QrCode className="w-[16px] h-[16px]" style={{ color: "#F5A623" }} />
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={() => setShowNewChatModal(true)} className="text-gray-500 hover:text-gray-700 hover:bg-gray-100" title="Chat Baru">
-            <Plus className="w-5 h-5" />
+          <Button variant="ghost" size="icon" onClick={() => setShowNewChatModal(true)} className="h-7 w-7 hover:bg-[#F2F3F5]" title="Chat Baru">
+            <Plus className="w-[16px] h-[16px]" style={{ color: "#65676B" }} />
           </Button>
+
           <div className="relative group">
-            <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100">
-              <MoreVertical className="w-5 h-5" />
+            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-[#F2F3F5]">
+              <MoreVertical className="w-[16px] h-[16px]" style={{ color: "#65676B" }} />
             </Button>
-            <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-gray-200 hidden group-focus-within:block z-50 py-1">
-              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-red-500 hover:bg-red-50 text-sm transition-colors">
-                <LogOut className="w-4 h-4" /> Keluar Sesi
+            <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border z-50 py-1" style={{ borderColor: "#E4E6EB" }}>
+              <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium transition-colors hover:bg-[#F2F3F5]" style={{ color: "#E41E3F" }}>
+                <LogOut className="w-4 h-4" /> Keluar
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="px-4 py-3 bg-white">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      {/* Search */}
+      <div className="px-3 pt-2.5 pb-1.5 shrink-0">
+        <div className="relative flex items-center">
+          <Search className="absolute left-3 w-3.5 h-3.5" style={{ color: "#8C939D" }} />
           <Input
             type="text"
-            placeholder="Cari chat..."
+            placeholder="Cari pesan atau kontak..."
             value={chatSearch}
             onChange={(e) => setChatSearch(e.target.value)}
-            className="pl-10 bg-gray-100 border-transparent focus:bg-white focus:border-blue-300 rounded-xl"
+            className="w-full pl-8 h-[32px] bg-[#F0F2F5] border-0 text-[12px] rounded-lg transition-colors focus-visible:ring-0"
+            style={{ color: "#050505" }}
           />
+          {chatSearch && (
+            <button onClick={() => setChatSearch("")} className="absolute right-2 hover:opacity-70" style={{ color: "#8C939D" }}>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="px-4 pb-2 space-y-2 bg-white">
-        <div className="flex items-center justify-between">
-          <Button
-            onClick={toggleUnreadFilter}
-            variant="ghost"
-            size="sm"
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${showUnreadOnly ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-          >
-            {showUnreadOnly ? <Mail className="w-3.5 h-3.5" /> : <MailOpen className="w-3.5 h-3.5" />}
-            {showUnreadOnly ? "Belum Dibaca" : "Semua Pesan"}
-            {totalUnread > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${showUnreadOnly ? "bg-white/20" : "bg-blue-500 text-white"}`}>
-                {totalUnread}
-              </span>
-            )}
-          </Button>
-          {showUnreadOnly && filteredUnread > 0 && (
-            <span className="text-xs text-gray-500">{filteredUnread} belum dibaca</span>
+      {/* Filter Chips */}
+      <div className="px-3 pb-1.5 shrink-0 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+        <button
+          onClick={toggleUnreadFilter}
+          className={`shrink-0 flex items-center gap-1 h-[26px] px-2.5 rounded-md text-[11px] font-medium transition-colors border ${
+            showUnreadOnly
+              ? "bg-[#E7F3FF] border-[#E7F3FF] text-[#1877F2]"
+              : "bg-white border-[#E4E6EB] text-[#65676B] hover:bg-[#F2F3F5]"
+          }`}
+        >
+          {showUnreadOnly ? <Mail className="w-3 h-3" /> : <MailOpen className="w-3 h-3" />}
+          Belum Dibaca
+          {totalUnread > 0 && !showUnreadOnly && (
+            <span style={{ color: "#1877F2" }}>{totalUnread}</span>
           )}
-        </div>
+        </button>
 
         {!isLoadingLabels && labels.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar">
-            <Button
+          <>
+            <div className="w-px h-3.5 shrink-0" style={{ backgroundColor: "#E4E6EB" }} />
+            <button
               onClick={() => setSelectedLabelFilter("all")}
-              variant="ghost"
-              size="sm"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${selectedLabelFilter === "all" ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+              className={`shrink-0 h-[26px] px-2.5 rounded-md text-[11px] font-medium transition-colors border ${
+                selectedLabelFilter === "all"
+                  ? "bg-[#E4E6EB] border-[#E4E6EB] text-[#050505]"
+                  : "bg-white border-[#E4E6EB] text-[#65676B] hover:bg-[#F2F3F5]"
+              }`}
             >
-              <Filter className="w-3 h-3" /> Semua Label
-            </Button>
-            {labels.map((label) => (
-              <Button
-                key={label.id}
-                onClick={() => setSelectedLabelFilter(label.id.toString())}
-                variant="ghost"
-                size="sm"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${selectedLabelFilter === label.id.toString() ? "text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                style={{ backgroundColor: selectedLabelFilter === label.id.toString() ? label.color : undefined }}
-              >
-                <Tag className="w-3 h-3" />
-                {label.name}
-                {label.chat_count > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 bg-black/10 rounded-full text-[10px]">{label.chat_count}</span>
-                )}
-              </Button>
-            ))}
-          </div>
+              Semua
+            </button>
+            {labels.map((label) => {
+              const isActive = selectedLabelFilter === label.id.toString();
+              return (
+                <button
+                  key={label.id}
+                  onClick={() => setSelectedLabelFilter(label.id.toString())}
+                  className={`shrink-0 h-[26px] px-2.5 rounded-md text-[11px] font-medium transition-colors border ${
+                    isActive
+                      ? 'text-white'
+                      : 'hover:bg-[#F2F3F5]'
+                  }`}
+                  style={{
+                    backgroundColor: isActive ? '#1877F2' : '#FFFFFF',
+                    borderColor: isActive ? '#1877F2' : '#E4E6EB',
+                    color: isActive ? '#FFFFFF' : '#65676B',
+                  }}
+                >
+                  {label.name}
+                </button>
+              );
+            })}
+          </>
         )}
       </div>
 
-      {/* Active Filters */}
-      {(showUnreadOnly || selectedLabelFilter !== "all" || chatSearch) && (
-        <div className="px-4 pb-2 bg-white">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Filter:</span>
-            {chatSearch && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-md text-[10px] text-gray-700">
-                "{chatSearch}"
-                <button onClick={() => setChatSearch("")} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-              </span>
-            )}
-            {showUnreadOnly && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500 rounded-md text-[10px] text-white">
-                Belum Dibaca
-                <button onClick={toggleUnreadFilter} className="hover:text-red-200"><X className="w-3 h-3" /></button>
-              </span>
-            )}
-            {selectedLabelFilter !== "all" && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-white"
-                style={{ backgroundColor: labels.find((l) => l.id.toString() === selectedLabelFilter)?.color }}>
-                {labels.find((l) => l.id.toString() === selectedLabelFilter)?.name}
-                <button onClick={() => setSelectedLabelFilter("all")} className="hover:text-red-200"><X className="w-3 h-3" /></button>
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Chat List */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
+      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#E4E6EB] scrollbar-track-transparent">
         {isLoadingChats && chats.length === 0 ? (
-          <div className="flex flex-col items-center pt-20 gap-3">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Memuat...</span>
+          <div className="flex flex-col items-center justify-center h-full gap-2 opacity-60">
+            <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#8C939D" }} />
+            <span className="text-[11px] font-medium" style={{ color: "#65676B" }}>Memuat percakapan...</span>
           </div>
         ) : processedChats.length === 0 ? (
-          <div className="text-center pt-20 px-6">
-            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="w-8 h-8 text-gray-400" />
+          <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: "#F0F2F5" }}>
+              <MessageSquare className="w-5 h-5" style={{ color: "#8C939D" }} />
             </div>
-            <p className="text-gray-500 text-sm mb-2">
+            <p className="text-[12px] font-medium" style={{ color: "#65676B" }}>
               {chatSearch || selectedLabelFilter !== "all" || showUnreadOnly
-                ? "Tidak ada chat yang sesuai."
-                : "Belum ada percakapan."}
+                ? "Tidak ada hasil."
+                : "Kotak masuk kosong."}
             </p>
             {(chatSearch || selectedLabelFilter !== "all" || showUnreadOnly) && (
-              <Button
+              <button
                 onClick={() => { setChatSearch(""); setSelectedLabelFilter("all"); setShowUnreadOnly(false); }}
-                className="mt-3 bg-blue-500 hover:bg-blue-600 text-white"
+                className="mt-3 text-[12px] font-semibold hover:underline" style={{ color: "#1877F2" }}
               >
                 Hapus Filter
-              </Button>
+              </button>
             )}
           </div>
         ) : (
-          <div>
+          <div className="pb-2">
             {processedChats.map((chat) => (
               <ChatListItem
                 key={chat.jid}
@@ -353,7 +338,6 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
         )}
       </div>
 
-      {/* Modals */}
       {showLabelModal && selectedChatForLabel && (
         <LabelModal
           sessionId={sessionId}
@@ -391,9 +375,10 @@ const ChatListItem: React.FC<{
 }> = ({ chat, isSelected, onClick, onAddLabel, labels, isLoadingLabel }) => {
   const displayName = getDisplayName(chat);
   const isGroup = isGroupJid(chat.jid);
+  const hasUnread = chat.unread_count > 0;
 
   const preview = chat.last_message
-    ? truncate(formatMessagePreview(chat.last_message_type || "text", chat.last_message), 40)
+    ? truncate(formatMessagePreview(chat.last_message_type || "text", chat.last_message), 50)
     : "Mulai kirim pesan...";
 
   const sortedLabels = useMemo(() => {
@@ -406,57 +391,63 @@ const ChatListItem: React.FC<{
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 relative group ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
+      onClick={onClick}
+      className="flex items-center gap-2.5 px-3 py-2 cursor-pointer relative group transition-colors"
+      style={{
+        backgroundColor: isSelected ? "#E7F3FF" : "transparent",
+      }}
     >
-      {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />}
+      {isSelected && (
+        <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm" style={{ backgroundColor: "#1877F2" }} />
+      )}
 
-      <div className="relative flex-shrink-0" onClick={onClick}>
-        <Avatar name={displayName} imageUrl={chat.profile_pic_url} size="md" isGroup={isGroup} />
-        {chat.unread_count > 0 && (
-          <div className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] bg-blue-500 rounded-full flex items-center justify-center border-2 border-white px-1">
-            <span className="text-[10px] text-white font-bold">{chat.unread_count > 99 ? "99+" : chat.unread_count}</span>
-          </div>
-        )}
+      <div className="relative shrink-0">
+        <Avatar name={displayName} imageUrl={chat.profile_pic_url} size="sm" isGroup={isGroup} className="w-[40px] h-[40px]" />
       </div>
 
-      <div className="flex-1 min-w-0" onClick={onClick}>
+      <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
         <div className="flex items-center justify-between mb-0.5">
-          <div className="flex items-center gap-1.5 flex-1 min-w-0">
-            {isGroup && <Users className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-            <h3 className="text-gray-900 text-sm font-medium truncate">{displayName}</h3>
-            {chat.unread_count > 0 && <Mail className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+          <div className="flex items-center gap-1 min-w-0">
+            {isGroup && <Users className="w-3 h-3 shrink-0" style={{ color: "#8C939D" }} />}
+            <span className={`text-[13px] truncate ${hasUnread ? "font-bold" : "font-semibold"}`} style={{ color: "#050505" }}>
+              {displayName}
+            </span>
           </div>
-          <span className={`text-[11px] flex-shrink-0 ml-2 ${chat.unread_count > 0 ? "text-blue-500 font-semibold" : "text-gray-400"}`}>
+          <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? "font-semibold" : ""}`} style={{ color: hasUnread ? "#1877F2" : "#65676B" }}>
             {formatChatTime(chat.last_message_time)}
           </span>
         </div>
 
         <div className="flex items-center justify-between gap-2">
-          <p className={`text-xs truncate leading-4 flex-1 ${chat.unread_count > 0 ? "text-gray-700 font-medium" : "text-gray-500"}`}>
+          <span className={`text-[12px] truncate leading-tight flex-1 ${hasUnread ? "font-medium" : ""}`} style={{ color: hasUnread ? "#050505" : "#65676B" }}>
             {preview}
-          </p>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          </span>
+
+          <div className="flex items-center gap-1 shrink-0">
             {chat.pinned === 1 && (
-              <svg className="w-3.5 h-3.5 text-gray-400 rotate-45" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
-              </svg>
+              <Pin className="w-3 h-3 rotate-45" style={{ color: "#8C939D", fill: "#8C939D" }} />
+            )}
+            {hasUnread && (
+              <div className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center" style={{ backgroundColor: "#1877F2" }}>
+                <span className="text-[10px] text-white font-bold leading-none">{chat.unread_count > 99 ? "99+" : chat.unread_count}</span>
+              </div>
             )}
           </div>
         </div>
 
-        {sortedLabels && sortedLabels.length > 0 && (
-          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-            {sortedLabels.slice(0, 3).map((label: any, index: number) => (
+        {sortedLabels.length > 0 && (
+          <div className="flex items-center gap-1 mt-1 overflow-hidden">
+            {sortedLabels.slice(0, 2).map((label: any) => (
               <span
                 key={label.id}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-white"
-                style={{ backgroundColor: label.color, opacity: 0.9 }}
+                className="inline-flex items-center px-1.5 py-[1px] rounded text-[9px] font-semibold text-white whitespace-nowrap"
+                style={{ backgroundColor: label.color }}
               >
                 {label.name}
               </span>
             ))}
-            {sortedLabels.length > 3 && (
-              <span className="text-[10px] text-gray-400 font-medium">+{sortedLabels.length - 3}</span>
+            {sortedLabels.length > 2 && (
+              <span className="text-[9px] font-medium" style={{ color: "#8C939D" }}>+{sortedLabels.length - 2}</span>
             )}
           </div>
         )}
@@ -464,13 +455,17 @@ const ChatListItem: React.FC<{
 
       <button
         onClick={(e) => { e.stopPropagation(); onAddLabel(); }}
-        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-gray-200 rounded-full transition-all"
+        className={`absolute right-2.5 top-7 p-1 rounded-full bg-white border shadow-sm
+          opacity-0 group-hover:opacity-100 hover:bg-[#F2F3F5] transition-all
+          ${isLoadingLabel ? "opacity-100" : ""}
+        `}
+        style={{ borderColor: "#E4E6EB" }}
         title="Kelola Label"
         disabled={isLoadingLabel}
       >
         {isLoadingLabel
-          ? <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
-          : <Tag className="w-4 h-4 text-gray-400" />
+          ? <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#1877F2" }} />
+          : <Tag className="w-3 h-3" style={{ color: "#65676B" }} />
         }
       </button>
     </div>

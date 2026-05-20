@@ -1,5 +1,5 @@
 import React from "react";
-import { Users, MessageCircle, Radio, ArrowRight, Phone } from "lucide-react";
+import { Users, MessageCircle, Radio, ArrowRight } from "lucide-react";
 import useStore from "../store/useStore";
 
 interface LiveFeedProps {
@@ -7,10 +7,12 @@ interface LiveFeedProps {
   totalPesan: number;
   dark?: boolean;
   onNavigate?: (tab: string) => void;
+  sessions?: any[];
 }
 
-const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan, onNavigate }) => {
-  const { selectChat, chats, setActiveSession, sessions } = useStore();
+const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan, onNavigate, sessions = [] }) => {
+  const { selectChat, chats, setActiveSession } = useStore();
+  const connectedSessions = sessions.filter((s) => s.status === "connected");
 
   const handleItemClick = (chat: any) => {
     const sessionId = chat.session_id;
@@ -47,116 +49,222 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan, onNavigate })
     return parts[1]?.substring(0, 5) || "--:--";
   };
 
-  return (
-    <div className="flex flex-col h-[520px] bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="px-5 pt-5 pb-4 flex items-center justify-between flex-shrink-0 bg-white border-b border-gray-100">
-        {/* Left: title + live dot */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-10 h-10">
-            <span className="absolute w-10 h-10 rounded-xl bg-emerald-50" />
-            <span className="absolute w-10 h-10 rounded-xl bg-emerald-500/10 animate-pulse" />
-            <MessageCircle size={18} className="text-emerald-600 relative z-10" />
+  const getSessionName = (sessionId: string | number) => {
+    const session = sessions.find((s) => s.id === sessionId);
+    return session?.name || session?.device_name || `Device ${sessionId}`;
+  };
+
+  const groupedBySession: Record<string, any[]> = {};
+  messages.forEach((msg) => {
+    const sid = msg.session_id ?? "unknown";
+    if (!groupedBySession[sid]) groupedBySession[sid] = [];
+    if (groupedBySession[sid].length < 15) {
+      groupedBySession[sid].push(msg);
+    }
+  });
+
+  const sessionOrder =
+    connectedSessions.length > 0
+      ? connectedSessions.map((s) => String(s.id))
+      : Object.keys(groupedBySession);
+
+  const renderFeedCard = (sessionId: string, sessionMessages: any[]) => (
+    <div
+      key={sessionId}
+      className="flex flex-col h-[520px] bg-white rounded-lg overflow-hidden border border-[#E4E6EB] min-w-[280px] flex-1"
+    >
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between flex-shrink-0 bg-white border-b border-[#E4E6EB]">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#E7F3FF]">
+            <MessageCircle size={13} color="#1877F2" />
           </div>
-          <div>
-            <p className="text-[13px] font-bold text-gray-900 tracking-wide">
-              Live Chat Feed
+          <div className="min-w-0">
+            <p className="text-[12px] font-semibold text-[#050505] truncate">
+              {getSessionName(sessionId)}
             </p>
-            <p className="text-[10px] text-gray-400 font-medium">
-              Real-time Messages
+            <p className="text-[9px] font-medium text-[#65676B]">
+              {sessionMessages.length} pesan
             </p>
           </div>
         </div>
-
-        {/* Right: total traffic badge */}
-        <div className="text-right">
-          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">
-            Total Pesan
-          </p>
-          <p className="text-3xl font-bold text-gray-900 tracking-tight mt-0.5">
-            {(totalPesan || 0).toLocaleString("id-ID")}
-          </p>
+        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#31A24C]" />
         </div>
       </div>
 
-      {/* ── List ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 custom-scrollbar">
-        {messages.length > 0 ? (
-          messages.map((chat, idx) => (
+      {/* List */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 custom-scrollbar">
+        {sessionMessages.length > 0 ? (
+          sessionMessages.map((chat, idx) => (
             <button
               key={idx}
               onClick={() => handleItemClick(chat)}
-              className="group w-full text-left flex items-center gap-3 p-3.5 rounded-xl bg-gray-50/60 hover:bg-white border border-transparent hover:border-gray-200 hover:shadow-md transition-all duration-200 active:scale-[0.99]"
+              className="group w-full text-left flex items-center gap-2.5 p-2 rounded-lg transition-all duration-150 hover:bg-[#F0F2F5] active:scale-[0.99]"
             >
-              {/* Avatar */}
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center group-hover:bg-emerald-500 group-hover:border-emerald-500 transition-all duration-300 shadow-sm">
-                <Users size={16} className="text-gray-400 group-hover:text-white transition-colors" />
+              <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-[#E4E6EB]">
+                <Users size={12} color="#65676B" />
               </div>
-
-              {/* Content */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-bold text-gray-800 group-hover:text-emerald-600 transition-colors">
-                      {chat.sender || "Unknown"}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span className="text-[9px] text-emerald-600 font-semibold">Online</span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-gray-400 font-medium">
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="text-[11px] font-semibold text-[#050505] truncate">
+                    {chat.sender || "Unknown"}
+                  </span>
+                  <span className="text-[9px] text-[#65676B] flex-shrink-0">
                     {formatTime(chat.received_at)}
                   </span>
                 </div>
-                <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-1">
+                <p className="text-[10px] leading-relaxed line-clamp-1 text-[#65676B]">
                   {chat.message_text || "Pesan baru masuk..."}
                 </p>
               </div>
-
-              {/* Right arrow */}
-              <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <ArrowRight size={14} className="text-emerald-500" />
-                </div>
+              <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <ArrowRight size={12} color="#1877F2" />
               </div>
             </button>
           ))
         ) : (
-          /* Empty state */
-          <div className="h-full flex flex-col items-center justify-center gap-4 py-12">
-            <div className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center">
-              <MessageCircle size={28} className="text-gray-300" />
+          <div className="h-full flex flex-col items-center justify-center gap-2 py-8">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#F0F2F5]">
+              <MessageCircle size={18} color="#BCC0C4" />
             </div>
             <div className="text-center">
-              <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
+              <p className="text-[11px] font-semibold text-[#65676B]">
                 Menunggu Pesan
               </p>
-              <p className="text-[11px] text-gray-300 mt-1.5">
-                Pesan akan muncul di sini secara real-time
+              <p className="text-[10px] text-[#BCC0C4]">
+                Pesan akan muncul di sini
               </p>
             </div>
           </div>
         )}
       </div>
+    </div>
+  );
 
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <div className="px-5 py-3.5 flex items-center justify-between flex-shrink-0 bg-gray-50/50 border-t border-gray-100">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Radio size={14} className="text-emerald-500" />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+  return (
+    <div className="space-y-3">
+      {/* Global Header */}
+      {connectedSessions.length > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#E7F3FF]">
+              <Radio size={15} color="#1877F2" />
+            </div>
+            <div>
+              <p className="text-[13px] font-semibold text-[#050505]">
+                Live Chat Feed
+              </p>
+              <p className="text-[10px] font-medium text-[#65676B]">
+                Real-time per perangkat
+              </p>
+            </div>
           </div>
-          <span className="text-[11px] font-semibold text-gray-500">
-            Live Feed Aktif
-          </span>
+          <div className="text-right">
+            <p className="text-[10px] font-medium text-[#65676B]">Total Pesan</p>
+            <p className="text-xl font-bold text-[#050505]">
+              {(totalPesan || 0).toLocaleString("id-ID")}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span className="w-2 h-2 rounded-full bg-emerald-300" />
+      )}
+
+      {/* Per-Device Feed */}
+      {connectedSessions.length > 0 ? (
+        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+          {sessionOrder.map((sessionId) => {
+            const sessionMessages = groupedBySession[sessionId] || [];
+            return renderFeedCard(sessionId, sessionMessages);
+          })}
         </div>
-      </div>
+      ) : Object.keys(groupedBySession).length > 0 ? (
+        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+          {sessionOrder.map((sessionId) => {
+            const sessionMessages = groupedBySession[sessionId] || [];
+            return renderFeedCard(sessionId, sessionMessages);
+          })}
+        </div>
+      ) : (
+        /* Single card fallback when no sessions but messages exist */
+        <div className="flex flex-col h-[520px] bg-white rounded-lg overflow-hidden border border-[#E4E6EB]">
+          <div className="px-5 pt-4 pb-3 flex items-center justify-between flex-shrink-0 bg-white border-b border-[#E4E6EB]">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#E7F3FF]">
+                <MessageCircle size={16} color="#1877F2" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-[#050505]">Live Chat Feed</p>
+                <p className="text-[10px] font-medium text-[#65676B]">Real-time Messages</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-medium text-[#65676B]">Total Pesan</p>
+              <p className="text-2xl font-bold text-[#050505]">
+                {(totalPesan || 0).toLocaleString("id-ID")}
+              </p>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
+            {messages.length > 0 ? (
+              messages.map((chat, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleItemClick(chat)}
+                  className="group w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all duration-150 hover:bg-[#F0F2F5] active:scale-[0.99]"
+                >
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-[#E4E6EB]">
+                    <Users size={15} color="#65676B" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-semibold text-[#050505]">
+                          {chat.sender || "Unknown"}
+                        </span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#31A24C]" />
+                      </div>
+                      <span className="text-[10px] text-[#65676B]">
+                        {formatTime(chat.received_at)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed line-clamp-1 text-[#65676B]">
+                      {chat.message_text || "Pesan baru masuk..."}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ArrowRight size={14} color="#1877F2" />
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center gap-3 py-12">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center bg-[#F0F2F5]">
+                  <MessageCircle size={24} color="#BCC0C4" />
+                </div>
+                <div className="text-center">
+                  <p className="text-[12px] font-semibold text-[#65676B]">
+                    Menunggu Pesan
+                  </p>
+                  <p className="text-[11px] text-[#BCC0C4]">
+                    Pesan akan muncul di sini secara real-time
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="px-5 py-3 flex items-center justify-between flex-shrink-0 border-t bg-[#F0F2F5] border-[#E4E6EB]">
+            <div className="flex items-center gap-2">
+              <Radio size={13} color="#31A24C" />
+              <span className="text-[11px] font-medium text-[#65676B]">Live Feed Aktif</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[#31A24C]" />
+              <span className="w-2 h-2 rounded-full bg-[#31A24C] opacity-60" />
+              <span className="w-2 h-2 rounded-full bg-[#31A24C] opacity-30" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

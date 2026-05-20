@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "migrate": "node migrate.js"
+    "migrate": "node migrate.js",
+    "db:fresh": "node db_fresh.js"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",

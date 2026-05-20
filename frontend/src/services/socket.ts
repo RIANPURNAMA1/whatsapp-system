@@ -45,4 +45,8 @@ export function leaveSession(sessionId: string) {
   getSocket().emit('leave:session', sessionId);
 }
 
+// export function emitMessage(message: any) {
+//   getSocket().emit('message:new', message);
+// }
+
 export default { getSocket, disconnectSocket, joinSession, leaveSession };

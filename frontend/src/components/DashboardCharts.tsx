@@ -2,27 +2,29 @@ import React from "react";
 import {
   LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  BarChart, Bar, LabelList,
+  BarChart, Bar,
 } from "recharts";
-import { TrendingUp, Zap, BarChart2 } from "lucide-react";
 
 interface ChartProps {
   data: any[];
   dark?: boolean;
 }
 
-// ─── Shared design tokens ────────────────────────────────────────────────────
-const TOKEN = {
-  green:  "#10b981",
-  blue:   "#3b82f6",
-  orange: "#f97316",
-  purple: "#8b5cf6",
-  red:    "#ef4444",
-  greenGlow: "rgba(16,185,129,0.18)",
-  blueGlow:  "rgba(59,130,246,0.18)",
+// ─── Meta/Facebook design tokens ─────────────────────────────────────────────
+const FB = {
+  blue: "#1877F2",
+  blueLight: "#E7F3FF",
+  blueFaint: "rgba(24,119,242,0.08)",
+  green: "#31A24C",
+  orange: "#F5A623",
+  red: "#E74C3C",
+  gray: "#65676B",
+  grayLight: "#E4E6EB",
+  grayBg: "#F0F2F5",
+  white: "#FFFFFF",
 };
 
-// ─── Shared card wrapper ─────────────────────────────────────────────────────
+// ─── Shared card wrapper (Meta-style clean card) ────────────────────────────
 const ChartCard: React.FC<{
   children: React.ReactNode;
   dark?: boolean;
@@ -30,13 +32,10 @@ const ChartCard: React.FC<{
 }> = ({ children, dark, className = "" }) => (
   <div
     className={`
-      relative overflow-hidden rounded-2xl
+      rounded-lg overflow-hidden
       ${dark
-        ? "bg-[#0f1923] border border-[#1e2e3b]"
-        : "bg-white/80 backdrop-blur-sm border border-slate-100"}
-      shadow-[0_2px_16px_rgba(0,0,0,0.07)]
-      hover:shadow-[0_8px_32px_rgba(0,0,0,0.11)]
-      transition-all duration-300
+        ? "bg-[#1A1D21] border border-[#2D2F33]"
+        : "bg-white border border-[#E4E6EB]"}
       ${className}
     `}
   >
@@ -46,20 +45,14 @@ const ChartCard: React.FC<{
 
 // ─── Section header inside chart ─────────────────────────────────────────────
 const ChartHeader: React.FC<{
-  icon: React.ReactNode;
   title: string;
   subtitle?: React.ReactNode;
   dark?: boolean;
-}> = ({ icon, title, subtitle, dark }) => (
-  <div className="flex items-start justify-between mb-6">
-    <div className="flex items-center gap-3">
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center
-        ${dark ? "bg-white/8" : "bg-slate-50 border border-slate-100"}`}>
-        <span className={dark ? "text-slate-400" : "text-slate-500"}>{icon}</span>
-      </div>
+}> = ({ title, subtitle, dark }) => (
+  <div className="px-5 pt-4 pb-3 border-b border-[#E4E6EB]">
+    <div className="flex items-center justify-between">
       <div>
-        <h3 className={`text-[11px] font-black uppercase tracking-[0.16em] leading-none
-          ${dark ? "text-slate-400" : "text-slate-400"}`}>
+        <h3 className={`text-[13px] font-semibold ${dark ? "text-[#E4E6EB]" : "text-[#050505]"}`}>
           {title}
         </h3>
         {subtitle && <div className="mt-1">{subtitle}</div>}
@@ -70,83 +63,69 @@ const ChartHeader: React.FC<{
 
 // ─── ActivityChart ────────────────────────────────────────────────────────────
 export const ActivityChart: React.FC<ChartProps> = ({ data, dark }) => {
-  const gridColor   = dark ? "#1a2a38" : "#f1f5f9";
-  const axisColor   = dark ? "#4a6072" : "#94a3b8";
-  const tooltipBg   = dark ? "#0f1923" : "#ffffff";
-  const tooltipBdr  = dark ? "#1e2e3b" : "#e2e8f0";
+  const gridColor  = dark ? "#2D2F33" : "#E4E6EB";
+  const axisColor  = dark ? "#65676B" : "#65676B";
+  const textColor  = dark ? "#E4E6EB" : "#050505";
+  const mutedColor = dark ? "#65676B" : "#65676B";
 
   const totalMasuk  = data.reduce((a, b) => a + (b.masuk  || 0), 0);
   const totalKeluar = data.reduce((a, b) => a + (b.keluar || 0), 0);
 
   return (
-    <ChartCard dark={dark} className="p-6 h-[400px] flex flex-col">
+    <ChartCard dark={dark} className="h-[400px] flex flex-col">
       <ChartHeader
         dark={dark}
-        icon={<TrendingUp size={16} />}
         title="Aktivitas Pesan"
         subtitle={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 mt-1">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-              <span className={`text-[10px] font-bold ${dark ? "text-slate-500" : "text-slate-400"}`}>
-                Masuk <strong className={dark ? "text-white" : "text-slate-700"}>{totalMasuk}</strong>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: FB.blue }} />
+              <span className={`text-[11px] ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
+                Masuk <strong className={dark ? "text-[#E4E6EB]" : "text-[#050505]"}>{totalMasuk}</strong>
               </span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
-              <span className={`text-[10px] font-bold ${dark ? "text-slate-500" : "text-slate-400"}`}>
-                Keluar <strong className={dark ? "text-white" : "text-slate-700"}>{totalKeluar}</strong>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: FB.green }} />
+              <span className={`text-[11px] ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
+                Keluar <strong className={dark ? "text-[#E4E6EB]" : "text-[#050505]"}>{totalKeluar}</strong>
               </span>
             </span>
           </div>
         }
       />
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 p-2">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-            {/* Gradient defs */}
-            <defs>
-              <linearGradient id="gradMasuk" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor={TOKEN.green} stopOpacity={0.15} />
-                <stop offset="100%" stopColor={TOKEN.green} stopOpacity={0}    />
-              </linearGradient>
-              <linearGradient id="gradKeluar" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor={TOKEN.blue} stopOpacity={0.12} />
-                <stop offset="100%" stopColor={TOKEN.blue} stopOpacity={0}    />
-              </linearGradient>
-            </defs>
-
+          <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
             <XAxis
               dataKey="time"
-              stroke={axisColor} fontSize={9} tickLine={false} axisLine={false}
-              dy={8} tick={{ fontWeight: 700, letterSpacing: "0.04em" }}
+              stroke={axisColor} fontSize={10} tickLine={false} axisLine={false}
+              dy={6} tick={{ fontWeight: 500, fill: axisColor }}
             />
-            <YAxis stroke={axisColor} fontSize={9} tickLine={false} axisLine={false} />
+            <YAxis stroke={axisColor} fontSize={10} tickLine={false} axisLine={false} tick={{ fill: axisColor }} />
 
             <Tooltip
               contentStyle={{
-                backgroundColor: tooltipBg,
-                border: `1px solid ${tooltipBdr}`,
-                borderRadius: "12px",
-                fontSize: "11px",
-                fontWeight: 700,
-                boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                color: dark ? "#ffffff" : "#1e293b",
+                backgroundColor: dark ? "#242526" : FB.white,
+                border: `1px solid ${gridColor}`,
+                borderRadius: "8px",
+                fontSize: "12px",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
+                color: dark ? "#E4E6EB" : "#050505",
               }}
-              cursor={{ stroke: dark ? "#ffffff10" : "#00000008", strokeWidth: 1 }}
+              cursor={{ stroke: dark ? "#ffffff15" : "#00000008", strokeWidth: 1 }}
             />
 
             <Line
               type="monotone" dataKey="masuk" name="Masuk"
-              stroke={TOKEN.green} strokeWidth={2.5} dot={false}
-              activeDot={{ r: 4, fill: TOKEN.green, strokeWidth: 2, stroke: "#fff" }}
+              stroke={FB.blue} strokeWidth={2} dot={false}
+              activeDot={{ r: 4, fill: FB.blue, strokeWidth: 2, stroke: FB.white }}
             />
             <Line
               type="monotone" dataKey="keluar" name="Keluar"
-              stroke={TOKEN.blue} strokeWidth={2.5} dot={false}
-              activeDot={{ r: 4, fill: TOKEN.blue, strokeWidth: 2, stroke: "#fff" }}
+              stroke={FB.green} strokeWidth={2} dot={false}
+              activeDot={{ r: 4, fill: FB.green, strokeWidth: 2, stroke: FB.white }}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -155,74 +134,54 @@ export const ActivityChart: React.FC<ChartProps> = ({ data, dark }) => {
   );
 };
 
-// ─── SLAChart ─────────────────────────────────────────────────────────────────
+// ─── SLAChart (Meta-style donut) ──────────────────────────────────────────────
 export const SLAChart: React.FC<ChartProps> = ({ data, dark }) => {
   const totalValue = data.reduce((a, c) => a + (c.value || 0), 0);
   const sesuai     = data.find((d) => d.name === "Sesuai SLA");
   const slaRate    = totalValue ? Math.round(((sesuai?.value || 0) / totalValue) * 100) : 0;
 
-  const tooltipBg  = dark ? "#0f1923" : "#ffffff";
-  const tooltipBdr = dark ? "#1e2e3b" : "#e2e8f0";
+  const COLORS = [FB.green, FB.orange, FB.red];
 
   return (
-    <ChartCard dark={dark} className="p-6 h-[400px] flex flex-col">
+    <ChartCard dark={dark} className="h-[400px] flex flex-col">
       <ChartHeader
         dark={dark}
-        icon={<Zap size={16} />}
         title="Efisiensi Respon (SLA)"
         subtitle={
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`text-[10px] font-black px-2 py-0.5 rounded-full
-              ${slaRate >= 70 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"}`}
-            >
-              {slaRate}% On-Time
-            </span>
-          </div>
+          <span
+            className={`text-[11px] font-semibold px-2 py-0.5 rounded inline-block mt-1 ${
+              slaRate >= 70 ? "bg-[#E7F3FF] text-[#1877F2]" : "bg-[#FFEBEE] text-[#E74C3C]"
+            }`}
+          >
+            {slaRate}% On-Time
+          </span>
         }
       />
 
       <div className="flex-1 min-h-0 relative">
-        {/* Centre label */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10" style={{ top: "-20px" }}>
-          <span className={`text-[9px] font-black uppercase tracking-[0.14em] ${dark ? "text-slate-500" : "text-slate-400"}`}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10" style={{ top: "-16px" }}>
+          <span className={`text-[10px] font-medium ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
             Total
           </span>
-          <span className={`text-3xl font-black leading-none mt-0.5 ${dark ? "text-white" : "text-slate-800"}`}>
+          <span className={`text-2xl font-bold leading-none mt-0.5 ${dark ? "text-[#E4E6EB]" : "text-[#050505]"}`}>
             {totalValue}
           </span>
-          <span className={`text-[9px] font-semibold mt-0.5 ${dark ? "text-slate-500" : "text-slate-400"}`}>
+          <span className={`text-[10px] font-medium mt-0.5 ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
             Pesan
           </span>
         </div>
 
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <defs>
-              {data.map((entry, i) => (
-                <filter key={i} id={`glow-${i}`} x="-30%" y="-30%" width="160%" height="160%">
-                  <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                  <feMerge>
-                    <feMergeNode in="coloredBlur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              ))}
-            </defs>
-
             <Pie
               data={data}
-              innerRadius={72} outerRadius={100}
-              paddingAngle={5} dataKey="value"
+              innerRadius={75} outerRadius={100}
+              paddingAngle={3} dataKey="value"
               stroke="none"
               animationBegin={0} animationDuration={1200}
             >
               {data.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={entry.color}
-                  style={{ filter: `drop-shadow(0 3px 8px ${entry.color}55)` }}
-                />
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
 
@@ -233,22 +192,22 @@ export const SLAChart: React.FC<ChartProps> = ({ data, dark }) => {
                 const pct = totalValue ? Math.round(((p.value as number) / totalValue) * 100) : 0;
                 return (
                   <div
-                    className="p-3 rounded-xl shadow-xl"
+                    className="p-3 rounded-lg shadow-lg"
                     style={{
-                      background: tooltipBg,
-                      border: `1px solid ${tooltipBdr}`,
+                      background: dark ? "#242526" : FB.white,
+                      border: `1px solid ${dark ? "#2D2F33" : FB.grayLight}`,
                       minWidth: "140px",
                     }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: p.payload.color }} />
-                      <span className={`text-[10px] font-black uppercase tracking-wider ${dark ? "text-slate-400" : "text-slate-500"}`}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: p.payload.color || COLORS[0] }} />
+                      <span className={`text-[11px] font-semibold ${dark ? "text-[#E4E6EB]" : "text-[#050505]"}`}>
                         {p.name}
                       </span>
                     </div>
                     <div className="flex items-baseline justify-between gap-4">
-                      <span className={`text-xl font-black ${dark ? "text-white" : "text-slate-800"}`}>{p.value}</span>
-                      <span className="text-[10px] font-bold text-slate-400">{pct}%</span>
+                      <span className={`text-lg font-bold ${dark ? "text-[#E4E6EB]" : "text-[#050505]"}`}>{p.value}</span>
+                      <span className="text-[11px] font-medium text-[#65676B]">{pct}%</span>
                     </div>
                   </div>
                 );
@@ -257,17 +216,16 @@ export const SLAChart: React.FC<ChartProps> = ({ data, dark }) => {
 
             <Legend
               verticalAlign="bottom" align="center"
-              iconType="circle" iconSize={7}
+              iconType="circle" iconSize={8}
               formatter={(value) => (
                 <span style={{
-                  fontSize: "9px", fontWeight: 800,
-                  textTransform: "uppercase", letterSpacing: "0.08em",
-                  color: dark ? "#64748b" : "#94a3b8",
+                  fontSize: "11px", fontWeight: 500,
+                  color: dark ? "#65676B" : "#65676B",
                 }}>
                   {value}
                 </span>
               )}
-              wrapperStyle={{ paddingTop: "12px" }}
+              wrapperStyle={{ paddingTop: "8px", paddingBottom: "8px" }}
             />
           </PieChart>
         </ResponsiveContainer>
@@ -278,10 +236,9 @@ export const SLAChart: React.FC<ChartProps> = ({ data, dark }) => {
 
 // ─── DeviceBarChart ───────────────────────────────────────────────────────────
 export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
-  const gridColor  = dark ? "#1a2a38" : "#f1f5f9";
-  const axisColor  = dark ? "#4a6072" : "#94a3b8";
-  const tooltipBg  = dark ? "#0f1923" : "#ffffff";
-  const tooltipBdr = dark ? "#1e2e3b" : "#e2e8f0";
+  const gridColor  = dark ? "#2D2F33" : "#E4E6EB";
+  const axisColor  = dark ? "#65676B" : "#65676B";
+  const textColor  = dark ? "#E4E6EB" : "#050505";
 
   const totalLeads   = data.reduce((a, b) => a + (b.lead_count    || 0), 0);
   const totalClosing = data.reduce((a, b) => a + (b.closing_count || 0), 0);
@@ -291,74 +248,42 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
     : 0;
 
   return (
-    <ChartCard dark={dark} className="p-6 h-[400px] flex flex-col">
+    <ChartCard dark={dark} className="h-[400px] flex flex-col">
       <ChartHeader
         dark={dark}
-        icon={<BarChart2 size={16} />}
         title="Device Performance"
         subtitle={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mt-1">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-              <span className={`text-[10px] font-bold ${dark ? "text-slate-500" : "text-slate-400"}`}>
-                Leads <strong className={dark ? "text-white" : "text-slate-700"}>{totalLeads}</strong>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: FB.blue }} />
+              <span className={`text-[11px] ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
+                Leads <strong className={dark ? "text-[#E4E6EB]" : "text-[#050505]"}>{totalLeads}</strong>
               </span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
-              <span className={`text-[10px] font-bold ${dark ? "text-slate-500" : "text-slate-400"}`}>
-                Closing <strong className={dark ? "text-white" : "text-slate-700"}>{totalClosing}</strong>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: FB.green }} />
+              <span className={`text-[11px] ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
+                Closing <strong className={dark ? "text-[#E4E6EB]" : "text-[#050505]"}>{totalClosing}</strong>
               </span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-              <span className={`text-[10px] font-bold ${dark ? "text-slate-500" : "text-slate-400"}`}>
-                Organik <strong className={dark ? "text-white" : "text-slate-700"}>{totalOrganik}</strong>
-              </span>
-            </span>
-
-            {/* Efficiency badge */}
-            <span className={`ml-auto text-[10px] font-black px-2.5 py-1 rounded-lg
-              ${efficiencyPct >= 50
-                ? (dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-600")
-                : (dark ? "bg-orange-900/40 text-orange-400" : "bg-orange-50 text-orange-600")
-              }`}
-            >
-              {efficiencyPct}% Efisiensi
             </span>
           </div>
         }
       />
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 p-2">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 20, right: 4, left: -24, bottom: 0 }} barGap={4}>
-            <defs>
-              <linearGradient id="barGreen" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor={TOKEN.green} stopOpacity={1}   />
-                <stop offset="100%" stopColor={TOKEN.green} stopOpacity={0.7} />
-              </linearGradient>
-              <linearGradient id="barBlue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor={TOKEN.blue} stopOpacity={1}   />
-                <stop offset="100%" stopColor={TOKEN.blue} stopOpacity={0.7} />
-              </linearGradient>
-              <linearGradient id="barAmber" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor="#d97706" stopOpacity={1}   />
-                <stop offset="100%" stopColor="#b45309" stopOpacity={0.7} />
-              </linearGradient>
-            </defs>
-
+          <BarChart data={data} margin={{ top: 16, right: 8, left: -20, bottom: 0 }} barGap={4}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
             <XAxis
-              dataKey="name" stroke={axisColor} fontSize={9}
+              dataKey="name" stroke={axisColor} fontSize={10}
               tickLine={false} axisLine={false}
-              tick={{ fontWeight: 800, fill: axisColor, letterSpacing: "0.04em" }}
-              dy={10}
+              tick={{ fontWeight: 500, fill: axisColor }}
+              dy={6}
             />
             <YAxis hide domain={[0, "auto"]} />
 
             <Tooltip
-              cursor={{ fill: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)", radius: 10 }}
+              cursor={{ fill: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)" }}
               content={({ active, payload }) => {
                 if (!active || !payload?.length) return null;
                 const row = payload[0].payload;
@@ -367,34 +292,38 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
                   : 0;
                 return (
                   <div
-                    className="p-3.5 rounded-xl shadow-xl"
-                    style={{ background: tooltipBg, border: `1px solid ${tooltipBdr}`, minWidth: "170px" }}
+                    className="p-3.5 rounded-lg shadow-lg"
+                    style={{
+                      background: dark ? "#242526" : FB.white,
+                      border: `1px solid ${dark ? "#2D2F33" : FB.grayLight}`,
+                      minWidth: "170px",
+                    }}
                   >
-                    <p className={`text-[9px] font-black uppercase tracking-widest mb-2.5 ${dark ? "text-slate-400" : "text-slate-500"}`}>
+                    <p className={`text-[10px] font-semibold mb-2.5 ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
                       {row.name}
                     </p>
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-6">
-                        <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400" /> Leads
+                        <span className="flex items-center gap-1.5 text-[11px] text-[#65676B]">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: FB.blue }} /> Leads
                         </span>
-                        <span className={`text-sm font-black ${dark ? "text-white" : "text-slate-800"}`}>{row.lead_count}</span>
+                        <span className={`text-sm font-bold ${dark ? "text-[#E4E6EB]" : "text-[#050505]"}`}>{row.lead_count}</span>
                       </div>
                       <div className="flex items-center justify-between gap-6">
-                        <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
-                          <span className="w-2 h-2 rounded-full bg-blue-400" /> Closing
+                        <span className="flex items-center gap-1.5 text-[11px] text-[#65676B]">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: FB.green }} /> Closing
                         </span>
-                        <span className={`text-sm font-black ${dark ? "text-white" : "text-slate-800"}`}>{row.closing_count}</span>
+                        <span className={`text-sm font-bold ${dark ? "text-[#E4E6EB]" : "text-[#050505]"}`}>{row.closing_count}</span>
                       </div>
                       <div className="flex items-center justify-between gap-6">
-                        <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
-                          <span className="w-2 h-2 rounded-full bg-purple-400" /> Organik
+                        <span className="flex items-center gap-1.5 text-[11px] text-[#65676B]">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: FB.orange }} /> Organik
                         </span>
-                        <span className={`text-sm font-black ${dark ? "text-white" : "text-slate-800"}`}>{row.leads_organik || 0}</span>
+                        <span className={`text-sm font-bold ${dark ? "text-[#E4E6EB]" : "text-[#050505]"}`}>{row.leads_organik || 0}</span>
                       </div>
-                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Conv. Rate</span>
-                        <span className={`text-[11px] font-black ${rate >= 50 ? "text-emerald-500" : "text-orange-500"}`}>{rate}%</span>
+                      <div className="mt-2 pt-2 border-t border-[#E4E6EB] flex items-center justify-between">
+                        <span className="text-[10px] text-[#65676B]">Conv. Rate</span>
+                        <span className={`text-[11px] font-bold ${rate >= 50 ? "text-[#31A24C]" : "text-[#F5A623]"}`}>{rate}%</span>
                       </div>
                     </div>
                   </div>
@@ -402,62 +331,9 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
               }}
             />
 
-            <Bar dataKey="lead_count" fill="url(#barGreen)" radius={[5, 5, 0, 0]} barSize={24} animationDuration={1400}>
-              <LabelList
-                dataKey="lead_count"
-                position="top"
-                content={(props: any) => {
-                  const { x, y, width, value } = props;
-                  if (!value) return null;
-                  return (
-                    <text x={x + width / 2} y={y - 7}
-                      fill={TOKEN.green} fontSize={9} fontWeight="900"
-                      textAnchor="middle"
-                    >
-                      {value}
-                    </text>
-                  );
-                }}
-              />
-            </Bar>
-
-            <Bar dataKey="closing_count" fill="url(#barBlue)" radius={[5, 5, 0, 0]} barSize={24} animationDuration={1800}>
-              <LabelList
-                dataKey="closing_count"
-                position="top"
-                content={(props: any) => {
-                  const { x, y, width, value } = props;
-                  if (!value) return null;
-                  return (
-                    <text x={x + width / 2} y={y - 7}
-                      fill={TOKEN.blue} fontSize={9} fontWeight="900"
-                      textAnchor="middle"
-                    >
-                      {value}
-                    </text>
-                  );
-                }}
-              />
-            </Bar>
-
-            <Bar dataKey="leads_organik" fill="url(#barAmber)" radius={[5, 5, 0, 0]} barSize={24} animationDuration={2000}>
-              <LabelList
-                dataKey="leads_organik"
-                position="top"
-                content={(props: any) => {
-                  const { x, y, width, value } = props;
-                  if (!value) return null;
-                  return (
-                    <text x={x + width / 2} y={y - 7}
-                      fill="#d97706" fontSize={9} fontWeight="900"
-                      textAnchor="middle"
-                    >
-                      {value}
-                    </text>
-                  );
-                }}
-              />
-            </Bar>
+            <Bar dataKey="lead_count" fill={FB.blue} radius={[3, 3, 0, 0]} barSize={20} animationDuration={1400} />
+            <Bar dataKey="closing_count" fill={FB.green} radius={[3, 3, 0, 0]} barSize={20} animationDuration={1800} />
+            <Bar dataKey="leads_organik" fill={FB.orange} radius={[3, 3, 0, 0]} barSize={20} animationDuration={2000} />
           </BarChart>
         </ResponsiveContainer>
       </div>

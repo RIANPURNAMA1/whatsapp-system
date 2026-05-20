@@ -1,5 +1,3 @@
-// components/GroupList.tsx
-// FILE BARU — tidak mengubah file lain apapun
 import { getSocket } from "../services/socket";
 import React, { useEffect, useState, useCallback } from "react";
 import {
@@ -115,18 +113,18 @@ const GroupList: React.FC<GroupListProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white border-r" style={{ borderColor: "#E4E6EB" }}>
       {/* Header */}
-      <div className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-            <Users className="w-4 h-4 text-blue-600" />
+      <div className="px-3 h-[52px] flex items-center justify-between border-b shrink-0" style={{ borderColor: "#E4E6EB" }}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
+            <Users className="w-4 h-4" style={{ color: "#1877F2" }} />
           </div>
           <div>
-            <p className="text-gray-900 text-sm font-semibold">
+            <p className="text-[14px] font-bold leading-tight" style={{ color: "#050505" }}>
               Grup WhatsApp
             </p>
-            <p className="text-gray-500 text-[11px]">
+            <p className="text-[10px] font-medium" style={{ color: "#65676B" }}>
               {groups.length > 0 ? `${groups.length} grup` : "Memuat..."}
             </p>
           </div>
@@ -134,30 +132,31 @@ const GroupList: React.FC<GroupListProps> = ({
         <button
           onClick={() => loadGroups(true)}
           disabled={isRefreshing}
-          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-all"
+          className="p-1.5 rounded-lg transition-all hover:bg-[#F2F3F5]"
+          style={{ color: "#65676B" }}
           title="Perbarui daftar grup"
         >
-          <RefreshCw
-            className={`w-4 h-4 ${isRefreshing ? "animate-spin text-blue-600" : ""}`}
-          />
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} style={{ color: isRefreshing ? "#1877F2" : undefined }} />
         </button>
       </div>
 
       {/* Search */}
-      <div className="px-3 py-2 bg-white">
-        <div className="relative flex items-center bg-gray-100 rounded-lg px-3 group focus-within:ring-1 focus-within:ring-blue-500 transition-all">
-          <Search className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 flex-shrink-0" />
+      <div className="px-3 pt-2.5 pb-1.5 shrink-0">
+        <div className="relative flex items-center">
+          <Search className="absolute left-3 w-3.5 h-3.5" style={{ color: "#8C939D" }} />
           <input
             type="text"
             placeholder="Cari nama grup..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent text-gray-900 py-2 pl-3 text-sm outline-none placeholder:text-gray-400"
+            className="w-full pl-8 h-[32px] bg-[#F0F2F5] rounded-lg text-[12px] outline-none border-0"
+            style={{ color: "#050505" }}
           />
           {search && (
             <button
               onClick={() => setSearch("")}
-              className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+              className="absolute right-2 text-lg leading-none hover:opacity-70"
+              style={{ color: "#8C939D" }}
             >
               ×
             </button>
@@ -166,27 +165,27 @@ const GroupList: React.FC<GroupListProps> = ({
       </div>
 
       {/* Daftar Grup */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-40 gap-3">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+            <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#1877F2" }} />
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#65676B" }}>
               Memuat Grup...
             </span>
           </div>
         ) : groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 px-6 gap-3">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-              <Users className="w-8 h-8 text-gray-400" />
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "#F0F2F5" }}>
+              <Users className="w-6 h-6" style={{ color: "#BCC0C4" }} />
             </div>
-            <p className="text-gray-500 text-sm text-center">
+            <p className="text-[13px] text-center" style={{ color: "#65676B" }}>
               {search
                 ? "Grup tidak ditemukan."
-                : "Belum ada grup yang tertaut.\nSinkronisasi otomatis saat pesan grup masuk."}
+                : "Belum ada grup yang tertaut."}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div>
             {groups.map((group) => (
               <GroupListItem
                 key={group.jid}
@@ -222,26 +221,28 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`
-        flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150 relative
-        ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}
-      `}
+      className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-all relative"
+      style={{
+        backgroundColor: isSelected ? "#E7F3FF" : "transparent",
+      }}
+      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = "#F2F3F5"; }}
+      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = "transparent"; }}
     >
       {isSelected && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r" />
+        <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm" style={{ backgroundColor: "#1877F2" }} />
       )}
 
       {/* Avatar grup */}
       <div className="relative flex-shrink-0">
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+          className="w-[40px] h-[40px] rounded-full flex items-center justify-center"
           style={{ backgroundColor: getAvatarColor(group.jid) }}
         >
           {group.profile_pic_url ? (
             <img
               src={group.profile_pic_url}
               alt={displayName}
-              className="w-10 h-10 rounded-full object-cover"
+              className="w-[40px] h-[40px] rounded-full object-cover"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
               }}
@@ -251,9 +252,8 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
           )}
         </div>
 
-        {/* Badge unread */}
         {group.unread_count > 0 && (
-          <div className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] bg-blue-500 rounded-full flex items-center justify-center border-2 border-white px-1">
+          <div className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1" style={{ backgroundColor: "#1877F2" }}>
             <span className="text-[10px] text-white font-bold">
               {group.unread_count > 99 ? "99+" : group.unread_count}
             </span>
@@ -264,33 +264,36 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
       {/* Info grup */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
-          <h3 className="text-gray-900 text-[14px] font-normal truncate flex items-center gap-1.5 leading-tight">
+          <h3 className="text-[13px] truncate flex items-center gap-1.5 leading-tight" style={{
+            color: "#050505",
+            fontWeight: group.unread_count > 0 ? 700 : 600,
+          }}>
             {displayName}
           </h3>
           <span
-            className={`text-[11px] flex-shrink-0 ml-1 ${
-              group.unread_count > 0
-                ? "text-blue-500 font-semibold"
-                : "text-gray-400"
-            }`}
+            className="text-[11px] flex-shrink-0 ml-1"
+            style={{
+              color: group.unread_count > 0 ? "#1877F2" : "#65676B",
+              fontWeight: group.unread_count > 0 ? 600 : 400,
+            }}
           >
             {formatChatTime(group.last_message_time)}
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {(group.participant_count ?? 0) > 0 && (
-            <span className="text-[10px] text-blue-600 bg-blue-50 rounded px-1 py-0.5 flex-shrink-0 flex items-center gap-0.5">
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0" style={{ backgroundColor: "#E7F3FF", color: "#1877F2" }}>
               <Users className="w-2.5 h-2.5" />
               {group.participant_count}
             </span>
           )}
           <p
-            className={`text-xs truncate leading-4 flex-1 ${
-              group.unread_count > 0
-                ? "text-gray-700 font-medium"
-                : "text-gray-500 font-light"
-            }`}
+            className="text-[12px] truncate leading-4 flex-1"
+            style={{
+              color: group.unread_count > 0 ? "#050505" : "#65676B",
+              fontWeight: group.unread_count > 0 ? 500 : 400,
+            }}
           >
             {preview}
           </p>

@@ -6,6 +6,8 @@ import jwt from "jsonwebtoken";
 import { log } from "console";
 import { query, queryOne } from "./db.js";
 import { generateLeadsReport, sendReportToGroups } from "./services/leadsReportService.js";
+import { saveClosingEvent } from "./services/closingTrafficService.js";
+import { getLeadAnalysis, computeBadLeads } from "./services/leadAnalysisService.js";
 import {
   createSession,
   sendTextMessage,
@@ -700,6 +702,12 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
       [sessionId],
     );
 
+    io.emit("session:update", {
+      id: sessionId,
+      status: "connecting",
+      qr_code: null,
+    });
+
     console.log(`✅ [RECONNECT] Status database diupdate ke 'connecting'`);
 
     // 5. Buat session baru (non-blocking)
@@ -745,10 +753,9 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
 router.post("/sessions/logout/:sessionId", async (req, res) => {
   try {
     const { sessionId } = req.params;
+    const io = req.app.get("socketio") || req.app.get("io");
 
-    // Panggil fungsi logoutSession dari file whatsapp.js Anda
-    // Fungsi ini akan melakukan sock.logout() dan menghapus folder auth
-    await logoutSession(sessionId);
+    await logoutSession(sessionId, io);
 
     res.json({ success: true, message: "Logout berhasil" });
   } catch (error) {
@@ -766,9 +773,9 @@ router.delete("/sessions/:sessionId", async (req, res) => {
     console.log(`[System] Memulai penghapusan permanen sesi: ${sessionId}`);
 
     // 1. Matikan koneksi WhatsApp & Bersihkan dari Memory/Socket
-    // Pastikan fungsi logoutSession Anda juga menghapus instance dari map/objek global
+    const io = req.app.get("socketio") || req.app.get("io");
     try {
-      await logoutSession(sessionId);
+      await logoutSession(sessionId, io);
     } catch (e) {
       console.log(
         `[Warn] Sesi ${sessionId} mungkin sudah tidak aktif secara socket, lanjut penghapusan data.`,
@@ -776,9 +783,6 @@ router.delete("/sessions/:sessionId", async (req, res) => {
     }
 
     // 2. Hapus Sesi dari Database
-    // Karena kita pakai FOREIGN KEY ... ON DELETE CASCADE,
-    // semua data di tabel wa_messages, wa_chats, wa_contacts, dll
-    // yang memiliki session_id ini akan otomatis DIHAPUS oleh MySQL.
     const result = await query("DELETE FROM wa_sessions WHERE id = ?", [
       sessionId,
     ]);
@@ -787,6 +791,15 @@ router.delete("/sessions/:sessionId", async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Sesi tidak ditemukan di database.",
+      });
+    }
+
+    if (io) {
+      io.emit("session:update", {
+        id: sessionId,
+        status: "disconnected",
+        qr_code: null,
+        _deleted: true,
       });
     }
 
@@ -1808,6 +1821,7 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
 router.get("/social/media", authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate, sessionId } = req.query;
@@ -1990,6 +2004,7 @@ router.get("/social/media", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
 
 router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
   try {
@@ -3366,7 +3381,65 @@ router.delete("/sessions/:sessionId/labels/:waLabelId", async (req, res) => {
   }
 });
 
-// ✅ PUT: Assign/unassign label ke chat
+// ✅ GET: Ambil label untuk chat tertentu
+router.get("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
+  try {
+    const { sessionId, chatJid } = req.params;
+    const decodedJid = decodeURIComponent(chatJid);
+
+    const labels = await query(
+      `SELECT l.id, l.wa_label_id, l.name, l.color
+       FROM wa_chat_labels cl
+       JOIN wa_labels l ON l.wa_label_id = cl.wa_label_id AND l.session_id = cl.session_id
+       WHERE cl.session_id = ? AND cl.chat_jid = ?
+       ORDER BY l.name ASC`,
+      [sessionId, decodedJid],
+    );
+
+    res.json({ success: true, data: labels });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ✅ POST: Assign single label ke chat
+router.post("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
+  try {
+    const { sessionId, chatJid } = req.params;
+    const { waLabelId } = req.body;
+    const decodedJid = decodeURIComponent(chatJid);
+
+    if (!waLabelId) {
+      return res.status(400).json({ success: false, message: "waLabelId wajib diisi" });
+    }
+
+    const session = sessions.get(sessionId);
+    const sock = session?.sock;
+
+    if (sock && typeof sock.addChatLabel === "function") {
+      await sock.addChatLabel(decodedJid, waLabelId);
+    } else if (sock && typeof sock.labelChat === "function") {
+      await sock.labelChat(decodedJid, waLabelId, "add");
+    }
+
+    await query(
+      "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
+      [sessionId, decodedJid, waLabelId],
+    );
+
+    // Auto-detect closing label
+    const labelCheck = await queryOne("SELECT name FROM wa_labels WHERE wa_label_id = ? AND session_id = ?", [waLabelId, sessionId]);
+    if (labelCheck && labelCheck.name && labelCheck.name.toLowerCase().includes('closing')) {
+      await saveClosingEvent(sessionId, decodedJid, new Date().toISOString(), 'label');
+    }
+
+    res.json({ success: true, message: "Label berhasil ditambahkan" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ✅ PUT: Assign/unassign label ke chat (bulk)
 router.put("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
   try {
     const { sessionId, chatJid } = req.params;
@@ -3428,6 +3501,17 @@ router.put("/sessions/:sessionId/chats/:chatJid/labels", async (req, res) => {
       console.log(`✅ Label ${labelId} ditambahkan ke ${decodedJid}`);
     }
 
+    // Auto-detect closing label from newly added labels
+    if (toAdd.length > 0) {
+      const closingLabels = await query(
+        `SELECT wa_label_id FROM wa_labels WHERE wa_label_id IN (${toAdd.map(() => '?').join(',')}) AND session_id = ? AND LOWER(name) LIKE '%closing%'`,
+        [...toAdd, sessionId]
+      );
+      if (closingLabels.length > 0) {
+        await saveClosingEvent(sessionId, decodedJid, new Date().toISOString(), 'label');
+      }
+    }
+
     for (const labelId of toRemove) {
       await removeLabel(decodedJid, labelId);
       await query(
@@ -3453,7 +3537,7 @@ router.delete(
       const decodedJid = decodeURIComponent(chatJid);
 
       await query(
-        "DELETE FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND label_id = ?",
+        "DELETE FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND wa_label_id = ?",
         [sessionId, decodedJid, labelId],
       );
 
@@ -3817,6 +3901,177 @@ router.post("/leads-report/send-now", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Error send leads report:", err);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ===============================================
+// LEAD ANALYSIS - Usia, Biaya, Bad
+// ===============================================
+router.get("/leads/analysis", authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, period = "Minggu" } = req.query;
+    const userId = req.user.id;
+    const roleType = req.user.role_type?.toLowerCase().trim();
+
+    let allowedSessions = [];
+    if (roleType === "system" || roleType === "manager") {
+      allowedSessions = await query("SELECT id, name FROM wa_sessions ORDER BY name ASC");
+    } else {
+      allowedSessions = await query(
+        `SELECT s.id, s.name FROM wa_sessions s 
+         INNER JOIN wa_user_sessions us ON s.id = us.session_id 
+         WHERE us.user_id = ? ORDER BY s.name ASC`, [userId]
+      );
+    }
+
+    const allowedIds = allowedSessions.map(s => s.id);
+    if (allowedIds.length === 0) {
+      return res.json({ success: true, data: [], summary: { total: 0, usia: 0, biaya: 0, bad: 0 } });
+    }
+
+    const targetId = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) ? sessionId : null;
+
+    // Compute bad leads first
+    await computeBadLeads(targetId);
+
+    const result = await getLeadAnalysis(targetId, period || "Minggu");
+
+    // Filter by allowed sessions
+    const filteredData = result.data.filter(d => allowedIds.includes(d.session_id));
+
+    // Per-device breakdown
+    const deviceMap = {};
+    filteredData.forEach(d => {
+      if (!deviceMap[d.session_id]) deviceMap[d.session_id] = { usia: 0, biaya: 0, bad: 0 };
+      if (deviceMap[d.session_id][d.category] !== undefined) deviceMap[d.session_id][d.category]++;
+    });
+
+    const deviceData = allowedSessions
+      .filter(s => !targetId || s.id === targetId)
+      .map(s => ({
+        name: s.name.toUpperCase(),
+        ...(deviceMap[s.id] || { usia: 0, biaya: 0, bad: 0 }),
+        total: Object.values(deviceMap[s.id] || { usia: 0, biaya: 0, bad: 0 }).reduce((a, b) => a + b, 0)
+      }));
+
+    const summary = {
+      total: filteredData.length,
+      usia: filteredData.filter(d => d.category === 'usia').length,
+      biaya: filteredData.filter(d => d.category === 'biaya').length,
+      bad: filteredData.filter(d => d.category === 'bad').length
+    };
+
+    res.json({ success: true, data: filteredData, summary, deviceData });
+  } catch (error) {
+    console.error("API Error at /leads/analysis:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
+// ===============================================
+// TRAFIK CLOSING - Baca dari tabel closing_traffic
+// ===============================================
+router.get("/closing/traffic", authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate, startTime, endTime, sessionId, period } = req.query;
+    const userId = req.user.id;
+    const roleType = req.user.role_type?.toLowerCase().trim();
+
+    let allowedSessions = [];
+    if (roleType === "system" || roleType === "manager") {
+      allowedSessions = await query("SELECT id, name FROM wa_sessions ORDER BY name ASC");
+    } else {
+      allowedSessions = await query(
+        `SELECT s.id, s.name FROM wa_sessions s 
+         INNER JOIN wa_user_sessions us ON s.id = us.session_id 
+         WHERE us.user_id = ? ORDER BY s.name ASC`, [userId]
+      );
+    }
+
+    const allowedIds = allowedSessions.map(s => s.id);
+    if (allowedIds.length === 0) return res.json({ success: true, data: [], summary: { total: 0, rataRataJam: 0 } });
+
+    let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId))
+      ? [sessionId]
+      : allowedIds;
+
+    const inPlaceholder = targetSessionIds.map(() => '?').join(',');
+    let dateFilter = "";
+    let queryParams = [...targetSessionIds];
+
+    if (period && period !== "Custom") {
+      switch (period) {
+        case "Hari ini":
+          dateFilter = "AND DATE(ct.closing_time) = CURDATE()";
+          break;
+        case "Kemarin":
+          dateFilter = "AND DATE(ct.closing_time) = SUBDATE(CURDATE(), 1)";
+          break;
+        case "Minggu":
+          dateFilter = "AND ct.closing_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+          break;
+        case "Bulan":
+          dateFilter = "AND ct.closing_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+          break;
+        default:
+          dateFilter = "AND DATE(ct.closing_time) = CURDATE()";
+      }
+    } else if (startDate && endDate) {
+      const startFull = `${startDate} ${startTime || '00:00:00'}`;
+      const endFull = `${endDate} ${endTime || '23:59:59'}`;
+      dateFilter = "AND ct.closing_time BETWEEN ? AND ?";
+      queryParams.push(startFull, endFull);
+    } else {
+      dateFilter = "AND DATE(ct.closing_time) = CURDATE()";
+    }
+
+    const data = await query(`
+      SELECT ct.*, ws.name as session_name
+      FROM closing_traffic ct
+      JOIN wa_sessions ws ON ct.session_id = ws.id
+      WHERE ct.session_id IN (${inPlaceholder})
+        ${dateFilter}
+      ORDER BY ct.closing_time DESC
+    `, queryParams);
+
+    // Format durasi label
+    const formatted = data.map(d => {
+      const durasiJam = parseFloat(d.durasi_jam) || 0;
+      return {
+        session_id: d.session_id,
+        chat_jid: d.chat_jid,
+        contactName: d.contact_name || d.chat_jid.split('@')[0],
+        firstChat: d.first_chat_time,
+        closingTime: d.closing_time,
+        durasiJam,
+        durasiLabel: durasiJam >= 24
+          ? `${Math.floor(durasiJam / 24)}h ${Math.round(durasiJam % 24)}j`
+          : `${Math.round(durasiJam * 10) / 10}j`
+      };
+    });
+
+    const total = formatted.length;
+    const totalJam = formatted.reduce((s, d) => s + d.durasiJam, 0);
+    const rataRataJam = total > 0 ? Math.round((totalJam / total) * 100) / 100 : 0;
+
+    const deviceSummary = allowedSessions
+      .filter(s => targetSessionIds.includes(s.id))
+      .map(s => {
+        const dev = formatted.filter(d => d.session_id === s.id);
+        const avg = dev.length > 0 ? Math.round((dev.reduce((a, d) => a + d.durasiJam, 0) / dev.length) * 100) / 100 : 0;
+        return { name: s.name.toUpperCase(), total: dev.length, rataRataJam: avg };
+      });
+
+    res.json({
+      success: true,
+      data: formatted,
+      summary: { total, rataRataJam, totalDevice: deviceSummary },
+      deviceData: deviceSummary
+    });
+
+  } catch (error) {
+    console.error("API Error at /closing/traffic:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
 

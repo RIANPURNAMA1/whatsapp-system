@@ -103,42 +103,42 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
   };
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-      <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
-        <h3 className="text-sm font-bold text-blue-600 uppercase tracking-wider mb-4 flex items-center gap-2">
+    <div className="space-y-6">
+      <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
+        <h3 className="text-sm font-bold text-[#1877F2] uppercase tracking-wider mb-4 flex items-center gap-2">
           <Plus size={18} /> Tambah Auto Reply Baru
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           <div className="md:col-span-3">
-            <label className="text-[10px] text-gray-500 uppercase font-semibold block mb-1">Keyword</label>
+            <label className="text-[10px] text-[#65676B] uppercase font-semibold block mb-1">Keyword</label>
             <div className="relative">
-              <Tag className="absolute left-3 top-3 text-gray-400" size={16} />
+              <Tag className="absolute left-3 top-3 text-[#65676B]" size={16} />
               <input
                 type="text"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder="cth: harga"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 outline-none transition-all"
+                className="w-full bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-[#1877F2] focus:ring-1 focus:ring-[#1877F2] outline-none transition-all text-[#050505] placeholder:text-[#65676B]"
               />
             </div>
           </div>
 
           <div className="md:col-span-4">
-            <label className="text-[10px] text-gray-500 uppercase font-semibold block mb-1">Jawaban Otomatis</label>
+            <label className="text-[10px] text-[#65676B] uppercase font-semibold block mb-1">Jawaban Otomatis</label>
             <div className="relative">
-              <MessageSquare className="absolute left-3 top-3 text-gray-400" size={16} />
+              <MessageSquare className="absolute left-3 top-3 text-[#65676B]" size={16} />
               <input
                 type="text"
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder="Masukkan jawaban..."
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 outline-none transition-all"
+                className="w-full bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-[#1877F2] focus:ring-1 focus:ring-[#1877F2] outline-none transition-all text-[#050505] placeholder:text-[#65676B]"
               />
             </div>
           </div>
 
           <div className="md:col-span-3">
-            <label className="text-[10px] text-gray-500 uppercase font-semibold block mb-1">Lampiran Gambar</label>
+            <label className="text-[10px] text-[#65676B] uppercase font-semibold block mb-1">Lampiran Gambar</label>
             <div className="flex items-center gap-2">
               <input
                 type="file"
@@ -150,10 +150,10 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs border border-dashed transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs border border-dashed transition-all ${
                   selectedFile 
-                    ? "border-blue-500 bg-blue-50 text-blue-600" 
-                    : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                    ? "border-[#1877F2] bg-[#E7F3FF] text-[#1877F2]" 
+                    : "border-[#CCD0D5] text-[#65676B] hover:bg-[#F2F3F5]"
                 }`}
               >
                 {selectedFile ? (
@@ -165,7 +165,7 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
               {selectedFile && (
                 <button 
                   onClick={() => setSelectedFile(null)}
-                  className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-2 text-[#65676B] hover:bg-[#FFEBEE] hover:text-red-500 rounded-lg transition-colors"
                 >
                   <X size={18} />
                 </button>
@@ -177,7 +177,7 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
             <button
               onClick={handleAddRule}
               disabled={isAdding}
-              className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25"
+              className="w-full bg-[#1877F2] hover:bg-[#166FE5] disabled:opacity-50 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 text-white"
             >
               {isAdding ? <Loader2 className="animate-spin" size={18} /> : "Simpan"}
             </button>
@@ -185,33 +185,33 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-lg border border-[#E4E6EB] overflow-hidden">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase tracking-widest">
+          <thead className="bg-[#F0F2F5] text-[#65676B] text-[10px] uppercase tracking-widest">
             <tr>
               <th className="px-6 py-4 font-bold">Keyword</th>
               <th className="px-6 py-4 font-bold">Jawaban & Media</th>
               <th className="px-6 py-4 font-bold text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-[#E4E6EB]">
             {isLoading ? (
-              <tr><td colSpan={3} className="text-center py-10 text-gray-400">Memuat rules...</td></tr>
+              <tr><td colSpan={3} className="text-center py-10 text-[#65676B]">Memuat rules...</td></tr>
             ) : rules.length === 0 ? (
-              <tr><td colSpan={3} className="text-center py-10 text-gray-400">Belum ada rule chatbot.</td></tr>
+              <tr><td colSpan={3} className="text-center py-10 text-[#65676B]">Belum ada rule chatbot.</td></tr>
             ) : (
               rules.map((rule) => (
-                <tr key={rule.id} className="hover:bg-gray-50 transition-colors group">
+                <tr key={rule.id} className="hover:bg-[#F2F3F5] transition-colors">
                   <td className="px-6 py-4">
-                    <span className="bg-blue-100 text-blue-600 border border-blue-200 px-2 py-1 rounded-lg text-xs font-mono font-semibold">
+                    <span className="bg-[#E7F3FF] text-[#1877F2] border border-[#1877F2] px-2 py-1 rounded-lg text-xs font-mono font-semibold">
                       {rule.keyword}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-gray-700">{rule.answer}</span>
+                      <span className="text-[#050505]">{rule.answer}</span>
                       {rule.image_url && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100 mt-1">
+                        <div className="flex items-center gap-1.5 text-[10px] text-[#1877F2] bg-[#E7F3FF] w-fit px-2 py-0.5 rounded border border-[#1877F2] mt-1">
                           <ImageIcon size={12} />
                           Gambar Terlampir
                         </div>
@@ -221,7 +221,7 @@ export const RulesSection: React.FC<Props> = ({ sessionId }) => {
                   <td className="px-6 py-4 text-center">
                     <button 
                       onClick={() => handleDelete(rule.id!)} 
-                      className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                      className="text-[#65676B] hover:text-red-500 p-2 hover:bg-[#FFEBEE] rounded-lg transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>

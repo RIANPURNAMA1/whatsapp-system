@@ -118,65 +118,68 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
   });
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white border-r" style={{ borderColor: "#E4E6EB" }}>
       {/* HEADER SECTION */}
-      <div className="border-b border-gray-100 bg-white">
+      <div className="border-b" style={{ borderColor: "#E4E6EB" }}>
         <div className="px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25">
-              <MessageSquare size={20} />
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
+              <MessageSquare size={18} style={{ color: "#1877F2" }} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-gray-900">
+              <h2 className="text-[15px] font-bold" style={{ color: "#050505" }}>
                 Monitoring Leads
               </h2>
-              <p className="text-[11px] text-gray-500">{filteredLeads.length} leads</p>
+              <p className="text-[11px]" style={{ color: "#65676B" }}>{filteredLeads.length} leads</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={fetchLeads}
-            className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+            className="p-2 rounded-lg transition-all"
+            style={{ color: "#65676B" }}
           >
-            <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
-          </Button>
+            <RefreshCcw size={18} className={loading ? "animate-spin" : ""} />
+          </button>
         </div>
 
         {/* SEARCH & FILTER BAR */}
         <div className="px-4 pb-3 flex items-center gap-2">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#65676B" }} />
             <Input
               type="text"
               placeholder="Cari lead..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-gray-100 border-transparent focus:bg-white focus:border-blue-300 rounded-xl"
+              className="pl-10 rounded-lg border-0 text-xs"
+              style={{ backgroundColor: "#F0F2F5" }}
             />
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`p-2 rounded-lg transition-all ${showFilters ? "bg-blue-500 text-white hover:bg-blue-600" : "text-gray-500 hover:bg-gray-100"}`}
+            className="p-2 rounded-lg transition-all"
+            style={{
+              backgroundColor: showFilters ? "#1877F2" : "#F0F2F5",
+              color: showFilters ? "#FFFFFF" : "#65676B",
+            }}
           >
-            <Target size={20} />
-          </Button>
+            <Target size={18} />
+          </button>
         </div>
 
         {/* FILTER PANEL */}
         {showFilters && (
-          <div className="px-4 py-4 space-y-4 bg-gray-50 border-t border-gray-100 animate-in fade-in duration-200">
+          <div className="px-4 py-4 space-y-4 border-t" style={{ backgroundColor: "#F8F9FA", borderColor: "#E4E6EB" }}>
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-gray-700">
+              <label className="text-[11px] font-semibold" style={{ color: "#050505" }}>
                 Filter Sumber & Perangkat
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <select
                   value={selectedDevice}
                   onChange={(e) => setSelectedDevice(e.target.value)}
-                  className="px-3 py-2 rounded-xl text-xs outline-none bg-white border border-gray-200 text-gray-700 focus:border-blue-300"
+                  className="px-3 py-2 rounded-lg text-xs outline-none"
+                  style={{ backgroundColor: "#FFFFFF", border: "1px solid #CCD0D5", color: "#050505" }}
                 >
                   <option value="all">Semua Perangkat</option>
                   {sessions.map((s) => (
@@ -186,7 +189,8 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
                 <select
                   value={socialFilter}
                   onChange={(e) => setSocialFilter(e.target.value)}
-                  className="px-3 py-2 rounded-xl text-xs outline-none bg-white border border-gray-200 text-gray-700 focus:border-blue-300"
+                  className="px-3 py-2 rounded-lg text-xs outline-none"
+                  style={{ backgroundColor: "#FFFFFF", border: "1px solid #CCD0D5", color: "#050505" }}
                 >
                   <option value="all">Semua Sumber</option>
                   {availablePlatforms.map((p) => (
@@ -198,7 +202,7 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-gray-600">
+              <label className="text-[11px] font-semibold" style={{ color: "#050505" }}>
                 Rentang Waktu
               </label>
               <div className="flex items-center gap-2">
@@ -206,14 +210,16 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
                   type="datetime-local"
                   value={tempDateRange.start}
                   onChange={(e) => setTempDateRange({ ...tempDateRange, start: e.target.value })}
-                  className="flex-1 p-2 rounded-xl text-[11px] outline-none bg-white border border-gray-200 focus:border-blue-300"
+                  className="flex-1 p-2 rounded-lg text-[11px] outline-none"
+                  style={{ backgroundColor: "#FFFFFF", border: "1px solid #CCD0D5", color: "#050505" }}
                 />
-                <span className="text-gray-400">-</span>
+                <span style={{ color: "#BCC0C4" }}>-</span>
                 <input
                   type="datetime-local"
                   value={tempDateRange.end}
                   onChange={(e) => setTempDateRange({ ...tempDateRange, end: e.target.value })}
-                  className="flex-1 p-2 rounded-xl text-[11px] outline-none bg-white border border-gray-200 focus:border-blue-300"
+                  className="flex-1 p-2 rounded-lg text-[11px] outline-none"
+                  style={{ backgroundColor: "#FFFFFF", border: "1px solid #CCD0D5", color: "#050505" }}
                 />
               </div>
             </div>
@@ -221,7 +227,8 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
             <div className="flex gap-2 pt-1">
               <Button
                 onClick={() => { handleApplyFilter(); setShowFilters(false); }}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xs font-bold"
+                className="flex-1 text-white rounded-lg text-xs font-semibold border-0"
+                style={{ backgroundColor: "#1877F2" }}
               >
                 Terapkan Filter
               </Button>
@@ -229,7 +236,8 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={handleResetFilter}
-                className="px-3 rounded-full border-gray-200 text-gray-500 hover:bg-gray-100"
+                className="px-3 rounded-lg text-xs"
+                style={{ borderColor: "#CCD0D5", color: "#65676B" }}
               >
                 <RotateCcw size={16} />
               </Button>
@@ -239,21 +247,21 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
       </div>
 
       {/* LIST CONTENT */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
-            <Loader2 className="animate-spin text-blue-500" size={24} />
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Sinkronisasi Leads...</p>
+            <Loader2 className="animate-spin" size={22} style={{ color: "#1877F2" }} />
+            <p className="text-[11px] font-semibold uppercase" style={{ color: "#65676B" }}>Sinkronisasi Leads...</p>
           </div>
         ) : filteredLeads.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64">
-            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">
-              <MessageSquare size={32} className="text-gray-400" />
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3" style={{ backgroundColor: "#F0F2F5" }}>
+              <MessageSquare size={28} style={{ color: "#BCC0C4" }} />
             </div>
-            <p className="text-[13px] text-gray-500">Tidak ada leads yang ditemukan</p>
+            <p className="text-[13px]" style={{ color: "#65676B" }}>Tidak ada leads yang ditemukan</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div>
             {filteredLeads.map((lead) => {
               const isSelected = selectedChat?.jid === lead.remoteJid;
               return (
@@ -265,16 +273,15 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
                     last_message: lead.content,
                     session_id: lead.session_id,
                   })}
-                  className={`group flex items-center px-4 py-3 cursor-pointer transition-all duration-150 relative border-b border-gray-50 ${
-                    isSelected ? "bg-blue-50" : "hover:bg-gray-50"
-                  }`}
+                  className="group flex items-center px-4 py-3 cursor-pointer transition-all duration-150"
+                  style={{
+                    backgroundColor: isSelected ? "#E7F3FF" : "transparent",
+                  }}
                 >
-                  {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />}
-                  
                   <div className="relative flex-shrink-0">
                     <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm transform transition-transform group-hover:scale-105"
-                      style={{ background: lead.source_color ? `linear-gradient(135deg, ${lead.source_color}, ${lead.source_color}dd)` : "linear-gradient(135deg, #8696A0, #667781)" }}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                      style={{ backgroundColor: lead.source_color || "#65676B" }}
                     >
                       {lead.pushName ? lead.pushName[0].toUpperCase() : "?"}
                     </div>
@@ -282,28 +289,29 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
 
                   <div className="ml-3 flex-1 overflow-hidden">
                     <div className="flex justify-between items-baseline mb-0.5">
-                      <h3 className="text-[15px] font-medium text-gray-900 truncate leading-tight">
+                      <h3 className="text-[14px] font-semibold truncate leading-tight" style={{ color: "#050505" }}>
                         {lead.pushName || lead.remoteJid.split("@")[0]}
                       </h3>
-                      <span className={`text-[11px] flex-shrink-0 ml-2 ${isSelected ? "text-blue-500 font-semibold" : "text-gray-400"}`}>
+                      <span className="text-[11px] flex-shrink-0 ml-2" style={{ color: isSelected ? "#1877F2" : "#65676B" }}>
                         {formatTime(lead.updatedAt)}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2 mt-1">
                       <div
-                        className="px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0"
-                        style={{ backgroundColor: `${lead.source_color || "#8696A0"}15`, border: `1px solid ${lead.source_color || "#8696A0"}30` }}
+                        className="px-2 py-0.5 rounded-md flex items-center gap-1 flex-shrink-0 text-[9px] font-semibold uppercase"
+                        style={{
+                          backgroundColor: `${lead.source_color || "#65676B"}15`,
+                          color: lead.source_color || "#65676B",
+                        }}
                       >
-                        <span className="text-[9px] font-bold uppercase" style={{ color: lead.source_color || "#8696A0" }}>
-                          {lead.lead_source || "Organik"}
-                        </span>
+                        {lead.lead_source || "Organik"}
                       </div>
-                      <p className="text-xs text-gray-500 truncate flex-1">
+                      <p className="text-xs truncate flex-1" style={{ color: "#65676B" }}>
                         {lead.content}
                       </p>
-                      <div className="opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                        <MessageSquare size={14} className="text-blue-500" />
+                      <div className="opacity-0 group-hover:opacity-100 transition-all">
+                        <MessageSquare size={13} style={{ color: "#1877F2" }} />
                       </div>
                     </div>
                   </div>

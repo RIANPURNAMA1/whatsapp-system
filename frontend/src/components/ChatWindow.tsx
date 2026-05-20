@@ -100,7 +100,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   useEffect(() => {
     if (!sessionId || !selectedChat) return;
-    
+
     const fetchAndScroll = async () => {
       try {
         await fetchMessages(sessionId, selectedChat.jid);
@@ -111,9 +111,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         console.error("Polling error:", err);
       }
     };
-    
+
     fetchAndScroll();
-    
+
     const pollMs = settings.autoRefresh ? 2000 : parseInt(settings.refreshInterval, 10) * 1000;
     const pollInterval = setInterval(fetchAndScroll, pollMs);
     return () => clearInterval(pollInterval);
@@ -130,16 +130,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [selectedChat?.jid, sessionId, fetchMessages, resetUnread, scrollToBottom]);
 
-  // Socket listener for real-time messages
   useEffect(() => {
     if (!sessionId || !selectedChat) return;
 
     const socket = getSocket();
-    
+
     const handleNewMessage = (msg: any) => {
       const msgJid = msg.chat_jid?.toLowerCase()?.trim();
       const currentJid = selectedChat.jid?.toLowerCase()?.trim();
-      
+
       if (msgJid === currentJid) {
         const isDuplicate = messages.some(m => m.message_id === msg.message_id);
         if (!isDuplicate) {
@@ -152,7 +151,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     socket.on(`message:new:${sessionId}`, handleNewMessage);
-    
+
     return () => {
       socket.off(`message:new:${sessionId}`, handleNewMessage);
     };
@@ -257,14 +256,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const displayName = rawDisplayName.includes('@') ? "Potential Lead" : rawDisplayName;
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 h-full w-full relative overflow-hidden">
+    <div className="flex-1 flex flex-col h-full w-full min-w-0 relative overflow-hidden" style={{ backgroundColor: "#F0F2F5" }}>
       {/* HEADER */}
-      <div className="flex-none h-[60px] md:h-[65px] bg-white px-4 flex items-center gap-3 border-b border-gray-200 z-20 shadow-sm">
+      <div className="flex-none h-[56px] bg-white px-3 flex items-center gap-2.5 border-b z-20" style={{ borderColor: "#E4E6EB" }}>
         <Button
           onClick={onBack}
           variant="ghost"
           size="sm"
-          className="md:hidden text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2"
+          className="md:hidden p-1.5 rounded-lg"
+          style={{ color: "#65676B" }}
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -272,29 +272,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <Avatar
           name={displayName}
           imageUrl={selectedChat.profile_pic_url}
-          size="md"
+          size="sm"
           isGroup={isGroupJid(selectedChat.jid)}
-          className="ring-2 ring-blue-200"
+          className="w-[36px] h-[36px]"
         />
 
-        <div className="flex-1 min-w-0 ml-1">
-          <p className="text-gray-900 font-semibold text-sm truncate">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-[14px] truncate" style={{ color: "#050505" }}>
             {displayName}
           </p>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-            <p className="text-emerald-600 text-[10px] font-medium">
+          <div className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#31A24C" }} />
+            <p className="text-[10px] font-medium" style={{ color: "#65676B" }}>
               Online
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100">
-            <Search className="w-5 h-5" />
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" style={{ color: "#65676B" }}>
+            <Search className="w-[18px] h-[18px]" />
           </Button>
-          <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100">
-            <MoreVertical className="w-5 h-5" />
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" style={{ color: "#65676B" }}>
+            <MoreVertical className="w-[18px] h-[18px]" />
           </Button>
         </div>
       </div>
@@ -303,11 +303,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 bg-gray-100 relative"
+        className="flex-1 overflow-y-auto px-3 py-3"
+        style={{ backgroundColor: "#F0F2F5" }}
       >
         {isLoadingMessages && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="animate-spin text-blue-500 w-8 h-8" />
+            <Loader2 className="animate-spin w-7 h-7" style={{ color: "#1877F2" }} />
           </div>
         ) : (
           messages.map((msg, index) => (
@@ -317,8 +318,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   messages[index - 1].timestamp,
                   msg.timestamp,
                 )) && (
-                <div className="flex justify-center my-4">
-                  <span className="bg-white text-gray-500 text-[11px] px-3 py-1 rounded-full shadow-sm font-medium">
+                <div className="flex justify-center my-3">
+                  <span className="text-[11px] px-3 py-1 rounded-full font-medium" style={{ backgroundColor: "#E4E6EB", color: "#65676B" }}>
                     {formatDateSeparator(msg.timestamp)}
                   </span>
                 </div>
@@ -334,51 +335,52 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* SCROLL TO BOTTOM BUTTON */}
+      {/* SCROLL TO BOTTOM */}
       {showScrollBtn && (
         <Button
           onClick={() => scrollToBottom()}
           variant="secondary"
           size="icon"
-          className="absolute bottom-24 right-6 w-10 h-10 bg-white rounded-full shadow-lg border border-gray-200 z-30 text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+          className="absolute bottom-24 right-5 w-9 h-9 bg-white rounded-full shadow-lg border z-30"
+          style={{ borderColor: "#E4E6EB", color: "#65676B" }}
         >
-          <ChevronDown className="w-5 h-5" />
+          <ChevronDown className="w-[18px] h-[18px]" />
         </Button>
       )}
 
       {/* INPUT AREA */}
-      <div className="flex-none bg-white flex flex-col border-t border-gray-200 shadow-lg">
+      <div className="flex-none bg-white flex flex-col border-t" style={{ borderColor: "#E4E6EB" }}>
         {replyTo && (
-          <div className="mx-3 mt-3 px-4 py-2 flex items-center gap-3 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
+          <div className="mx-3 mt-3 px-3 py-2 flex items-center gap-3 rounded-lg" style={{ backgroundColor: "#E7F3FF" }}>
+            <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: "#1877F2" }} />
             <div className="flex-1 truncate">
-              <p className="text-blue-600 text-xs font-semibold">
+              <p className="text-[11px] font-semibold" style={{ color: "#1877F2" }}>
                 {Number(replyTo.is_from_me) === 1
                   ? "Anda"
                   : (replyTo.sender_name?.includes('@') ? "Lead" : replyTo.sender_name)}
               </p>
-              <p className="text-gray-500 text-xs truncate italic">
+              <p className="text-[11px] truncate italic" style={{ color: "#65676B" }}>
                 {replyTo.content}
               </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setReplyTo(null)} className="text-gray-400 hover:text-gray-600 p-1 h-auto">
-              <X className="w-4 h-4" />
-            </Button>
+            <button onClick={() => setReplyTo(null)} className="p-1 rounded hover:bg-black/5" style={{ color: "#65676B" }}>
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
-        <div className="px-3 py-3 flex items-end gap-2">
-          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2">
-            <Smile className="w-5 h-5" />
-          </Button>
+        <div className="px-3 py-2.5 flex items-end gap-1.5">
+          <button className="p-2 rounded-lg hover:bg-[#F2F3F5] transition-colors shrink-0" style={{ color: "#65676B" }}>
+            <Smile className="w-[20px] h-[20px]" />
+          </button>
 
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => fileInputRef.current?.click()}
-            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2"
+            className="p-2 rounded-lg hover:bg-[#F2F3F5] transition-colors shrink-0"
+            style={{ color: "#65676B" }}
           >
-            <Paperclip className="w-5 h-5" />
-          </Button>
+            <Paperclip className="w-[20px] h-[20px]" />
+          </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -387,7 +389,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             onChange={handleFileChange}
           />
 
-          <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-2">
+          <div className="flex-1 min-w-0 rounded-2xl px-4 py-1.5" style={{ backgroundColor: "#F0F2F5" }}>
             <textarea
               ref={inputRef}
               value={inputText}
@@ -404,61 +406,54 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 }
               }}
               placeholder="Ketik pesan..."
-              className="w-full bg-transparent text-gray-900 outline-none resize-none text-sm min-h-[36px] max-h-[120px] placeholder:text-gray-400"
+              className="w-full bg-transparent outline-none resize-none text-[14px] min-h-[36px] max-h-[120px]"
+              style={{ color: "#050505" }}
               rows={1}
             />
           </div>
 
-          <Button
+          <button
             onClick={handleSend}
             disabled={!inputText.trim() || isSending}
-            size="icon"
-            className="w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white rounded-full shrink-0 transition-all shadow-lg shadow-blue-500/25"
+            className="w-[40px] h-[40px] rounded-full flex items-center justify-center shrink-0 transition-all disabled:opacity-50"
+            style={{ backgroundColor: "#1877F2" }}
           >
             {isSending ? (
-              <Loader2 className="animate-spin w-5 h-5" />
+              <Loader2 className="animate-spin w-[18px] h-[18px] text-white" />
             ) : (
-              <Send className="w-5 h-5" />
+              <Send className="w-[18px] h-[18px] text-white" />
             )}
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* PREVIEW MODAL */}
       {previewUrl && (
-        <div className="absolute inset-0 z-[100] bg-white flex flex-col animate-in fade-in zoom-in duration-200">
-          <div className="flex items-center p-4 gap-4 bg-gray-50 border-b border-gray-200">
-            <Button
-              onClick={cancelPreview}
-              variant="ghost"
-              size="sm"
-              className="text-gray-500 hover:text-gray-700"
-            >
+        <div className="absolute inset-0 z-[100] bg-white flex flex-col">
+          <div className="flex items-center p-3 gap-3 border-b" style={{ backgroundColor: "#F8F9FA", borderColor: "#E4E6EB" }}>
+            <button onClick={cancelPreview} className="p-1 rounded-lg hover:bg-[#F2F3F5]" style={{ color: "#65676B" }}>
               <X className="w-5 h-5" />
-            </Button>
-            <span className="text-gray-900 font-semibold">Preview Media</span>
+            </button>
+            <span className="font-semibold text-[14px]" style={{ color: "#050505" }}>Preview Media</span>
           </div>
-          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden bg-gray-100">
-            <img
-              src={previewUrl}
-              alt="Preview"
-              className="max-w-full max-h-full object-contain shadow-xl rounded-lg"
-            />
+          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden" style={{ backgroundColor: "#F0F2F5" }}>
+            <img src={previewUrl} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg rounded-lg" />
           </div>
-          <div className="bg-white p-4 flex items-center gap-3 border-t border-gray-200">
+          <div className="p-3 flex items-center gap-2.5 border-t" style={{ borderColor: "#E4E6EB" }}>
             <input
-              className="flex-1 bg-gray-100 text-gray-900 rounded-xl px-4 py-3 outline-none border border-transparent focus:border-blue-500"
+              className="flex-1 rounded-lg px-4 py-2.5 outline-none text-[13px]"
+              style={{ backgroundColor: "#F0F2F5", color: "#050505" }}
               placeholder="Tambahkan keterangan..."
               value={previewCaption}
               onChange={(e) => setPreviewCaption(e.target.value)}
             />
-            <Button
+            <button
               onClick={handleSendPreview}
-              size="icon"
-              className="w-12 h-12 bg-blue-500 hover:bg-blue-600 rounded-full text-white shadow-lg shadow-blue-500/25"
+              className="w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: "#1877F2" }}
             >
-              <Send className="w-5 h-5" />
-            </Button>
+              <Send className="w-[18px] h-[18px] text-white" />
+            </button>
           </div>
         </div>
       )}
@@ -467,14 +462,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 };
 
 const WelcomeScreen = () => (
-  <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-white h-full p-8 text-center">
-    <div className="w-24 h-24 bg-blue-100 rounded-3xl flex items-center justify-center shadow-xl mb-6">
-      <ImageIcon className="w-12 h-12 text-blue-500" />
+  <div className="flex-1 flex flex-col items-center justify-center h-full p-8 text-center" style={{ backgroundColor: "#F0F2F5" }}>
+    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5" style={{ backgroundColor: "#E7F3FF" }}>
+      <ImageIcon className="w-10 h-10" style={{ color: "#1877F2" }} />
     </div>
-    <h2 className="text-gray-900 text-2xl font-bold tracking-tight">
-      SATU <span className="text-blue-500">PINTU</span>
+    <h2 className="text-xl font-bold tracking-tight" style={{ color: "#050505" }}>
+      SATU <span style={{ color: "#1877F2" }}>PINTU</span>
     </h2>
-    <p className="text-gray-500 text-sm mt-4 max-w-xs font-medium leading-relaxed">
+    <p className="text-[13px] mt-3 max-w-xs font-medium leading-relaxed" style={{ color: "#65676B" }}>
       Pilih pesan masuk untuk mulai berinteraksi dengan Leads Anda secara real-time.
     </p>
   </div>
@@ -490,70 +485,85 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
   };
 
   return (
-    <div
-      className={`flex items-end gap-2 mb-2 ${isFromMe ? "justify-end" : "justify-start"}`}
-    >
-      {!isFromMe && isGroup && <Avatar name={message.sender_name?.includes('@') ? "Lead" : message.sender_name} size="sm" />}
+    <div className={`flex items-end gap-1.5 mb-1.5 ${isFromMe ? "justify-end" : "justify-start"}`}>
+      {!isFromMe && isGroup && (
+        <div className="mb-1">
+          <Avatar name={message.sender_name?.includes('@') ? "Lead" : message.sender_name} size="sm" className="w-5 h-5 text-[8px]" />
+        </div>
+      )}
 
       <div
-        className={`group relative max-w-[85%] md:max-w-[70%] rounded-2xl shadow-sm ${
+        className={`group relative max-w-[75%] md:max-w-[65%] overflow-hidden ${
           isFromMe
-            ? "bg-blue-500 rounded-tr-sm"
-            : "bg-white rounded-tl-sm border border-gray-200"
-        } ${message.message_type === "image" ? "p-1.5" : "px-4 py-2.5"}`}
+            ? "rounded-2xl rounded-br-sm"
+            : "rounded-2xl rounded-bl-sm"
+        } ${
+          message.message_type === "image" ? "p-1" : "px-3.5 py-2"
+        }`}
+        style={{
+          backgroundColor: isFromMe ? "#1877F2" : "#FFFFFF",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+        }}
       >
-        <Button
+        <button
           onClick={onReply}
-          variant="ghost"
-          size="sm"
-          className={`absolute top-1 right-1 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md ${isFromMe ? "bg-blue-400 text-white hover:bg-blue-300" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+          className={`p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm ${
+            isFromMe ? "text-white" : ""
+          }`}
+          style={{
+            backgroundColor: isFromMe ? "rgba(255,255,255,0.2)" : "#E4E6EB",
+            color: isFromMe ? "#FFFFFF" : "#65676B",
+            position: "absolute",
+            top: 0,
+            right: 0,
+          }}
         >
-          <Reply className="w-3 h-3" />
-        </Button>
+          <Reply className="w-2.5 h-2.5" />
+        </button>
 
         {message.message_type === "image" && (
           <img
             src={getMediaUrl(message.media_url)}
-            className="max-h-[300px] w-full object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
-            onClick={() =>
-              window.open(getMediaUrl(message.media_url), "_blank")
-            }
+            className="max-h-[260px] w-full object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => window.open(getMediaUrl(message.media_url), "_blank")}
           />
         )}
 
         {message.message_type === "document" && (
           <div
-            className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors"
-            onClick={() =>
-              window.open(getMediaUrl(message.media_url), "_blank")
-            }
+            className="flex items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-colors"
+            style={{ backgroundColor: isFromMe ? "rgba(255,255,255,0.12)" : "#F0F2F5" }}
+            onClick={() => window.open(getMediaUrl(message.media_url), "_blank")}
           >
-            <div className="p-2 bg-blue-100 rounded-lg">
-                <FileText className="w-5 h-5 text-blue-600" />
+            <div className="p-1.5 rounded-lg" style={{ backgroundColor: isFromMe ? "rgba(255,255,255,0.2)" : "#E7F3FF" }}>
+              <FileText className="w-4 h-4" style={{ color: isFromMe ? "#FFFFFF" : "#1877F2" }} />
             </div>
-            <span className="text-sm font-medium truncate text-gray-700">
+            <span className="text-[13px] font-medium truncate" style={{ color: isFromMe ? "#FFFFFF" : "#050505" }}>
               {message.content || "Dokumen File"}
             </span>
           </div>
         )}
 
-        <div className="mt-1">
-          <p className={`text-[14px] leading-[1.4] break-words whitespace-pre-wrap ${isFromMe ? "text-white" : "text-gray-700"}`}>
+        <div className="mt-0.5">
+          <p className="text-[14px] leading-[1.45] whitespace-pre-wrap break-words overflow-hidden" style={{ color: isFromMe ? "#FFFFFF" : "#050505", wordBreak: "break-word" }}>
             {message.caption || message.content}
           </p>
-          <div className="flex items-center justify-end gap-1.5 mt-1 h-3">
-            <span className={`text-[9px] ${isFromMe ? "text-white/70" : "text-gray-400"} font-medium`}>
+          <div className="flex items-center justify-end gap-1 mt-0.5 h-3">
+            <span className={`text-[9px] font-medium ${isFromMe ? "text-white/70" : ""}`} style={{ color: isFromMe ? "rgba(255,255,255,0.7)" : "#8C939D" }}>
               {formatMessageTime(message.timestamp)}
             </span>
             {isFromMe && (
-              <span
-                className={
-                  message.status === "read"
-                    ? "text-white/90"
-                    : "text-white/60"
-                }
-              >
-                {message.status === "read" ? "✓✓" : "✓"}
+              <span className="text-white/70 text-[9px] leading-none">
+                {message.status === "read" ? (
+                  <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                    <path d="M1 5.5L4 8.5L13 1" stroke="rgba(255,255,255,0.8)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M7 5.5L10 8.5L13 5.5" stroke="rgba(255,255,255,0.8)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
+                  </svg>
+                ) : (
+                  <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                    <path d="M1 5.5L4 8.5L13 1" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
               </span>
             )}
           </div>

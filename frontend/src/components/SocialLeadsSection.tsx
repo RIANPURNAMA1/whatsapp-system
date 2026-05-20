@@ -121,123 +121,129 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
   const avgConversion = totalLeadsAll > 0 ? Math.round((totalClosingAll / totalLeadsAll) * 100) : 0;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-10">
+    <div className="bg-white rounded-lg border overflow-hidden mb-10" style={{ borderColor: "#E4E6EB" }}>
       {/* HEADER */}
-      <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+      <div className="px-5 py-4 border-b" style={{ borderColor: "#E4E6EB", backgroundColor: "#FFFFFF" }}>
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <LayoutGrid size={20} className="text-white" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
+              <LayoutGrid size={18} style={{ color: "#1877F2" }} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Lead Performance</h2>
-              <p className="text-xs text-gray-500">
+              <h2 className="text-[15px] font-bold" style={{ color: "#050505" }}>Lead Performance</h2>
+              <p className="text-[11px]" style={{ color: "#65676B" }}>
                 Tracking konversi leads dari setiap device
               </p>
             </div>
           </div>
 
           {/* Summary Stats */}
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
-              <Users size={16} className="text-emerald-500" />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E4E6EB" }}>
+              <Users size={14} style={{ color: "#1877F2" }} />
               <div>
-                <p className="text-[10px] text-gray-400 font-semibold uppercase">Total Leads</p>
-                <p className="text-sm font-bold text-gray-900">{(totalLeadsAll + totalOrganikAll).toLocaleString()}</p>
+                <p className="text-[9px] font-semibold uppercase" style={{ color: "#65676B" }}>Leads</p>
+                <p className="text-xs font-bold" style={{ color: "#050505" }}>{(totalLeadsAll + totalOrganikAll).toLocaleString()}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
-              <Leaf size={16} className="text-purple-500" />
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E4E6EB" }}>
+              <Leaf size={14} style={{ color: "#31A24C" }} />
               <div>
-                <p className="text-[10px] text-gray-400 font-semibold uppercase">Organik</p>
-                <p className="text-sm font-bold text-gray-900">{totalOrganikAll.toLocaleString()}</p>
+                <p className="text-[9px] font-semibold uppercase" style={{ color: "#65676B" }}>Organik</p>
+                <p className="text-xs font-bold" style={{ color: "#050505" }}>{totalOrganikAll.toLocaleString()}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
-              <TrendingUp size={16} className="text-blue-500" />
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E4E6EB" }}>
+              <TrendingUp size={14} style={{ color: "#F5A623" }} />
               <div>
-                <p className="text-[10px] text-gray-400 font-semibold uppercase">Conversion</p>
-                <p className="text-sm font-bold text-gray-900">{avgConversion}%</p>
+                <p className="text-[9px] font-semibold uppercase" style={{ color: "#65676B" }}>Conv</p>
+                <p className="text-xs font-bold" style={{ color: "#050505" }}>{avgConversion}%</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
-              <CheckCircle2 size={16} className="text-emerald-500" />
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E4E6EB" }}>
+              <CheckCircle2 size={14} style={{ color: "#31A24C" }} />
               <div>
-                <p className="text-[10px] text-gray-400 font-semibold uppercase">Closing</p>
-                <p className="text-sm font-bold text-gray-900">{totalClosingAll.toLocaleString()}</p>
+                <p className="text-[9px] font-semibold uppercase" style={{ color: "#65676B" }}>Closing</p>
+                <p className="text-xs font-bold" style={{ color: "#050505" }}>{totalClosingAll.toLocaleString()}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* FILTER SECTION */}
-        <div className="flex flex-wrap items-center gap-3 mt-4">
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white border border-gray-200 shadow-sm">
-            <Calendar size={14} className="text-emerald-500" />
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border" style={{ borderColor: "#CCD0D5", backgroundColor: "#F0F2F5" }}>
+            <Calendar size={13} style={{ color: "#65676B" }} />
             <input
               type="date"
               name="startDate"
               value={filters.startDate}
               onChange={handleFilterChange}
-              className="bg-transparent outline-none text-xs text-gray-600 font-medium"
+              className="bg-transparent outline-none text-[11px] font-medium"
+              style={{ color: "#050505" }}
             />
-            <span className="text-gray-300">—</span>
+            <span style={{ color: "#BCC0C4" }}>—</span>
             <input
               type="date"
               name="endDate"
               value={filters.endDate}
               onChange={handleFilterChange}
-              className="bg-transparent outline-none text-xs text-gray-600 font-medium"
+              className="bg-transparent outline-none text-[11px] font-medium"
+              style={{ color: "#050505" }}
             />
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-gray-200 shadow-sm">
-            <Clock size={14} className="text-blue-500" />
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border" style={{ borderColor: "#CCD0D5", backgroundColor: "#F0F2F5" }}>
+            <Clock size={13} style={{ color: "#65676B" }} />
             <input
               type="time"
               name="startTime"
               value={filters.startTime}
               onChange={handleFilterChange}
-              className="bg-transparent outline-none text-xs text-gray-600 font-medium w-14"
+              className="bg-transparent outline-none text-[11px] font-medium w-14"
+              style={{ color: "#050505" }}
             />
-            <span className="text-gray-300">:</span>
+            <span style={{ color: "#BCC0C4" }}>:</span>
             <input
               type="time"
               name="endTime"
               value={filters.endTime}
               onChange={handleFilterChange}
-              className="bg-transparent outline-none text-xs text-gray-600 font-medium w-14"
+              className="bg-transparent outline-none text-[11px] font-medium w-14"
+              style={{ color: "#050505" }}
             />
           </div>
 
           <button
             onClick={fetchSocialStats}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white transition-all"
+            style={{ backgroundColor: "#1877F2" }}
           >
-            <Filter size={14} />
+            <Filter size={13} />
             Filter
           </button>
         </div>
       </div>
 
       {/* CONTENT */}
-      <div className="p-6">
+      <div className="p-5">
         {loading ? (
-          <div className="flex justify-center py-20">
+          <div className="flex justify-center py-16">
             <div className="flex flex-col items-center gap-3">
-              <Loader2 className="animate-spin text-emerald-500" size={36} />
-              <p className="text-sm text-gray-400 font-medium">Memuat data...</p>
+              <Loader2 className="animate-spin" size={28} style={{ color: "#1877F2" }} />
+              <p className="text-sm font-medium" style={{ color: "#65676B" }}>Memuat data...</p>
             </div>
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center py-16 text-gray-400">
-            <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
-              <AlertCircle size={28} className="text-red-400" />
+          <div className="flex flex-col items-center py-12">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3" style={{ backgroundColor: "#FFEBEE" }}>
+              <AlertCircle size={24} style={{ color: "#E74C3C" }} />
             </div>
-            <p className="text-sm font-medium text-gray-600">{error}</p>
+            <p className="text-sm font-medium" style={{ color: "#050505" }}>{error}</p>
             <button
               onClick={fetchSocialStats}
-              className="mt-4 px-4 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+              className="mt-3 px-4 py-1.5 text-xs font-semibold rounded-lg transition-all"
+              style={{ color: "#1877F2", backgroundColor: "#E7F3FF" }}
             >
               Coba Lagi
             </button>
@@ -249,7 +255,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5"
+                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"
                 >
                   {items.map((item, index) => {
                     const devicePlatforms = rawKeywords
@@ -267,133 +273,135 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
-                            className={`relative bg-white rounded-2xl border border-gray-100 shadow-sm transition-all duration-300 ${
+                            className={`relative bg-white rounded-lg border transition-all duration-200 ${
                               snapshot.isDragging
-                                ? "shadow-2xl border-emerald-300 scale-105 z-50"
-                                : "hover:shadow-lg hover:border-gray-200"
+                                ? "shadow-lg z-50"
+                                : "hover:shadow-sm"
                             }`}
+                            style={{
+                              borderColor: snapshot.isDragging ? "#1877F2" : "#E4E6EB",
+                              transform: snapshot.isDragging ? "scale(1.02)" : undefined,
+                            }}
                           >
                             {/* Drag Handle */}
                             <div
-                              className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-gray-50 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400"
+                              className="absolute top-2.5 right-2.5 p-1 rounded-md cursor-grab active:cursor-grabbing"
+                              style={{ color: "#BCC0C4" }}
                               {...provided.dragHandleProps}
                             >
-                              <LayoutGrid size={14} />
+                              <LayoutGrid size={13} />
                             </div>
 
                             {/* Card Header */}
-                            <div className="p-5 pb-4">
-                              <div className="flex items-center gap-2 mb-4">
-                                <div className={`w-2.5 h-2.5 rounded-full ${
-                                  item.status === "connected" ? "bg-emerald-500" : "bg-red-400"
-                                }`} />
-                                <div className="flex items-center gap-2">
-                                  <Smartphone size={14} className="text-gray-400" />
-                                  <span className="text-sm font-bold text-gray-800">
-                                    {item.name}
-                                  </span>
-                                </div>
-                                <span className={`ml-auto text-[10px] font-bold px-2 py-1 rounded-full ${
+                            <div className="p-4 pb-3">
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="w-2 h-2 rounded-full" style={{
+                                  backgroundColor: item.status === "connected" ? "#31A24C" : "#E74C3C"
+                                }} />
+                                <Smartphone size={13} style={{ color: "#65676B" }} />
+                                <span className="text-sm font-semibold" style={{ color: "#050505" }}>
+                                  {item.name}
+                                </span>
+                                <span className={`ml-auto text-[9px] font-semibold px-2 py-0.5 rounded-full ${
                                   item.status === "connected"
-                                    ? "bg-emerald-50 text-emerald-600"
-                                    : "bg-red-50 text-red-500"
+                                    ? "bg-[#E7F3FF] text-[#1877F2]"
+                                    : "bg-[#FFEBEE] text-[#E74C3C]"
                                 }`}>
                                   {item.status === "connected" ? "Online" : "Offline"}
                                 </span>
                               </div>
 
                               {/* Main Metrics */}
-                              <div className="flex items-end justify-between mb-5">
+                              <div className="flex items-end justify-between mb-3">
                                 <div>
-                                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">
+                                  <p className="text-[9px] font-semibold uppercase mb-0.5" style={{ color: "#65676B" }}>
                                     Total Leads
                                   </p>
-                                  <p className="text-3xl font-bold text-gray-900 tracking-tight">
+                                  <p className="text-2xl font-bold tracking-tight" style={{ color: "#050505" }}>
                                     {item.totalLeads + item.totalOrganik}
                                   </p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wide mb-1">
+                                  <p className="text-[9px] font-semibold uppercase mb-0.5" style={{ color: "#65676B" }}>
                                     Conversion
                                   </p>
-                                  <p className="text-3xl font-bold text-emerald-500 tracking-tight">
+                                  <p className="text-2xl font-bold tracking-tight" style={{ color: "#31A24C" }}>
                                     {item.convRate}%
                                   </p>
                                 </div>
                               </div>
 
                               {/* Progress Bar */}
-                              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "#E4E6EB" }}>
                                 <div
-                                  className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
-                                  style={{ width: `${Math.min(item.convRate, 100)}%` }}
+                                  className="h-full rounded-full transition-all duration-500"
+                                  style={{
+                                    width: `${Math.min(item.convRate, 100)}%`,
+                                    backgroundColor: "#31A24C",
+                                  }}
                                 />
                               </div>
                             </div>
 
                             {/* Platform Section */}
-                            <div className="px-5 pb-4">
-                              <div className="flex items-center gap-2 mb-3">
-                                <MessageSquare size={12} className="text-gray-400" />
-                                <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">
+                            <div className="px-4 pb-3">
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <MessageSquare size={11} style={{ color: "#65676B" }} />
+                                <span className="text-[9px] font-semibold uppercase" style={{ color: "#65676B" }}>
                                   Platform Sources
                                 </span>
                               </div>
                               {uniquePlatforms.length > 0 ? (
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                   {uniquePlatforms.map((platform) => (
                                     <div
                                       key={platform}
-                                      className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
+                                      className="flex items-center justify-between py-1.5 px-2.5 rounded-md"
+                                      style={{ backgroundColor: "#F0F2F5" }}
                                     >
-                                      <span className="text-xs font-medium text-gray-600 capitalize">
+                                      <span className="text-[11px] font-medium capitalize" style={{ color: "#050505" }}>
                                         {platform}
                                       </span>
-                                      <span className="text-xs font-bold text-gray-700">
+                                      <span className="text-[11px] font-bold" style={{ color: "#050505" }}>
                                         {item.stats[`leads_${platform}`] || 0} leads
                                       </span>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <div className="text-center py-4 border border-dashed border-gray-200 rounded-lg">
-                                  <p className="text-[11px] text-gray-400">Belum ada keywords</p>
+                                <div className="text-center py-3 border border-dashed rounded-md" style={{ borderColor: "#E4E6EB" }}>
+                                  <p className="text-[11px]" style={{ color: "#BCC0C4" }}>Belum ada keywords</p>
                                 </div>
                               )}
                             </div>
 
                             {/* Footer */}
-                            <div className="px-5 py-4 bg-gray-50/50 border-t border-gray-100 rounded-b-2xl">
+                            <div className="px-4 py-3 border-t rounded-b-lg" style={{ borderColor: "#E4E6EB", backgroundColor: "#F8F9FA" }}>
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle2 size={14} className="text-emerald-500" />
-                                  <span className="text-[11px] font-semibold text-gray-500">
-                                    Total Closing
+                                <div className="flex items-center gap-1.5">
+                                  <CheckCircle2 size={13} style={{ color: "#31A24C" }} />
+                                  <span className="text-[10px] font-medium" style={{ color: "#65676B" }}>
+                                    Closing
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-emerald-600">
-                                    {item.totalClosing}
-                                  </span>
-                                  <ArrowUpRight size={14} className="text-emerald-500" />
-                                </div>
+                                <span className="text-sm font-bold" style={{ color: "#31A24C" }}>
+                                  {item.totalClosing}
+                                </span>
                               </div>
-                              <div className="flex items-center justify-between mt-2">
-                                <div className="flex items-center gap-2">
-                                  <Leaf size={14} className="text-purple-500" />
-                                  <span className="text-[11px] font-semibold text-gray-500">
-                                    Leads Organik
+                              <div className="flex items-center justify-between mt-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <Leaf size={13} style={{ color: "#1877F2" }} />
+                                  <span className="text-[10px] font-medium" style={{ color: "#65676B" }}>
+                                    Organik
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-purple-600">
-                                    {item.totalOrganik}
-                                  </span>
-                                </div>
+                                <span className="text-sm font-bold" style={{ color: "#1877F2" }}>
+                                  {item.totalOrganik}
+                                </span>
                               </div>
-                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200/50">
-                                <span className="text-[10px] text-gray-400">Total Messages</span>
-                                <span className="text-[11px] font-bold text-gray-600">
+                              <div className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: "1px solid #E4E6EB" }}>
+                                <span className="text-[9px]" style={{ color: "#65676B" }}>Messages</span>
+                                <span className="text-[10px] font-bold" style={{ color: "#050505" }}>
                                   {item.total.toLocaleString()}
                                 </span>
                               </div>

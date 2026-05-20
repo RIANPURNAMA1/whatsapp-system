@@ -36,6 +36,7 @@ interface AppState {
   setUser: (user: User | null) => void;
   setActiveTab: (tab: string) => void;
   deleteSession: (sessionId: string) => Promise<void>;
+  removeSession: (sessionId: string) => void;
   fetchSessions: () => Promise<void>;
   setActiveSession: (session: Session | null) => void;
   updateSession: (session: Partial<Session> & { id: string }) => void;
@@ -106,15 +107,18 @@ const useStore = create<AppState>((set, get) => ({
   deleteSession: async (sessionId: string) => {
     try {
       await sessionApi.delete(sessionId); 
-      const updatedSessions = get().sessions.filter(s => s.id !== sessionId);
-      set({ 
-        sessions: updatedSessions,
-        activeSession: get().activeSession?.id === sessionId ? null : get().activeSession 
-      });
+      get().removeSession(sessionId);
     } catch (error) {
       console.error("Gagal menghapus sesi:", error);
       throw error;
     }
+  },
+
+  removeSession: (sessionId: string) => {
+    set(state => ({
+      sessions: state.sessions.filter(s => s.id !== sessionId),
+      activeSession: state.activeSession?.id === sessionId ? null : state.activeSession,
+    }));
   },
 
   fetchSessions: async () => {

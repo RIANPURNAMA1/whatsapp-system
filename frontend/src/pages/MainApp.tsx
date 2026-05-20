@@ -29,6 +29,8 @@ import AISettingPage from "../components/AISettingPage";
 import GroupList from "@/components/Grouplist";
 import TikTokPanel from "../components/tiktok/TikTokPanel";
 import { LeadsReportPage } from "./LeadsReportPage";
+import { TrafficClosingSection } from "../components/TrafficClosingSection";
+import { LeadAnalysisSection } from "../components/LeadAnalysisSection";
 import type { GroupChat } from "../types/Group";
 
 interface UserData {
@@ -230,6 +232,8 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
           "ai-setting",
           "tiktok",
           "leads-report",
+          "traffic-closing",
+          "lead-analysis",
         ].includes(activeTab) ? (
           <div className="flex flex-1 flex-col overflow-hidden relative">
             <button
@@ -310,6 +314,16 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
             {activeTab === "leads-report" && (
               <div className="flex-1 overflow-y-auto h-full">
                 <LeadsReportPage />
+              </div>
+            )}
+            {activeTab === "traffic-closing" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <TrafficClosingSection />
+              </div>
+            )}
+            {activeTab === "lead-analysis" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <LeadAnalysisSection />
               </div>
             )}
           </div>

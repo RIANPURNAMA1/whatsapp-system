@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 export function useSocket(sessionId: string | null) {
   const {
     updateSession,
+    removeSession,
     addMessage,
     updateChat,
     incrementUnread,
@@ -23,9 +24,13 @@ export function useSocket(sessionId: string | null) {
     updateSession({ id: sessionId, qr_code: data.qr, status: 'connecting' });
   }, [sessionId, updateSession]);
 
-  const handleSessionUpdate = useCallback((session: Session) => {
-    updateSession(session);
-  }, [updateSession]);
+  const handleSessionUpdate = useCallback((session: any) => {
+    if (session._deleted) {
+      removeSession(session.id);
+    } else {
+      updateSession(session);
+    }
+  }, [updateSession, removeSession]);
 
   const handleSessionConnected = useCallback((data: { phoneNumber: string }) => {
     if (!sessionId) return;

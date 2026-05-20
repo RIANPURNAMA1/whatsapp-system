@@ -8,22 +8,22 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'default', size = 'default', ...props }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+    const baseStyles = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1877F2] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
     
     const variants = {
-      default: "bg-blue-600 text-white hover:bg-blue-700 shadow-sm",
-      destructive: "bg-red-600 text-white hover:bg-red-700 shadow-sm",
-      outline: "border border-slate-200 bg-white hover:bg-slate-100 hover:text-slate-900",
-      secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200",
-      ghost: "hover:bg-slate-100 hover:text-slate-900",
-      link: "text-blue-600 underline-offset-4 hover:underline",
+      default: "bg-[#1877F2] text-white hover:bg-[#166FE5]",
+      destructive: "bg-red-600 text-white hover:bg-red-700",
+      outline: "border border-[#E4E6EB] bg-white hover:bg-[#F2F3F5] hover:text-[#050505]",
+      secondary: "bg-[#F0F2F5] text-[#050505] hover:bg-[#E4E6EB]",
+      ghost: "hover:bg-[#F2F3F5] hover:text-[#050505]",
+      link: "text-[#1877F2] underline-offset-4 hover:underline",
     }
     
     const sizes = {
-      default: "h-10 px-4 py-2",
-      sm: "h-9 rounded-lg px-3",
-      lg: "h-11 rounded-xl px-8",
-      icon: "h-10 w-10",
+      default: "h-9 px-4 py-2",
+      sm: "h-8 rounded-md px-3",
+      lg: "h-10 rounded-lg px-6",
+      icon: "h-9 w-9",
     }
 
     return (

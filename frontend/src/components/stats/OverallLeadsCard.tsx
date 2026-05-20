@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Loader2, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { Loader2, ArrowUpRight } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 interface OverallLeadsCardProps {
@@ -9,6 +9,8 @@ interface OverallLeadsCardProps {
   totalClosing: number;
   conversionRate: string | number;
 }
+
+const COLORS = ['#31A24C', '#E4E6EB'];
 
 const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
   isDarkMode,
@@ -27,30 +29,27 @@ const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
     ].filter(d => d.value > 0);
   }, [totalLeads, totalClosing, remaining]);
 
-  const COLORS = ['#10b981', isDarkMode ? '#374151' : '#e5e7eb'];
-
   return (
-    <div className={`rounded-2xl border p-5 transition-all ${
-      isDarkMode ? 'bg-[#111B21] border-white/10' : 'bg-white border-gray-100 shadow-sm'
-    }`}>
-      {/* Header */}
+    <div
+      className={`rounded-lg border p-5 ${
+        isDarkMode ? 'bg-[#1A1D21] border-[#2D2F33]' : 'bg-white border-[#E4E6EB]'
+      }`}
+    >
       <div className="flex items-center gap-2 mb-1">
-        <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-blue-500/20' : 'bg-blue-50'}`}>
-          <ArrowUpRight size={16} className="text-blue-500" />
+        <div className="p-2 rounded-lg" style={{ backgroundColor: isDarkMode ? '#1877F220' : '#E7F3FF' }}>
+          <ArrowUpRight size={16} style={{ color: '#1877F2' }} />
         </div>
-        <span className={`text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+        <span className="text-sm font-semibold" style={{ color: isDarkMode ? '#E4E6EB' : '#050505' }}>
           Leads Overview
         </span>
       </div>
 
-      {/* Main Content: Chart + Stats side by side */}
       <div className="flex items-center gap-4 mt-4 mb-4">
-        {/* Donut Chart */}
         <div className="relative w-24 h-24 flex-shrink-0">
           {loading || pieData.length === 0 ? (
             <div className="w-full h-full flex items-center justify-center">
-              {loading ? <Loader2 className="animate-spin text-blue-500" size={18} /> : (
-                <p className={`text-[10px] ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>No data</p>
+              {loading ? <Loader2 className="animate-spin" size={18} style={{ color: '#1877F2' }} /> : (
+                <p className="text-[10px]" style={{ color: isDarkMode ? '#65676B' : '#BCC0C4' }}>No data</p>
               )}
             </div>
           ) : (
@@ -59,12 +58,9 @@ const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
                 <PieChart>
                   <Pie
                     data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={32}
-                    outerRadius={44}
-                    paddingAngle={2}
-                    dataKey="value"
+                    cx="50%" cy="50%"
+                    innerRadius={32} outerRadius={44}
+                    paddingAngle={2} dataKey="value"
                     stroke="none"
                   >
                     {pieData.map((_, i) => (
@@ -74,60 +70,59 @@ const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
                   <Tooltip
                     formatter={(value: any) => [`${value}`, '']}
                     contentStyle={{
-                      backgroundColor: isDarkMode ? '#202C33' : '#fff',
+                      backgroundColor: isDarkMode ? '#242526' : '#fff',
                       border: 'none',
                       borderRadius: '8px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
                       fontSize: 12,
                     }}
                   />
                 </PieChart>
               </ResponsiveContainer>
-              {/* Center text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <p className="text-lg font-bold" style={{ color: isDarkMode ? '#E4E6EB' : '#050505' }}>
                   {totalLeads}
                 </p>
-                <p className={`text-[8px] font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>total</p>
+                <p className="text-[8px] font-medium" style={{ color: isDarkMode ? '#65676B' : '#65676B' }}>total</p>
               </div>
             </>
           )}
         </div>
 
-        {/* Stats */}
         <div className="flex-1 space-y-3">
-          <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDarkMode ? 'bg-black/30' : 'bg-gray-50'}`}>
+          <div className="flex items-center justify-between p-2.5 rounded-lg"
+            style={{ backgroundColor: isDarkMode ? '#242526' : '#F0F2F5' }}>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Closing</span>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#31A24C' }} />
+              <span className="text-xs font-medium" style={{ color: isDarkMode ? '#BCC0C4' : '#65676B' }}>Closing</span>
             </div>
-            <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <span className="text-sm font-bold" style={{ color: isDarkMode ? '#E4E6EB' : '#050505' }}>
               {loading ? '...' : totalClosing}
             </span>
           </div>
 
-          <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDarkMode ? 'bg-black/30' : 'bg-gray-50'}`}>
+          <div className="flex items-center justify-between p-2.5 rounded-lg"
+            style={{ backgroundColor: isDarkMode ? '#242526' : '#F0F2F5' }}>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
-              <span className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Rate</span>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#F5A623' }} />
+              <span className="text-xs font-medium" style={{ color: isDarkMode ? '#BCC0C4' : '#65676B' }}>Rate</span>
             </div>
-            <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <span className="text-sm font-bold" style={{ color: isDarkMode ? '#E4E6EB' : '#050505' }}>
               {loading ? '...' : `${conversionRate}%`}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Legend */}
       {pieData.length > 0 && (
         <div className="flex items-center justify-center gap-4">
           <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-            <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Closing</span>
+            <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#31A24C' }} />
+            <span className="text-[10px]" style={{ color: isDarkMode ? '#65676B' : '#65676B' }}>Closing</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className={`w-2.5 h-2.5 rounded-sm ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`} />
-            <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Belum Closing</span>
+            <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: isDarkMode ? '#2D2F33' : '#E4E6EB' }} />
+            <span className="text-[10px]" style={{ color: isDarkMode ? '#65676B' : '#65676B' }}>Belum Closing</span>
           </div>
         </div>
       )}

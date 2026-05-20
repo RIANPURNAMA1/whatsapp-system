@@ -381,6 +381,32 @@ CREATE TABLE IF NOT EXISTS wa_rules (
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
+    `CREATE TABLE IF NOT EXISTS closing_traffic (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      session_id VARCHAR(50) NOT NULL,
+      chat_jid VARCHAR(100) NOT NULL,
+      contact_name VARCHAR(200) DEFAULT NULL,
+      first_chat_time DATETIME DEFAULT NULL,
+      closing_time DATETIME NOT NULL,
+      durasi_jam DECIMAL(10,2) DEFAULT 0,
+      source ENUM('outgoing_template','incoming_confirmation','label') DEFAULT 'outgoing_template',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_closing (session_id, chat_jid)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+    `CREATE TABLE IF NOT EXISTS lead_analysis (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      session_id VARCHAR(50) NOT NULL,
+      chat_jid VARCHAR(100) NOT NULL,
+      contact_name VARCHAR(200) DEFAULT NULL,
+      category ENUM('usia','biaya','bad') NOT NULL,
+      first_chat_time DATETIME DEFAULT NULL,
+      detected_at DATETIME NOT NULL,
+      notes TEXT DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_category (session_id, chat_jid, category)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
   ];
 
   try {

@@ -115,59 +115,62 @@ export const GlobalInboxView: React.FC = () => {
   }, [messages, searchTerm, selectedSessionId, isAdminOrManager]);
 
   return (
-    <div className="flex flex-col h-full bg-white border-r border-gray-200">
+    <div className="flex flex-col h-full bg-white border-r" style={{ borderColor: "#E4E6EB" }}>
       {/* Header */}
-      <div className="px-4 h-[60px] flex-none flex items-center justify-between bg-white border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25">
-            <Inbox size={20} />
+      <div className="px-3 h-[52px] flex-none flex items-center justify-between border-b" style={{ borderColor: "#E4E6EB" }}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
+            <Inbox size={16} style={{ color: "#1877F2" }} />
           </div>
           <div>
-            <h2 className="text-gray-900 text-base font-semibold leading-tight">
+            <h2 className="text-[14px] font-bold leading-tight" style={{ color: "#050505" }}>
               Global Inbox
             </h2>
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#31A24C" }} />
+              <p className="text-[10px] font-medium" style={{ color: "#65676B" }}>
                 {isAdminOrManager ? "Full Access" : "Real-time"}
               </p>
             </div>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           onClick={fetchGlobalMessages}
-          className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+          className="p-1.5 rounded-lg transition-all hover:bg-[#F2F3F5]"
+          style={{ color: "#65676B" }}
         >
-          <RefreshCw size={19} className={loading ? "animate-spin" : ""} />
-        </Button>
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+        </button>
       </div>
 
       {/* Filter Section */}
-      <div className="px-4 py-3 flex-none bg-white space-y-3 border-b border-gray-100">
-        {/* Search Input */}
+      <div className="px-3 py-2.5 flex-none space-y-2 border-b" style={{ borderColor: "#E4E6EB" }}>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: "#8C939D" }} />
           <Input
             type="text"
             placeholder="Cari kontak atau pesan..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-gray-100 border-transparent focus:bg-white focus:border-blue-300 rounded-xl"
+            className="w-full pl-8 h-[32px] bg-[#F0F2F5] border-0 text-[12px] rounded-lg transition-colors focus-visible:ring-0"
+            style={{ color: "#050505" }}
           />
         </div>
 
-        {/* Device Selector */}
         {!isAdminOrManager && (
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-              <Smartphone size={14} />
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#8C939D" }}>
+              <Smartphone size={13} />
             </div>
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="w-full bg-gray-100 text-gray-900 text-[13px] pl-9 pr-8 py-2 rounded-xl outline-none appearance-none cursor-pointer border border-transparent focus:border-blue-300 transition-colors"
+              className="w-full text-[12px] pl-8 pr-8 py-1.5 rounded-lg outline-none appearance-none cursor-pointer"
+              style={{
+                backgroundColor: "#F0F2F5",
+                color: "#050505",
+                border: "none",
+              }}
             >
               <option value="all">Semua Perangkat</option>
               {sessions.map((s) => (
@@ -176,8 +179,8 @@ export const GlobalInboxView: React.FC = () => {
                 </option>
               ))}
             </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-              <ChevronDown size={14} />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#8C939D" }}>
+              <ChevronDown size={13} />
             </div>
           </div>
         )}
@@ -186,18 +189,18 @@ export const GlobalInboxView: React.FC = () => {
       {/* List Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading && messages.length === 0 ? (
-          <div className="flex flex-col items-center pt-32 gap-4">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-500 opacity-80" />
-            <p className="text-gray-400 text-xs font-medium uppercase tracking-widest">
+          <div className="flex flex-col items-center pt-24 gap-3">
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#1877F2" }} />
+            <p className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "#65676B" }}>
               Memuat Pesan...
             </p>
           </div>
         ) : filteredMessages.length === 0 ? (
-          <div className="text-center pt-32 px-10">
-            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="w-8 h-8 text-gray-400" />
+          <div className="text-center pt-24 px-10">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: "#F0F2F5" }}>
+              <MessageSquare className="w-6 h-6" style={{ color: "#BCC0C4" }} />
             </div>
-            <p className="text-gray-500 text-sm">
+            <p className="text-[13px]" style={{ color: "#65676B" }}>
               {searchTerm || selectedSessionId !== "all"
                 ? "Pencarian tidak ditemukan"
                 : "Kotak masuk kosong"}
@@ -274,32 +277,40 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
   return (
     <div
       onClick={onClick}
-      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-all group border-b border-gray-100"
+      className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-all group"
+      style={{
+        borderBottom: "1px solid #E4E6EB",
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#F2F3F5"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
     >
       <div className="relative flex-shrink-0">
         <Avatar
           name={name}
           imageUrl={msg.profile_pic_url}
-          size="md"
+          size="sm"
           isGroup={isGroup}
+          className="w-[40px] h-[40px]"
         />
       </div>
 
-      <div className="flex-1 min-w-0 self-stretch flex flex-col justify-center">
+      <div className="flex-1 min-w-0 self-stretch flex flex-col justify-center py-0.5">
         <div className="flex items-center justify-between mb-0.5">
           <h3
-            className={`text-[15px] truncate leading-tight ${
-              hasUnread
-                ? "text-gray-900 font-semibold"
-                : "text-gray-700 font-normal"
-            }`}
+            className="text-[13px] truncate leading-tight"
+            style={{
+              color: "#050505",
+              fontWeight: hasUnread ? 700 : 600,
+            }}
           >
             {name}
           </h3>
           <span
-            className={`text-[11px] flex-shrink-0 ml-2 ${
-              hasUnread ? "text-blue-500 font-semibold" : "text-gray-400"
-            }`}
+            className="text-[11px] flex-shrink-0 ml-2"
+            style={{
+              color: hasUnread ? "#1877F2" : "#65676B",
+              fontWeight: hasUnread ? 600 : 400,
+            }}
           >
             {formatChatTime(msg.timestamp)}
           </span>
@@ -310,31 +321,40 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
             {isMe && (
               <div className="mr-1.5 flex-shrink-0">
                 {msg.status === "read" ? (
-                  <CheckCheck size={15} className="text-blue-500" />
+                  <CheckCheck size={14} style={{ color: "#1877F2" }} />
                 ) : (
-                  <Check size={15} className="text-gray-400" />
+                  <Check size={14} style={{ color: "#8C939D" }} />
                 )}
               </div>
             )}
             <div
-              className={`text-[13px] truncate leading-5 ${
-                hasUnread
-                  ? "text-gray-700 font-medium"
-                  : "text-gray-500"
-              }`}
+              className="text-[12px] truncate leading-5"
+              style={{
+                color: hasUnread ? "#050505" : "#65676B",
+                fontWeight: hasUnread ? 500 : 400,
+              }}
             >
               {renderMessagePreview()}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-[9px] text-blue-600 bg-blue-50 px-2 py-1 rounded-full font-medium">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span
+              className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md"
+              style={{
+                backgroundColor: "#E7F3FF",
+                color: "#1877F2",
+              }}
+            >
               {msg.session_name || "Device"}
             </span>
 
             {hasUnread && (
-              <div className="min-w-[20px] h-[20px] bg-blue-500 rounded-full flex items-center justify-center px-1">
-                <span className="text-white text-[11px] font-bold">
+              <div
+                className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1"
+                style={{ backgroundColor: "#1877F2" }}
+              >
+                <span className="text-white text-[10px] font-bold">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               </div>

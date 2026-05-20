@@ -13,7 +13,6 @@ import {
   MessageSquare,
   AlertCircle,
   Table,
-  Download,
 } from "lucide-react";
 
 const DAYS = [
@@ -190,19 +189,19 @@ export const LeadsReportPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-[#F0F2F5]">
+      <div className=" mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center">
+              <h1 className="text-2xl font-bold text-[#050505] flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#1877F2] rounded-lg flex items-center justify-center">
                   <BarChart3 className="w-5 h-5 text-white" />
                 </div>
                 Laporan Leads
               </h1>
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="text-[#65676B] text-sm mt-1">
                 Otomatis kirim laporan leads harian ke grup WhatsApp
               </p>
             </div>
@@ -211,7 +210,7 @@ export const LeadsReportPage: React.FC = () => {
                 <select
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
-                  className="bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-2.5 text-sm text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
                 >
                   <option value="all">Semua Device</option>
                   {activeSessions
@@ -227,8 +226,8 @@ export const LeadsReportPage: React.FC = () => {
                   disabled={isSending || settings.targetGroups.length === 0}
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                     isSending || settings.targetGroups.length === 0
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-100"
+                      ? "bg-[#E4E6EB] text-[#65676B] cursor-not-allowed"
+                      : "bg-[#1877F2] text-white hover:bg-[#166FE5]"
                   }`}
                 >
                   {isSending ? (
@@ -247,43 +246,43 @@ export const LeadsReportPage: React.FC = () => {
           {/* LEFT: Settings */}
           <div className="space-y-6">
             {/* Auto-Send Toggle */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
+            <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <Bell className="text-blue-500" size={20} />
-                  <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                  <Bell className="text-[#1877F2]" size={20} />
+                  <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
                     Kirim Otomatis
                   </h2>
                 </div>
                 <button
                   onClick={() => setSettings({ ...settings, isEnabled: !settings.isEnabled })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ${
-                    settings.isEnabled ? "bg-blue-500" : "bg-gray-200"
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ${
+                    settings.isEnabled ? "bg-[#1877F2]" : "bg-[#E4E6EB]"
                   }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                       settings.isEnabled ? "translate-x-6" : "translate-x-1"
                     }`}
                   />
                 </button>
               </div>
               {settings.isEnabled ? (
-                <p className="text-xs text-green-600 bg-green-50 p-3 rounded-lg border border-green-100">
-                  ✅ Laporan akan dikirim otomatis setiap hari sesuai jadwal
+                <p className="text-xs text-[#31A24C] bg-[#F0F2F5] p-3 rounded-lg border border-[#E4E6EB]">
+                  Laporan akan dikirim otomatis setiap hari sesuai jadwal
                 </p>
               ) : (
-                <p className="text-xs text-gray-400 italic">
+                <p className="text-xs text-[#65676B] italic">
                   Aktifkan untuk mengirim laporan otomatis ke grup
                 </p>
               )}
             </div>
 
             {/* Schedule Time */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
+            <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
               <div className="flex items-center gap-3 mb-4">
-                <Clock className="text-purple-500" size={20} />
-                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                <Clock className="text-[#1877F2]" size={20} />
+                <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
                   Jam Kirim Laporan
                 </h2>
               </div>
@@ -292,19 +291,19 @@ export const LeadsReportPage: React.FC = () => {
                   type="time"
                   value={settings.reportTime}
                   onChange={(e) => setSettings({ ...settings, reportTime: e.target.value })}
-                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-3 text-lg font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-[#65676B]">
                   Laporan akan dikirim pada jam ini setiap hari aktif
                 </p>
               </div>
             </div>
 
             {/* Active Days */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
+            <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
               <div className="flex items-center gap-3 mb-4">
-                <Calendar className="text-indigo-500" size={20} />
-                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                <Calendar className="text-[#1877F2]" size={20} />
+                <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
                   Hari Aktif
                 </h2>
               </div>
@@ -318,10 +317,10 @@ export const LeadsReportPage: React.FC = () => {
                     <button
                       key={day.id}
                       onClick={() => toggleDay(day.id)}
-                      className={`w-12 h-12 rounded-xl text-xs font-bold transition-all duration-200 ${
+                      className={`w-12 h-12 rounded-lg text-xs font-bold transition-all ${
                         isSelected
-                          ? "bg-indigo-500 text-white shadow-sm"
-                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                          ? "bg-[#1877F2] text-white"
+                          : "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]"
                       }`}
                     >
                       {day.label}
@@ -332,10 +331,10 @@ export const LeadsReportPage: React.FC = () => {
             </div>
 
             {/* Queue Delay Setting */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
+            <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
               <div className="flex items-center gap-3 mb-4">
-                <RefreshCw className="text-orange-500" size={20} />
-                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                <RefreshCw className="text-[#1877F2]" size={20} />
+                <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
                   Delay Antar Device
                 </h2>
               </div>
@@ -347,11 +346,11 @@ export const LeadsReportPage: React.FC = () => {
                   step="500"
                   value={settings.queueDelay}
                   onChange={(e) => setSettings({ ...settings, queueDelay: parseInt(e.target.value) || 3000 })}
-                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 w-32"
+                  className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-3 text-lg font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2] w-32"
                 />
                 <div>
-                  <p className="text-xs text-gray-500">Jeda antar device (milidetik)</p>
-                  <p className="text-xs text-gray-400 mt-1">1000ms = 1 detik. Default: 3000ms (3 detik)</p>
+                  <p className="text-xs text-[#65676B]">Jeda antar device (milidetik)</p>
+                  <p className="text-xs text-[#65676B] mt-1">1000ms = 1 detik. Default: 3000ms (3 detik)</p>
                 </div>
               </div>
             </div>
@@ -360,10 +359,10 @@ export const LeadsReportPage: React.FC = () => {
             <button
               onClick={handleSave}
               disabled={isLoading}
-              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all ${
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${
                 isLoading
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-100"
+                  ? "bg-[#E4E6EB] text-[#65676B] cursor-not-allowed"
+                  : "bg-[#1877F2] text-white hover:bg-[#166FE5]"
               }`}
             >
               {isLoading ? (
@@ -377,28 +376,28 @@ export const LeadsReportPage: React.FC = () => {
 
           {/* RIGHT: Group Selection */}
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
+            <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <Users className="text-green-500" size={20} />
-                  <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                  <Users className="text-[#1877F2]" size={20} />
+                  <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
                     Pilih Grup Tujuan
                   </h2>
                 </div>
-                <span className="text-xs font-semibold bg-green-100 text-green-700 px-3 py-1 rounded-full">
+                <span className="text-xs font-semibold bg-[#E7F3FF] text-[#1877F2] px-3 py-1 rounded-full">
                   {settings.targetGroups.length} dipilih
                 </span>
               </div>
 
               {isFetching ? (
                 <div className="flex items-center justify-center py-10">
-                  <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#65676B]" />
                 </div>
               ) : groups.length === 0 ? (
                 <div className="flex flex-col items-center py-10 text-center">
-                  <AlertCircle className="w-10 h-10 text-gray-300 mb-3" />
-                  <p className="text-sm text-gray-500">Belum ada grup yang tersinkron</p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <AlertCircle className="w-10 h-10 text-[#E4E6EB] mb-3" />
+                  <p className="text-sm text-[#65676B]">Belum ada grup yang tersinkron</p>
+                  <p className="text-xs text-[#65676B] mt-1">
                     Pastikan device sudah terhubung dan memiliki grup
                   </p>
                 </div>
@@ -409,23 +408,23 @@ export const LeadsReportPage: React.FC = () => {
                     return (
                       <label
                         key={group.jid}
-                        className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                        className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
                           isSelected
-                            ? "bg-green-50 border-green-200"
-                            : "bg-gray-50 border-gray-100 hover:border-gray-200"
+                            ? "bg-[#E7F3FF] border-[#1877F2]"
+                            : "bg-[#F0F2F5] border-[#E4E6EB] hover:border-[#CCD0D5]"
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleGroup(group.jid)}
-                          className="w-5 h-5 rounded border-gray-300 text-green-500 focus:ring-green-500"
+                          className="w-5 h-5 rounded border-[#CCD0D5] text-[#1877F2] focus:ring-[#1877F2]"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">
+                          <p className="text-sm font-semibold text-[#050505] truncate">
                             {group.subject || "No Name"}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-[#65676B]">
                             {group.session_name} • {group.participant_count || 0} peserta
                           </p>
                         </div>
@@ -438,16 +437,16 @@ export const LeadsReportPage: React.FC = () => {
 
             {/* Preview */}
             {settings.targetGroups.length > 0 && (
-              <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl">
+              <div className="bg-[#FFF8E7] border border-[#F5A623] p-4 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <MessageSquare className="text-orange-500 shrink-0 mt-0.5" size={18} />
+                  <MessageSquare className="text-[#F5A623] shrink-0 mt-0.5" size={18} />
                   <div>
-                    <p className="text-sm font-semibold text-orange-700">Preview Grup Tujuan:</p>
+                    <p className="text-sm font-semibold text-[#050505]">Preview Grup Tujuan:</p>
                     <div className="mt-2 space-y-1">
                       {settings.targetGroups.map((jid) => {
                         const group = groups.find((g) => g.jid === jid);
                         return (
-                          <p key={jid} className="text-xs text-orange-600">
+                          <p key={jid} className="text-xs text-[#65676B]">
                             • {group?.subject || jid}
                           </p>
                         );
@@ -462,11 +461,11 @@ export const LeadsReportPage: React.FC = () => {
 
         {/* Report Table Section */}
         <div className="mt-8">
-          <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6">
+          <div className="bg-white rounded-lg border border-[#E4E6EB] p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <Table className="text-blue-500" size={20} />
-                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                <Table className="text-[#1877F2]" size={20} />
+                <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
                   Rekap Laporan Leads
                 </h2>
               </div>
@@ -474,7 +473,7 @@ export const LeadsReportPage: React.FC = () => {
                 <select
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
-                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-2.5 text-sm text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
                 >
                   <option value="all">Semua Device</option>
                   {activeSessions
@@ -490,8 +489,8 @@ export const LeadsReportPage: React.FC = () => {
                   disabled={isLoadingReport}
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                     isLoadingReport
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-100"
+                      ? "bg-[#E4E6EB] text-[#65676B] cursor-not-allowed"
+                      : "bg-[#1877F2] text-white hover:bg-[#166FE5]"
                   }`}
                 >
                   {isLoadingReport ? (
@@ -506,38 +505,38 @@ export const LeadsReportPage: React.FC = () => {
 
             {isLoadingReport ? (
               <div className="flex items-center justify-center py-10">
-                <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+                <RefreshCw className="w-6 h-6 animate-spin text-[#65676B]" />
               </div>
             ) : reportData ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left text-gray-700">
-                  <thead className="text-xs uppercase bg-gray-50 text-gray-700">
+                <table className="w-full text-sm text-left text-[#050505]">
+                  <thead className="text-xs uppercase bg-[#F0F2F5] text-[#65676B]">
                     <tr>
-                      <th className="px-4 py-3 rounded-l-lg">Device</th>
+                      <th className="px-4 py-3">Device</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Total Leads</th>
                       <th className="px-4 py-3">Leads Organik</th>
                       <th className="px-4 py-3">Total Closing</th>
                       <th className="px-4 py-3">Conv Rate</th>
-                      <th className="px-4 py-3 rounded-r-lg">Platform Details</th>
+                      <th className="px-4 py-3">Platform Details</th>
                     </tr>
                   </thead>
                   <tbody>
                     {reportData.stats?.sessionStats?.map((session: any, idx: number) => (
-                      <tr key={idx} className="border-b hover:bg-gray-50">
+                      <tr key={idx} className="border-b border-[#E4E6EB] hover:bg-[#F2F3F5]">
                         <td className="px-4 py-3 font-semibold">{session.sessionName}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
-                            session.sessionStatus === "connected" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                            session.sessionStatus === "connected" ? "bg-[#E7F3FF] text-[#1877F2]" : "bg-[#FFEBEE] text-red-500"
                           }`}>
-                            {session.sessionStatus === "connected" ? "🟢" : "🔴"} {session.sessionStatus}
+                            {session.sessionStatus === "connected" ? "Terhubung" : "Putus"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-bold text-blue-600">{session.totalLeads || 0}</td>
+                        <td className="px-4 py-3 font-bold text-[#1877F2]">{session.totalLeads || 0}</td>
                         <td className="px-4 py-3">{session.totalOrganik || 0}</td>
-                        <td className="px-4 py-3 font-bold text-green-600">{session.totalClosing || 0}</td>
+                        <td className="px-4 py-3 font-bold text-[#31A24C]">{session.totalClosing || 0}</td>
                         <td className="px-4 py-3">
-                          <span className={`font-bold ${session.totalLeads > 0 && session.totalClosing / session.totalLeads >= 0.5 ? 'text-green-600' : 'text-orange-600'}`}>
+                          <span className={`font-bold ${session.totalLeads > 0 && session.totalClosing / session.totalLeads >= 0.5 ? 'text-[#31A24C]' : 'text-[#F5A623]'}`}>
                             {session.totalLeads > 0 ? Math.round((session.totalClosing / session.totalLeads) * 100) : 0}%
                           </span>
                         </td>
@@ -546,7 +545,7 @@ export const LeadsReportPage: React.FC = () => {
                             {Object.entries(session)
                               .filter(([key]) => key.startsWith("leads_") && session[key] > 0)
                               .map(([key, count]: [string, any]) => (
-                                <span key={key} className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                                <span key={key} className="px-2 py-1 bg-[#E7F3FF] text-[#1877F2] rounded text-xs">
                                   {key.replace("leads_", "").charAt(0).toUpperCase() + key.replace("leads_", "").slice(1)}: {count}
                                 </span>
                               ))}
@@ -556,12 +555,12 @@ export const LeadsReportPage: React.FC = () => {
                     ))}
                     {/* Total Row */}
                     {reportData.stats?.sessionStats && reportData.stats.sessionStats.length > 1 && (
-                      <tr className="bg-gray-100 font-bold">
+                      <tr className="bg-[#F0F2F5] font-bold">
                         <td className="px-4 py-3">TOTAL</td>
                         <td className="px-4 py-3">-</td>
-                        <td className="px-4 py-3 text-blue-600">{reportData.stats.grandTotalLeads || 0}</td>
+                        <td className="px-4 py-3 text-[#1877F2]">{reportData.stats.grandTotalLeads || 0}</td>
                         <td className="px-4 py-3">{reportData.stats.grandTotalOrganik || 0}</td>
-                        <td className="px-4 py-3 text-green-600">{reportData.stats.grandTotalClosing || 0}</td>
+                        <td className="px-4 py-3 text-[#31A24C]">{reportData.stats.grandTotalClosing || 0}</td>
                         <td className="px-4 py-3">{reportData.stats.convRate || 0}%</td>
                         <td className="px-4 py-3">-</td>
                       </tr>
@@ -571,24 +570,24 @@ export const LeadsReportPage: React.FC = () => {
 
                 {/* TikTok Leads Section */}
                 {reportData.stats?.tiktokLeads && reportData.stats.tiktokLeads[0] && reportData.stats.tiktokLeads[0].total > 0 && (
-                  <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
-                    <h3 className="text-sm font-bold text-purple-700 mb-3">🎵 TikTok Leads</h3>
+                  <div className="mt-6 p-4 bg-[#E7F3FF] rounded-lg border border-[#1877F2]">
+                    <h3 className="text-sm font-bold text-[#1877F2] mb-3">TikTok Leads</h3>
                     <div className="grid grid-cols-4 gap-4">
                       <div className="bg-white p-3 rounded-lg text-center">
-                        <p className="text-xs text-gray-500">Total</p>
-                        <p className="text-lg font-bold text-purple-600">{reportData.stats.tiktokLeads[0].total}</p>
+                        <p className="text-xs text-[#65676B]">Total</p>
+                        <p className="text-lg font-bold text-[#1877F2]">{reportData.stats.tiktokLeads[0].total}</p>
                       </div>
                       <div className="bg-white p-3 rounded-lg text-center">
-                        <p className="text-xs text-gray-500">Baru</p>
-                        <p className="text-lg font-bold text-blue-600">{reportData.stats.tiktokLeads[0].new_count || 0}</p>
+                        <p className="text-xs text-[#65676B]">Baru</p>
+                        <p className="text-lg font-bold text-[#1877F2]">{reportData.stats.tiktokLeads[0].new_count || 0}</p>
                       </div>
                       <div className="bg-white p-3 rounded-lg text-center">
-                        <p className="text-xs text-gray-500">Dihubungi</p>
-                        <p className="text-lg font-bold text-orange-600">{reportData.stats.tiktokLeads[0].contacted_count || 0}</p>
+                        <p className="text-xs text-[#65676B]">Dihubungi</p>
+                        <p className="text-lg font-bold text-[#F5A623]">{reportData.stats.tiktokLeads[0].contacted_count || 0}</p>
                       </div>
                       <div className="bg-white p-3 rounded-lg text-center">
-                        <p className="text-xs text-gray-500">Converted</p>
-                        <p className="text-lg font-bold text-green-600">{reportData.stats.tiktokLeads[0].converted_count || 0}</p>
+                        <p className="text-xs text-[#65676B]">Converted</p>
+                        <p className="text-lg font-bold text-[#31A24C]">{reportData.stats.tiktokLeads[0].converted_count || 0}</p>
                       </div>
                     </div>
                   </div>
@@ -596,8 +595,8 @@ export const LeadsReportPage: React.FC = () => {
               </div>
             ) : (
               <div className="flex flex-col items-center py-10 text-center">
-                <Table className="w-10 h-10 text-gray-300 mb-3" />
-                <p className="text-sm text-gray-500">Klik "Tampilkan Laporan" untuk melihat data</p>
+                <Table className="w-10 h-10 text-[#E4E6EB] mb-3" />
+                <p className="text-sm text-[#65676B]">Klik "Tampilkan Laporan" untuk melihat data</p>
               </div>
             )}
           </div>
