@@ -10,12 +10,63 @@ async function buildOrganikFilter() {
   return `AND (${conditions})`;
 }
 
+// Helper: get date range based on period type
+function getDateRange(periodType) {
+  const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
+
+  if (periodType === 'weekly') {
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const startStr = weekAgo.toISOString().split("T")[0];
+    return {
+      startFull: `${startStr} 00:00:00`,
+      endFull: `${todayStr} 23:59:59`,
+      label: "Mingguan",
+      dateLabel: `${weekAgo.toLocaleDateString("id-ID", { day: "numeric", month: "long" })} - ${now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}`,
+    };
+  }
+
+  if (periodType === 'monthly') {
+    const monthAgo = new Date(now);
+    monthAgo.setDate(monthAgo.getDate() - 30);
+    const startStr = monthAgo.toISOString().split("T")[0];
+    return {
+      startFull: `${startStr} 00:00:00`,
+      endFull: `${todayStr} 23:59:59`,
+      label: "Bulanan",
+      dateLabel: `${monthAgo.toLocaleDateString("id-ID", { day: "numeric", month: "long" })} - ${now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}`,
+    };
+  }
+
+  // Daily fallback
+  return {
+    startFull: `${todayStr} 00:00:00`,
+    endFull: `${todayStr} 23:59:59`,
+    label: "Harian",
+    dateLabel: now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+  };
+}
+
 // Generate report for a SINGLE device/session - EXACTLY matching /social/media endpoint logic
-export async function generateDeviceReport(sessionId, startDate, endDate) {
+export async function generateDeviceReport(sessionId, startDate, endDate, periodType = 'daily') {
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
-  const startFull = startDate || `${todayStr} 00:00:00`;
-  const endFull = endDate || `${todayStr} 23:59:59`;
+
+  let startFull, endFull, periodLabel, periodDateLabel;
+
+  if (startDate && endDate) {
+    startFull = startDate;
+    endFull = endDate;
+    periodLabel = periodType === 'weekly' ? 'Mingguan' : periodType === 'monthly' ? 'Bulanan' : 'Harian';
+    periodDateLabel = '';
+  } else {
+    const range = getDateRange(periodType);
+    startFull = range.startFull;
+    endFull = range.endFull;
+    periodLabel = range.label;
+    periodDateLabel = range.dateLabel;
+  }
 
   // Get session info
   const session = await queryOne("SELECT id, name, status FROM wa_sessions WHERE id = ?", [sessionId]);
@@ -130,12 +181,13 @@ export async function generateDeviceReport(sessionId, startDate, endDate) {
   });
 
   const statusEmoji = session.status === "connected" ? "🟢" : "🔴";
+  const periodTitle = periodLabel.toUpperCase();
 
-  let message = `📊 *LAPORAN LEADS - ${session.name.toUpperCase()}*\n`;
-  message += `${statusEmoji} ${dateStr}\n`;
+  let message = `📊 *LAPORAN LEADS ${periodTitle} - ${session.name.toUpperCase()}*\n`;
+  message += `${statusEmoji} ${periodDateLabel || dateStr}\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-  message += `📌 *RINGKASAN HARIAN*\n`;
+  message += `📌 *RINGKASAN ${periodTitle}*\n`;
   message += `👥 Total Leads: *${stats.totalLeads}*\n`;
   message += `🌿 Leads Organik: *${stats.totalOrganik}*\n`;
   message += `✅ Total Closing: *${stats.totalClosing}*\n\n`;
@@ -180,26 +232,54 @@ export async function generateDeviceReport(sessionId, startDate, endDate) {
 }
 
 // Generate full report for ALL devices combined
-export async function generateLeadsReport(startDate, endDate) {
+export async function generateLeadsReport(startDate, endDate, periodType = 'daily') {
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
-  const startFull = startDate || `${todayStr} 00:00:00`;
-  const endFull = endDate || `${todayStr} 23:59:59`;
+
+  let startFull, endFull, periodLabel, periodDateLabel;
+
+  if (startDate && endDate) {
+    startFull = startDate;
+    endFull = endDate;
+    periodLabel = periodType === 'weekly' ? 'MINGGUAN' : periodType === 'monthly' ? 'BULANAN' : 'HARIAN';
+    periodDateLabel = '';
+  } else {
+    const range = getDateRange(periodType);
+    startFull = range.startFull;
+    endFull = range.endFull;
+    periodLabel = range.label.toUpperCase();
+    periodDateLabel = range.dateLabel;
+  }
 
   // Get all sessions
   const allowedSessions = await query("SELECT id, name, status FROM wa_sessions");
   if (allowedSessions.length === 0) return { message: "Tidak ada device yang terhubung.", stats: {} };
 
-  // TikTok leads
-  const tiktokLeads = await query(
-    `SELECT COUNT(*) as total,
-            SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_count,
-            SUM(CASE WHEN status = 'contacted' THEN 1 ELSE 0 END) as contacted_count,
-            SUM(CASE WHEN status = 'converted' THEN 1 ELSE 0 END) as converted_count
-     FROM tiktok_leads
-     WHERE DATE(created_at) = ?`,
-    [todayStr]
-  );
+  // TikTok leads - use date range for weekly/monthly
+  let tiktokLeads;
+  if (periodType === 'weekly' || periodType === 'monthly') {
+    const startDateOnly = startFull.split(' ')[0];
+    const endDateOnly = endFull.split(' ')[0];
+    tiktokLeads = await query(
+      `SELECT COUNT(*) as total,
+              SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_count,
+              SUM(CASE WHEN status = 'contacted' THEN 1 ELSE 0 END) as contacted_count,
+              SUM(CASE WHEN status = 'converted' THEN 1 ELSE 0 END) as converted_count
+       FROM tiktok_leads
+       WHERE DATE(created_at) BETWEEN ? AND ?`,
+      [startDateOnly, endDateOnly]
+    );
+  } else {
+    tiktokLeads = await query(
+      `SELECT COUNT(*) as total,
+              SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_count,
+              SUM(CASE WHEN status = 'contacted' THEN 1 ELSE 0 END) as contacted_count,
+              SUM(CASE WHEN status = 'converted' THEN 1 ELSE 0 END) as converted_count
+       FROM tiktok_leads
+       WHERE DATE(created_at) = ?`,
+      [todayStr]
+    );
+  }
 
   // Generate report per device
   let grandTotalLeads = 0;
@@ -209,7 +289,7 @@ export async function generateLeadsReport(startDate, endDate) {
   const sessionStats = [];
 
   for (const s of allowedSessions) {
-    const report = await generateDeviceReport(s.id, startFull, endFull);
+    const report = await generateDeviceReport(s.id, startFull, endFull, periodType);
     if (report && report.stats) {
       sessionStats.push({
         ...report.stats,
@@ -232,11 +312,11 @@ export async function generateLeadsReport(startDate, endDate) {
     year: "numeric",
   });
 
-  let message = `📊 *LAPORAN LEADS MENDUNIA*\n`;
-  message += `📅 ${dateStr}\n`;
+  let message = `📊 *LAPORAN LEADS ${periodLabel} - MENDUNIA*\n`;
+  message += `📅 ${periodDateLabel || dateStr}\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-  message += `📌 *RINGKASAN TOTAL*\n`;
+  message += `📌 *RINGKASAN TOTAL ${periodLabel}*\n`;
   message += `👥 Total Leads: *${grandTotalLeads}*\n`;
   message += `🌿 Leads Organik: *${grandTotalOrganik}*\n`;
   message += `✅ Total Closing: *${grandTotalClosing}*\n`;
@@ -277,6 +357,7 @@ export async function generateLeadsReport(startDate, endDate) {
 
   return {
     message,
+    periodType,
     stats: {
       grandTotalLeads,
       grandTotalClosing,

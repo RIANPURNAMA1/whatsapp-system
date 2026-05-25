@@ -147,6 +147,9 @@ const RoleManagementView = () => {
     if (type === 'manager') {
       return 'bg-[#E7F3FF] text-[#1877F2] border-[#1877F2]';
     }
+    if (type === 'tiktok_operator') {
+      return 'bg-[#F0E6FF] text-[#8B5CF6] border-[#8B5CF6]';
+    }
     return 'bg-[#E7F3FF] text-[#1877F2] border-[#1877F2]';
   };
 
@@ -277,7 +280,7 @@ const RoleManagementView = () => {
                       <div className="flex items-center gap-1.5 mt-1">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getRoleTypeBadge(role.type)}`}>
                           <Shield className="w-3 h-3" />
-                          {role.type === 'system' ? 'System' : role.type === 'manager' ? 'Manager' : 'Custom'}
+                          {role.type === 'system' ? 'System' : role.type === 'manager' ? 'Manager' : role.type === 'tiktok_operator' ? 'Operator TikTok' : 'Custom'}
                         </span>
                       </div>
                     </div>
@@ -386,6 +389,7 @@ const RoleManagementView = () => {
                   <SelectItem value="system">System</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="tiktok_operator">Operator Live TikTok</SelectItem>
                 </SelectContent>
               </Select>
             </div>

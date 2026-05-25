@@ -4,7 +4,6 @@ import {
   ShieldCheck,
   UserPlus,
   BarChart2,
-  BarChart3,
   LogOut,
   Settings,
   UserSearch,
@@ -16,7 +15,7 @@ import {
   ChevronRight,
   Users,
   Smartphone,
-  Timer,
+  Video,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -47,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [collapsed, setCollapsed] = useState(false);
 
   const canManageMarketing = user?.role_type === "system" || user?.role_type === "manager";
+  const isTikTokOperator = user?.role_type === "tiktok_operator";
 
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
@@ -55,45 +55,52 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const isActive = (id: string) => activeTab === id;
 
-  const groups: { id: string; label: string; items: MenuItem[] }[] = [
-    {
-      id: "whatsapp",
-      label: "Pengelolaan WhatsApp",
-      items: [
-        { id: "leads-only", title: "Leads Baru", icon: <UserSearch className="w-[18px] h-[18px]" /> },
-        { id: "chats", title: "Chat WA", icon: <MessageSquare className="w-[18px] h-[18px]" /> },
-        { id: "all-messages", title: "Global Inbox", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
-        { id: "groups", title: "Grup", icon: <Users className="w-[18px] h-[18px]" /> },
-        { id: "devices", title: "Perangkat", icon: <Smartphone className="w-[18px] h-[18px]" /> },
-      ],
-    },
-    ...(canManageMarketing
-      ? [{
-          id: "marketing",
-          label: "Marketing & Analitik",
-          items: [
-            { id: "dashboard", title: "Ringkasan Eksekutif", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
-            { id: "keyword-management", title: "Kata Kunci Pengikat", icon: <KeyRound className="w-[18px] h-[18px]" /> },
-            { id: "link-rotator", title: "Rotator Tautan", icon: <Link2 className="w-[18px] h-[18px]" /> },
-            { id: "ai-setting", title: "Asisten AI", icon: <Bot className="w-[18px] h-[18px]" /> },
-            { id: "leads-report", title: "Laporan Performa", icon: <FileText className="w-[18px] h-[18px]" /> },
-            { id: "traffic-closing", title: "Trafik & Penutupan", icon: <Timer className="w-[18px] h-[18px]" /> },
-            { id: "lead-analysis", title: "Analisis Leads", icon: <BarChart3 className="w-[18px] h-[18px]" /> },
-          ],
-        }]
-      : []),
-    ...((isSystemAdmin || user?.role_type === "manager")
-      ? [{
-          id: "admin",
-          label: "Pengaturan & Manajemen",
-          items: [
-            ...(isSystemAdmin ? [{ id: "role-management", title: "Hak Akses & Role", icon: <ShieldCheck className="w-[18px] h-[18px]" /> }] : []),
-            { id: "user-management", title: "Manajemen Anggota", icon: <UserPlus className="w-[18px] h-[18px]" /> },
-            ...(isSystemAdmin ? [{ id: "settings", title: "Konfigurasi Sistem", icon: <Settings className="w-[18px] h-[18px]" /> }] : []),
-          ],
-        }]
-      : []),
-  ];
+  const groups: { id: string; label: string; items: MenuItem[] }[] = isTikTokOperator
+    ? [{
+        id: "tiktok",
+        label: "Laporan TikTok",
+        items: [
+          { id: "tiktok-live-report", title: "Laporan Live TikTok", icon: <Video className="w-[18px] h-[18px]" /> },
+        ],
+      }]
+    : [
+      {
+        id: "whatsapp",
+        label: "Pengelolaan WhatsApp",
+        items: [
+          { id: "leads-only", title: "Leads Baru", icon: <UserSearch className="w-[18px] h-[18px]" /> },
+          { id: "chats", title: "Chat WA", icon: <MessageSquare className="w-[18px] h-[18px]" /> },
+          { id: "all-messages", title: "Global Inbox", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
+          { id: "groups", title: "Grup", icon: <Users className="w-[18px] h-[18px]" /> },
+          { id: "devices", title: "Perangkat", icon: <Smartphone className="w-[18px] h-[18px]" /> },
+        ],
+      },
+      ...(canManageMarketing
+        ? [{
+            id: "marketing",
+            label: "Marketing & Analitik",
+            items: [
+              { id: "dashboard", title: "Ringkasan Eksekutif", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
+              { id: "keyword-management", title: "Kata Kunci Pengikat", icon: <KeyRound className="w-[18px] h-[18px]" /> },
+              { id: "link-rotator", title: "Rotator Tautan", icon: <Link2 className="w-[18px] h-[18px]" /> },
+              { id: "ai-setting", title: "Asisten AI", icon: <Bot className="w-[18px] h-[18px]" /> },
+              { id: "leads-report", title: "Laporan Performa", icon: <FileText className="w-[18px] h-[18px]" /> },
+              { id: "tiktok-live-report", title: "Laporan Live TikTok", icon: <Video className="w-[18px] h-[18px]" /> },
+            ],
+          }]
+        : []),
+      ...((isSystemAdmin || user?.role_type === "manager")
+        ? [{
+            id: "admin",
+            label: "Pengaturan & Manajemen",
+            items: [
+              ...(isSystemAdmin ? [{ id: "role-management", title: "Hak Akses & Role", icon: <ShieldCheck className="w-[18px] h-[18px]" /> }] : []),
+              { id: "user-management", title: "Manajemen Anggota", icon: <UserPlus className="w-[18px] h-[18px]" /> },
+              ...(isSystemAdmin ? [{ id: "settings", title: "Konfigurasi Sistem", icon: <Settings className="w-[18px] h-[18px]" /> }] : []),
+            ],
+          }]
+        : []),
+    ];
 
   return (
     <>

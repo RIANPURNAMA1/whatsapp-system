@@ -115,7 +115,7 @@ async function initDatabase() {
     `CREATE TABLE IF NOT EXISTS sys_roles (
   id INT AUTO_INCREMENT PRIMARY KEY, -- WAJIB ADA AUTO_INCREMENT
   name VARCHAR(50) NOT NULL UNIQUE,
-  type ENUM('system', 'manager', 'custom') DEFAULT 'custom',
+  type ENUM('system', 'manager', 'custom', 'tiktok_operator') DEFAULT 'custom',
   description TEXT
 ) ENGINE=InnoDB`,
 
@@ -414,13 +414,21 @@ CREATE TABLE IF NOT EXISTS wa_rules (
       await db.promise().query(queryStr);
     }
 
+    // --- MIGRATE ENUM for sys_roles (existing table) ---
+    try {
+      await db.promise().query(`ALTER TABLE sys_roles MODIFY COLUMN type ENUM('system','manager','custom','tiktok_operator') DEFAULT 'custom'`);
+    } catch (_) {
+      // Table might not exist yet, skip
+    }
+
     // --- SEEDING DEFAULT DATA ---
 
     // 1. Insert Default Roles
     await db.promise().query(`
   INSERT IGNORE INTO sys_roles (id, name, type, description) VALUES 
   (1, 'Super Admin', 'system', 'Akses penuh ke seluruh sistem'),
-  (3, 'Cabang', 'custom', 'Akses terbatas pada session yang didaftarkan')
+  (3, 'Cabang', 'custom', 'Akses terbatas pada session yang didaftarkan'),
+  (4, 'Operator Live TikTok', 'tiktok_operator', 'Hanya dapat mengakses laporan Live TikTok')
 `);
 
     // 2. ⭐ SEEDING LEAD SOURCES (TRACKING IKLAN)
@@ -599,6 +607,51 @@ CREATE TABLE IF NOT EXISTS wa_rules (
         console.log("✅ queue_delay already exists in leads_report_settings");
       } else {
         console.warn("⚠️ Migration warning for queue_delay:", err.message);
+      }
+    }
+
+    // Add report_frequency column
+    try {
+      await db.promise().query(`
+        ALTER TABLE leads_report_settings
+        ADD COLUMN IF NOT EXISTS report_frequency ENUM('daily','weekly','monthly') DEFAULT 'daily' AFTER queue_delay
+      `);
+      console.log("✅ Added report_frequency to leads_report_settings");
+    } catch (err) {
+      if (err.code === "ER_DUP_FIELDNAME") {
+        console.log("✅ report_frequency already exists in leads_report_settings");
+      } else {
+        console.warn("⚠️ Migration warning for report_frequency:", err.message);
+      }
+    }
+
+    // Add weekly_report_day column
+    try {
+      await db.promise().query(`
+        ALTER TABLE leads_report_settings
+        ADD COLUMN IF NOT EXISTS weekly_report_day INT DEFAULT 1 AFTER report_frequency
+      `);
+      console.log("✅ Added weekly_report_day to leads_report_settings");
+    } catch (err) {
+      if (err.code === "ER_DUP_FIELDNAME") {
+        console.log("✅ weekly_report_day already exists in leads_report_settings");
+      } else {
+        console.warn("⚠️ Migration warning for weekly_report_day:", err.message);
+      }
+    }
+
+    // Add monthly_report_date column
+    try {
+      await db.promise().query(`
+        ALTER TABLE leads_report_settings
+        ADD COLUMN IF NOT EXISTS monthly_report_date INT DEFAULT 1 AFTER weekly_report_day
+      `);
+      console.log("✅ Added monthly_report_date to leads_report_settings");
+    } catch (err) {
+      if (err.code === "ER_DUP_FIELDNAME") {
+        console.log("✅ monthly_report_date already exists in leads_report_settings");
+      } else {
+        console.warn("⚠️ Migration warning for monthly_report_date:", err.message);
       }
     }
 

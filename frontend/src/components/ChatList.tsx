@@ -211,7 +211,7 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
             <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-[#F2F3F5]">
               <MoreVertical className="w-[16px] h-[16px]" style={{ color: "#65676B" }} />
             </Button>
-            <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border z-50 py-1" style={{ borderColor: "#E4E6EB" }}>
+            <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border z-50 py-1 invisible group-hover:visible" style={{ borderColor: "#E4E6EB" }}>
               <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium transition-colors hover:bg-[#F2F3F5]" style={{ color: "#E41E3F" }}>
                 <LogOut className="w-4 h-4" /> Keluar
               </button>

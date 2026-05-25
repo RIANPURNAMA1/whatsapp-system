@@ -1,25 +1,64 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
-  BarChart3,
-  Users,
-  RefreshCw,
-  UserX,
-  DollarSign,
-  Clock,
-  Filter,
-  AlertTriangle,
-  PieChart as PieChartIcon,
+  BarChart3, Users, UserX, DollarSign, Clock, AlertTriangle,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 
-const PERIODS = ["Hari ini", "Kemarin", "Minggu", "Bulan"];
+const FB = {
+  blue: "#1877F2",
+  blueLight: "#E7F3FF",
+  green: "#31A24C",
+  orange: "#F5A623",
+  red: "#E74C3C",
+  gray: "#65676B",
+  grayLight: "#E4E6EB",
+  grayBg: "#F0F2F5",
+  white: "#FFFFFF",
+};
 
-export const LeadAnalysisSection: React.FC = () => {
-  const [period, setPeriod] = useState("Minggu");
+type Period = "all" | "today" | "yesterday" | "week" | "month";
+
+const PERIODS: { key: Period; label: string }[] = [
+  { key: "all", label: "Semua" },
+  { key: "today", label: "Hari Ini" },
+  { key: "yesterday", label: "Kemarin" },
+  { key: "week", label: "Minggu Ini" },
+  { key: "month", label: "Bulan Ini" },
+];
+
+const CATEGORIES = [
+  { key: "usia", label: "Usia", color: FB.blue, icon: "🔴" },
+  { key: "biaya", label: "Biaya", color: FB.orange, icon: "🟡" },
+  { key: "bad", label: "BAD", color: FB.red, icon: "⚫" },
+];
+
+const ChartCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
+  <div className={`bg-white rounded-lg border border-[#E4E6EB] overflow-hidden ${className}`}>
+    {children}
+  </div>
+);
+
+const ChartHeader: React.FC<{ title: string; count?: number }> = ({ title, count }) => (
+  <div className="px-5 pt-4 pb-3 border-b border-[#E4E6EB] flex items-center justify-between">
+    <h3 className="text-[13px] font-semibold text-[#050505]">{title}</h3>
+    {count !== undefined && (
+      <span className="text-[11px] font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: FB.blueLight, color: FB.blue }}>
+        {count} data
+      </span>
+    )}
+  </div>
+);
+
+interface LeadAnalysisProps {
+  onBack?: () => void;
+}
+
+export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => {
+  const [period, setPeriod] = useState<Period>("week");
   const [sessionId, setSessionId] = useState("all");
   const [sessions, setSessions] = useState<any[]>([]);
   const [data, setData] = useState<any[]>([]);
@@ -71,229 +110,190 @@ export const LeadAnalysisSection: React.FC = () => {
     });
   };
 
-  const categoryMeta: Record<string, { label: string; icon: any; bg: string; text: string; light: string }> = {
-    usia: { label: "Usia", icon: Clock, bg: "bg-[#E7F3FF]", text: "text-[#1877F2]", light: "bg-[#E7F3FF]" },
-    biaya: { label: "Biaya", icon: DollarSign, bg: "bg-[#FFF8E7]", text: "text-[#F5A623]", light: "bg-[#FFF8E7]" },
-    bad: { label: "BAD", icon: UserX, bg: "bg-[#FFEBEE]", text: "text-red-500", light: "bg-[#FFEBEE]" },
-  };
+  const summaryCards = [
+    { label: "Total Analisis", value: summary.total, icon: "📊", bg: FB.blueLight, iconBg: FB.blue },
+    { label: "Kendala Usia", value: summary.usia, icon: "🔴", bg: FB.blueLight, iconBg: FB.blue },
+    { label: "Kendala Biaya", value: summary.biaya, icon: "🟡", bg: "#FFF8E7", iconBg: FB.orange },
+    { label: "BAD (Tidak Aktif)", value: summary.bad, icon: "⚫", bg: "#FFEBEE", iconBg: FB.red },
+  ];
+
+  const pieData = CATEGORIES
+    .map(c => ({ name: c.label, value: summary[c.key] || 0, color: c.color }))
+    .filter(d => d.value > 0);
+
+  const gridColor = FB.grayLight;
+  const axisColor = FB.gray;
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5]">
-      <div className=" mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen" style={{ backgroundColor: FB.grayBg }}>
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-5">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: FB.blue }}>
+              <BarChart3 className="w-5 h-5 text-white" />
+            </div>
             <div>
-              <h1 className="text-2xl font-bold text-[#050505] flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#1877F2] rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-white" />
-                </div>
-                Analisis Leads
-              </h1>
-              <p className="text-[#65676B] text-sm mt-1">
-                Kategorisasi kendala leads: Usia, Biaya, dan BAD
-              </p>
+              <h1 className="text-xl font-bold text-[#050505]">Analisis Leads</h1>
+              <p className="text-xs" style={{ color: FB.gray }}>Kategorisasi kendala leads: Usia, Biaya, dan BAD</p>
             </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <select value={period} onChange={e => setPeriod(e.target.value)}
-                className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-2.5 text-sm text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]">
-                {PERIODS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <select value={sessionId} onChange={e => setSessionId(e.target.value)}
-                className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-2.5 text-sm text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]">
-                <option value="all">Semua Device</option>
-                {sessions.filter((s: any) => s.status === "connected").map((s: any) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-              <button onClick={fetchData} disabled={isLoading}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-[#1877F2] text-white hover:bg-[#166FE5] disabled:bg-[#E4E6EB] disabled:text-[#65676B]">
-                {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Filter className="w-4 h-4" />}
-                {isLoading ? "Memuat..." : "Tampilkan"}
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={sessionId} onChange={e => setSessionId(e.target.value)}
+              className="h-8 px-3 text-xs border rounded-lg bg-white" style={{ borderColor: FB.grayLight, color: FB.gray }}>
+              <option value="all">Semua Device</option>
+              {sessions.filter((s: any) => s.status === "connected").map((s: any) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            {onBack && (
+              <button onClick={onBack}
+                className="h-8 px-4 text-xs font-semibold rounded-lg border transition-all hover:bg-slate-50"
+                style={{ borderColor: "#CCD0D5", color: FB.gray }}>
+                Kembali
               </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg border border-[#E4E6EB]">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-[#1877F2]" />
-              </div>
-              <p className="text-sm text-[#65676B]">Total Analisis</p>
-            </div>
-            <p className="text-3xl font-bold text-[#050505]">{summary.total}</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg border border-[#E4E6EB]">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-[#1877F2]" />
-              </div>
-              <p className="text-sm text-[#65676B]">Kendala Usia</p>
-            </div>
-            <p className="text-3xl font-bold text-[#1877F2]">{summary.usia}</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg border border-[#E4E6EB]">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-[#FFF8E7] rounded-lg flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-[#F5A623]" />
-              </div>
-              <p className="text-sm text-[#65676B]">Kendala Biaya</p>
-            </div>
-            <p className="text-3xl font-bold text-[#F5A623]">{summary.biaya}</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg border border-[#E4E6EB]">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-[#FFEBEE] rounded-lg flex items-center justify-center">
-                <UserX className="w-5 h-5 text-red-500" />
-              </div>
-              <p className="text-sm text-[#65676B]">BAD (Tidak Aktif)</p>
-            </div>
-            <p className="text-3xl font-bold text-red-500">{summary.bad}</p>
-          </div>
-        </div>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Pie Chart */}
-          <div className="bg-white p-6 rounded-lg border border-[#E4E6EB]">
-            <div className="flex items-center gap-3 mb-4">
-              <PieChartIcon className="w-5 h-5 text-[#1877F2]" />
-              <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">Distribusi Kategori</h2>
-            </div>
-            {summary.total > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: "Usia", value: summary.usia, color: "#1877F2" },
-                      { name: "Biaya", value: summary.biaya, color: "#F5A623" },
-                      { name: "BAD", value: summary.bad, color: "#EF4444" },
-                    ].filter(d => d.value > 0)}
-                    cx="50%" cy="50%" innerRadius={60} outerRadius={100}
-                    paddingAngle={4} dataKey="value"
-                  >
-                    {[
-                      { name: "Usia", color: "#1877F2" },
-                      { name: "Biaya", color: "#F5A623" },
-                      { name: "BAD", color: "#EF4444" },
-                    ].filter(d => {
-                      const val = d.name === "Usia" ? summary.usia : d.name === "Biaya" ? summary.biaya : summary.bad;
-                      return val > 0;
-                    }).map((d, i) => (
-                      <Cell key={i} fill={d.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend
-                    formatter={(value) => <span className="text-sm text-[#050505]">{value}</span>}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[260px] text-[#65676B] text-sm">
-                Belum ada data
-              </div>
-            )}
-          </div>
-
-          {/* Bar Chart Per Device */}
-          <div className="bg-white p-6 rounded-lg border border-[#E4E6EB]">
-            <div className="flex items-center gap-3 mb-4">
-              <BarChart3 className="w-5 h-5 text-[#1877F2]" />
-              <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">Per Device</h2>
-            </div>
-            {deviceData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={deviceData} barSize={20}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E4E6EB" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#65676B" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "#65676B" }} />
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="usia" name="Usia" fill="#1877F2" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="biaya" name="Biaya" fill="#F5A623" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="bad" name="BAD" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[260px] text-[#65676B] text-sm">
-                Belum ada data
-              </div>
             )}
           </div>
         </div>
 
-        {/* Detail Table */}
-        <div className="bg-white rounded-lg border border-[#E4E6EB] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#E4E6EB] bg-[#F0F2F5]">
-            <div className="flex items-center gap-3">
-              <BarChart3 className="w-5 h-5 text-[#1877F2]" />
-              <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">Detail Analisis</h2>
-              <span className="text-xs font-semibold bg-[#E7F3FF] text-[#1877F2] px-3 py-1 rounded-full ml-auto">
-                {data.length} data
-              </span>
-            </div>
-          </div>
+        {/* Date Filter */}
+        <div className="bg-white rounded-lg border p-3 mb-4 flex flex-wrap items-center gap-2" style={{ borderColor: FB.grayLight }}>
+          {PERIODS.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                period === p.key ? "text-white" : "text-slate-600 hover:bg-slate-100"
+              }`}
+              style={period === p.key ? { backgroundColor: FB.blue } : {}}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16"><RefreshCw className="w-8 h-8 animate-spin text-[#E4E6EB]" /></div>
-          ) : data.length === 0 ? (
-            <div className="flex flex-col items-center py-16 text-center">
-              <AlertTriangle className="w-12 h-12 text-[#E4E6EB] mb-4" />
-              <p className="text-[#65676B] font-medium">Belum ada data analisis</p>
-              <p className="text-xs text-[#65676B] mt-1">Data akan muncul setelah admin merespon dengan kendala usia/biaya atau lead tidak aktif</p>
+        {/* Loading */}
+        {isLoading ? (
+          <div className="p-12 text-center">
+            <div className="w-8 h-8 border-4 rounded-full animate-spin mx-auto mb-2" style={{ borderColor: FB.grayLight, borderTopColor: FB.blue }} />
+            <p className="text-sm" style={{ color: FB.gray }}>Memuat data...</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {summaryCards.map((card, i) => (
+                <div key={i} className="bg-white rounded-lg border p-4" style={{ borderColor: FB.grayLight }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: card.bg, color: card.iconBg }}>
+                      {card.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-lg font-bold leading-tight text-[#050505]">{card.value}</p>
+                      <p className="text-[11px] font-medium truncate" style={{ color: FB.gray }}>{card.label}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : (
-            <div className="overflow-x-auto p-4">
-              <table className="w-full text-sm text-left text-[#050505]">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-3 font-semibold text-[#65676B] bg-[#F0F2F5]">Kontak</th>
-                    <th className="px-4 py-3 font-semibold text-[#65676B] bg-[#F0F2F5]">Device</th>
-                    <th className="px-4 py-3 font-semibold text-[#65676B] bg-[#F0F2F5]">Kategori</th>
-                    <th className="px-4 py-3 font-semibold text-[#65676B] bg-[#F0F2F5]">Chat Pertama</th>
-                    <th className="px-4 py-3 font-semibold text-[#65676B] bg-[#F0F2F5]">Terdeteksi</th>
-                    <th className="px-4 py-3 font-semibold text-[#65676B] bg-[#F0F2F5]">Keterangan</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map((d: any, i: number) => {
-                    const meta = categoryMeta[d.category] || { label: d.category, icon: AlertTriangle, bg: "bg-[#F0F2F5]", text: "text-[#65676B]", light: "bg-[#F0F2F5]" };
-                    const Icon = meta.icon || AlertTriangle;
-                    return (
-                      <tr key={i} className="hover:bg-[#F2F3F5] border-b border-[#E4E6EB]">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 bg-[#1877F2]">
-                              {d.contact_name?.charAt(0)?.toUpperCase() || "?"}
-                            </div>
-                            <span className="font-semibold text-[#050505]">{d.contact_name || d.chat_jid.split('@')[0]}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[#65676B]">{d.session_name || d.session_id}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${meta.bg} ${meta.text}`}>
-                            <Icon className="w-3.5 h-3.5" />
-                            {meta.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[#65676B]">{formatDate(d.first_chat_time)}</td>
-                        <td className="px-4 py-3 text-xs text-[#65676B]">{formatDate(d.detected_at)}</td>
-                        <td className="px-4 py-3 text-xs text-[#65676B]">{d.notes || "-"}</td>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <ChartCard>
+                <ChartHeader title="Distribusi Kategori" />
+                <div className="p-2" style={{ height: 280 }}>
+                  {pieData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-sm" style={{ color: FB.gray }}>Belum ada data</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value">
+                          {pieData.map((d, i) => (
+                            <Cell key={i} fill={d.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ border: `1px solid ${gridColor}`, borderRadius: 8 }} />
+                        <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} formatter={(v) => <span style={{ color: "#050505" }}>{v}</span>} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </ChartCard>
+
+              <ChartCard>
+                <ChartHeader title="Perbandingan Perangkat" />
+                <div className="p-2" style={{ height: 280 }}>
+                  {deviceData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-sm" style={{ color: FB.gray }}>Belum ada data</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={deviceData} barSize={20} margin={{ top: 16, right: 16, left: -16, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                        <XAxis dataKey="name" tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ border: `1px solid ${gridColor}`, borderRadius: 8 }} />
+                        <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                        <Bar dataKey="usia" name="Usia" fill={FB.blue} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="biaya" name="Biaya" fill={FB.orange} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="bad" name="BAD" fill={FB.red} radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </ChartCard>
+            </div>
+
+            {/* Detail Table */}
+            <ChartCard>
+              <ChartHeader title="Detail Analisis" count={data.length} />
+              {data.length === 0 ? (
+                <div className="flex flex-col items-center py-16 text-center">
+                  <AlertTriangle className="w-12 h-12 mb-4" style={{ color: FB.grayLight }} />
+                  <p className="font-medium" style={{ color: FB.gray }}>Belum ada data analisis</p>
+                  <p className="text-xs mt-1" style={{ color: FB.gray }}>Data akan muncul setelah admin merespon dengan kendala usia/biaya atau lead tidak aktif</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse" style={{ borderColor: FB.grayLight }}>
+                    <thead>
+                      <tr>
+                        {["Kontak", "Device", "Kategori", "Chat Pertama", "Terdeteksi", "Keterangan"].map((h) => (
+                          <th key={h} className="px-4 py-3 text-left font-semibold text-[11px] uppercase tracking-wide border" style={{ color: FB.gray, borderColor: FB.grayLight, backgroundColor: FB.grayBg }}>{h}</th>
+                        ))}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                    </thead>
+                    <tbody>
+                      {data.map((d: any, i: number) => {
+                        const cat = CATEGORIES.find(c => c.key === d.category);
+                        return (
+                          <tr key={i} className="hover:bg-[#F5F6F8] transition-colors">
+                            <td className="px-4 py-3 border" style={{ borderColor: FB.grayLight }}>
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ backgroundColor: cat?.color || FB.blue }}>
+                                  {d.contact_name?.charAt(0)?.toUpperCase() || "?"}
+                                </div>
+                                <span className="font-semibold text-[#050505]">{d.contact_name || d.chat_jid?.split('@')[0]}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 border text-xs" style={{ color: FB.gray, borderColor: FB.grayLight }}>{d.session_name || d.session_id}</td>
+                            <td className="px-4 py-3 border" style={{ borderColor: FB.grayLight }}>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: cat ? cat.color + "18" : FB.grayBg, color: cat?.color || FB.gray }}>
+                                {d.category}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 border text-xs" style={{ color: FB.gray, borderColor: FB.grayLight }}>{formatDate(d.first_chat_time)}</td>
+                            <td className="px-4 py-3 border text-xs" style={{ color: FB.gray, borderColor: FB.grayLight }}>{formatDate(d.detected_at)}</td>
+                            <td className="px-4 py-3 border text-xs" style={{ color: FB.gray, borderColor: FB.grayLight }}>{d.notes || "-"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </ChartCard>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -173,7 +173,7 @@ router.post("/login", async (req, res) => {
       SELECT 
         u.id, u.username, u.password, u.full_name, u.branch,
         r.name as role_name, 
-        r.type as role_type  -- Mengambil ENUM('system', 'custom') dari tabel sys_roles
+        r.type as role_type  -- Mengambil ENUM('system', 'manager', 'custom', 'tiktok_operator') dari tabel sys_roles
       FROM wa_users u
       LEFT JOIN sys_roles r ON u.role_id = r.id
       WHERE u.username = ?
@@ -198,7 +198,6 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       { id: user.id, role_type: user.role_type },
       JWT_SECRET,
-      { expiresIn: "24h" },
     );
 
     // Kirim objek user yang bersih ke frontend
@@ -227,10 +226,9 @@ router.post("/login", async (req, res) => {
 // PUT: Update Role
 router.put("/roles/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, description } = req.body;
+  const { name, description, type } = req.body;
 
   try {
-    // Cek apakah role exists dan bukan role sistem
     const role = await queryOne("SELECT type FROM sys_roles WHERE id = ?", [
       id,
     ]);
@@ -241,12 +239,15 @@ router.put("/roles/:id", async (req, res) => {
     if (role.type === "system")
       return res.status(403).json({
         success: false,
-        message: "Role sistem tidak boleh diubah namanya",
+        message: "Role sistem tidak boleh diubah",
       });
 
-    await query("UPDATE sys_roles SET name = ?, description = ? WHERE id = ?", [
+    const roleType = ['system', 'manager', 'custom', 'tiktok_operator'].includes(type) ? type : role.type;
+
+    await query("UPDATE sys_roles SET name = ?, description = ?, type = ? WHERE id = ?", [
       name,
       description,
+      roleType,
       id,
     ]);
 
@@ -273,16 +274,18 @@ router.get("/roles", async (req, res) => {
 
 // POST: Tambah Role Baru
 router.post("/roles", async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description, type } = req.body;
   if (!name)
     return res
       .status(400)
       .json({ success: false, message: "Nama role wajib diisi" });
 
+  const roleType = ['system', 'manager', 'custom', 'tiktok_operator'].includes(type) ? type : 'custom';
+
   try {
     const result = await query(
-      "INSERT INTO sys_roles (name, description, type) VALUES (?, ?, 'custom')",
-      [name, description],
+      "INSERT INTO sys_roles (name, description, type) VALUES (?, ?, ?)",
+      [name, description, roleType],
     );
     res.json({
       success: true,
@@ -3751,19 +3754,19 @@ router.get("/leads-report/settings", authenticateToken, async (req, res) => {
 // POST: Update leads report settings
 router.post("/leads-report/settings", authenticateToken, async (req, res) => {
   try {
-    const { isEnabled, reportTime, reportDays, targetGroups, queueDelay } = req.body;
+    const { isEnabled, reportTime, reportDays, targetGroups, queueDelay, reportFrequency, weeklyReportDay, monthlyReportDate } = req.body;
 
     const hasExisting = await queryOne("SELECT id FROM leads_report_settings LIMIT 1");
 
     if (hasExisting) {
       await query(
-        `UPDATE leads_report_settings SET is_enabled = ?, report_time = ?, report_days = ?, target_groups = ?, queue_delay = ?, last_sent_date = NULL WHERE id = ?`,
-        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || []), queueDelay || 3000, hasExisting.id]
+        `UPDATE leads_report_settings SET is_enabled = ?, report_time = ?, report_days = ?, target_groups = ?, queue_delay = ?, report_frequency = ?, weekly_report_day = ?, monthly_report_date = ?, last_sent_date = NULL WHERE id = ?`,
+        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || []), queueDelay || 3000, reportFrequency || 'daily', weeklyReportDay || 1, monthlyReportDate || 1, hasExisting.id]
       );
     } else {
       await query(
-        `INSERT INTO leads_report_settings (is_enabled, report_time, report_days, target_groups, queue_delay) VALUES (?, ?, ?, ?, ?)`,
-        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || []), queueDelay || 3000]
+        `INSERT INTO leads_report_settings (is_enabled, report_time, report_days, target_groups, queue_delay, report_frequency, weekly_report_day, monthly_report_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [isEnabled ? 1 : 0, reportTime || "17:00:00", reportDays || "1,2,3,4,5", JSON.stringify(targetGroups || []), queueDelay || 3000, reportFrequency || 'daily', weeklyReportDay || 1, monthlyReportDate || 1]
       );
     }
 
@@ -3793,11 +3796,12 @@ router.get("/leads-report/groups", authenticateToken, async (req, res) => {
 // GET: Get leads report data for table display
 router.get("/leads-report/data", authenticateToken, async (req, res) => {
   try {
-    const { sessionId, startDate, endDate } = req.query;
+    const { sessionId, startDate, endDate, period } = req.query;
+    const periodType = period || 'daily';
     const { generateDeviceReport, generateLeadsReport } = await import("./services/leadsReportService.js");
 
     if (sessionId && sessionId !== "all") {
-      const report = await generateDeviceReport(sessionId, startDate, endDate);
+      const report = await generateDeviceReport(sessionId, startDate, endDate, periodType);
       if (!report) {
         return res.status(404).json({ success: false, message: "Device tidak ditemukan" });
       }
@@ -3817,7 +3821,7 @@ router.get("/leads-report/data", authenticateToken, async (req, res) => {
       });
     }
 
-    const report = await generateLeadsReport(startDate, endDate);
+    const report = await generateLeadsReport(startDate, endDate, periodType);
     res.json({ success: true, data: report });
   } catch (err) {
     console.error("Error get leads report data:", err);
@@ -3828,7 +3832,8 @@ router.get("/leads-report/data", authenticateToken, async (req, res) => {
 // POST: Generate and send leads report now - per device with queue
 router.post("/leads-report/send-now", authenticateToken, async (req, res) => {
   try {
-    const { groupJids, sessionId } = req.body;
+    const { groupJids, sessionId, period } = req.body;
+    const periodType = period || 'daily';
     if (!groupJids || groupJids.length === 0) {
       return res.status(400).json({ success: false, message: "Pilih minimal 1 grup tujuan" });
     }
@@ -3843,7 +3848,7 @@ router.post("/leads-report/send-now", authenticateToken, async (req, res) => {
 
     if (sessionId) {
       // Send report for specific device only
-      const report = await generateDeviceReport(sessionId);
+      const report = await generateDeviceReport(sessionId, null, null, periodType);
       if (!report) {
         return res.status(404).json({ success: false, message: "Device tidak ditemukan" });
       }
@@ -3867,7 +3872,7 @@ router.post("/leads-report/send-now", authenticateToken, async (req, res) => {
           const session = activeSessions[i];
           try {
             console.log(`[Queue] Processing device ${i + 1}/${activeSessions.length}: ${session.name}`);
-            const report = await generateDeviceReport(session.id);
+            const report = await generateDeviceReport(session.id, null, null, periodType);
             if (!report) {
               console.log(`[Queue] Skip ${session.name}: no report generated`);
               continue;

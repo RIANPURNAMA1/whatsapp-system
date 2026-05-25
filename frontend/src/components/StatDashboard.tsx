@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Clock,
   Users,
+  Timer,
 } from "lucide-react";
 import useStore from "../store/useStore";
 import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
@@ -22,7 +23,11 @@ import AIAnalyticSection from "./AIAnalyticSection";
 import LabelSection from "./LabelSection";
 import SocialLeadsSection from "./SocialLeadsSection";
 import OverallLeadsCard from "./stats/OverallLeadsCard";
+import { BarChart3 } from "lucide-react";
 import ClosingStatCard from "./stats/ClosingStatCard";
+import TikTokAnalyticsDashboard from "./live/LiveAnalyticsDashboard";
+import LeadAnalysisSection from "./LeadAnalysisSection";
+import TrafficClosingSection from "./TrafficClosingSection";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -59,6 +64,9 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
   const [allLabels, setAllLabels] = useState<any[]>([]);
   const [loadingLabels, setLoadingLabels] = useState(false);
   const [labelDeviceFilter, setLabelDeviceFilter] = useState("all");
+  const [showTikTokModal, setShowTikTokModal] = useState(false);
+  const [showLeadAnalysis, setShowLeadAnalysis] = useState(false);
+  const [showTrafficClosing, setShowTrafficClosing] = useState(false);
   const [data, setData] = useState<any>({
     stats: {
       pesanMasukAllTime: 0, pesanMasukToday: 0, pesanKeluar: 0,
@@ -221,6 +229,18 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
     { name: "Tak Terjawab", value: data.stats.unanswered || 0, color: "#ef4444" },
   ], [data.stats]);
 
+  if (showTikTokModal) {
+    return <TikTokAnalyticsDashboard onBack={() => setShowTikTokModal(false)} />;
+  }
+
+  if (showLeadAnalysis) {
+    return <LeadAnalysisSection onBack={() => setShowLeadAnalysis(false)} />;
+  }
+
+  if (showTrafficClosing) {
+    return <TrafficClosingSection onBack={() => setShowTrafficClosing(false)} />;
+  }
+
   if (loading && !data.stats.pesanMasukAllTime) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#F0F2F5" }}>
@@ -261,6 +281,24 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
               </h1>
               <p className="text-xs" style={{ color: "#65676B" }}>Satu Pintu — Monitoring</p>
             </div>
+            <button onClick={() => setShowTikTokModal(true)}
+              className={`h-8 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90 ${showTikTokModal ? 'ring-2 ring-offset-1' : ''}`}
+              style={{ backgroundColor: "#EE1D52", color: "#FFFFFF" }}>
+              <BarChart3 className="w-3.5 h-3.5" />
+              Live TikTok
+            </button>
+            <button onClick={() => setShowLeadAnalysis(true)}
+              className="h-8 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90"
+              style={{ backgroundColor: "#1877F2", color: "#FFFFFF" }}>
+              <BarChart3 className="w-3.5 h-3.5" />
+              Analisis Leads
+            </button>
+            <button onClick={() => setShowTrafficClosing(true)}
+              className="h-8 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90"
+              style={{ backgroundColor: "#F5A623", color: "#FFFFFF" }}>
+              <Timer className="w-3.5 h-3.5" />
+              Trafik & Penutupan
+            </button>
           </div>
 
           <div className="flex items-center gap-2">

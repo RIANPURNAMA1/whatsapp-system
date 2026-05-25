@@ -129,6 +129,25 @@ export const tiktokTables = [
     UNIQUE KEY unique_user_date (user_id, date),
     INDEX (date)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+  // TikTok Live Reports
+  `CREATE TABLE IF NOT EXISTS tiktok_live_reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    image_url TEXT NOT NULL,
+    image_filename VARCHAR(255),
+    extracted_text LONGTEXT,
+    ocr_confidence DECIMAL(5,2),
+    report_title VARCHAR(255),
+    report_description TEXT,
+    status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX (user_id),
+    INDEX (status),
+    INDEX (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 
 export async function migrateTikTokTables() {
@@ -144,6 +163,35 @@ export async function migrateTikTokTables() {
     }
   }
   
+  // Add new columns for parsed TikTok live data
+  const alterQueries = [
+    `ALTER TABLE tiktok_live_reports 
+     ADD COLUMN IF NOT EXISTS viewers VARCHAR(50) DEFAULT NULL AFTER ocr_confidence`,
+    `ALTER TABLE tiktok_live_reports 
+     ADD COLUMN IF NOT EXISTS diamonds VARCHAR(50) DEFAULT NULL AFTER viewers`,
+    `ALTER TABLE tiktok_live_reports 
+     ADD COLUMN IF NOT EXISTS live_duration VARCHAR(50) DEFAULT NULL AFTER diamonds`,
+    `ALTER TABLE tiktok_live_reports 
+     ADD COLUMN IF NOT EXISTS gift_givers VARCHAR(50) DEFAULT NULL AFTER live_duration`,
+    `ALTER TABLE tiktok_live_reports 
+     ADD COLUMN IF NOT EXISTS new_followers VARCHAR(50) DEFAULT NULL AFTER gift_givers`,
+    `ALTER TABLE tiktok_live_reports 
+     ADD COLUMN IF NOT EXISTS comments_count VARCHAR(50) DEFAULT NULL AFTER new_followers`,
+    `ALTER TABLE tiktok_live_reports 
+     ADD COLUMN IF NOT EXISTS leads_data JSON DEFAULT NULL AFTER comments_count`,
+  ];
+
+  for (const alterQuery of alterQueries) {
+    try {
+      await query(alterQuery);
+    } catch (err) {
+      // Ignore if column already exists
+      if (!err.message.includes("Duplicate column")) {
+        console.error("❌ Error altering tiktok_live_reports:", err.message);
+      }
+    }
+  }
+
   console.log("✅ TikTok tables migration completed");
 }
 

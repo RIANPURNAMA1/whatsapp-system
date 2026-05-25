@@ -27,7 +27,8 @@ import { KeywordManager } from "../components/KeywordManager";
 import { LinkRotatorSection } from "../components/LinkRotatorSection";
 import AISettingPage from "../components/AISettingPage";
 import GroupList from "@/components/Grouplist";
-import TikTokPanel from "../components/tiktok/TikTokPanel";
+import TikTokPanel from "../components/live/LivePanel";
+import { TikTokLiveReportPage } from "../components/live/LiveReport";
 import { LeadsReportPage } from "./LeadsReportPage";
 import { TrafficClosingSection } from "../components/TrafficClosingSection";
 import { LeadAnalysisSection } from "../components/LeadAnalysisSection";
@@ -36,7 +37,7 @@ import type { GroupChat } from "../types/Group";
 interface UserData {
   id: number;
   username: string;
-  role_type: "system" | "manager" | "custom";
+  role_type: "system" | "manager" | "custom" | "tiktok_operator";
   branch: string;
   full_name?: string;
 }
@@ -65,9 +66,11 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
 
   // 2. Local State
   const [activeTab, setActiveTab] = useState<string>(
-    user?.role_type === "system" || user?.role_type === "manager"
-      ? "dashboard"
-      : "chats",
+    user?.role_type === "tiktok_operator"
+      ? "tiktok-live-report"
+      : user?.role_type === "system" || user?.role_type === "manager"
+        ? "dashboard"
+        : "chats",
   );
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -231,6 +234,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
           "link-rotator",
           "ai-setting",
           "tiktok",
+          "tiktok-live-report",
           "leads-report",
           "traffic-closing",
           "lead-analysis",
@@ -308,6 +312,12 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
             {activeTab === "tiktok" && (
               <div className="flex-1 overflow-y-auto h-full">
                 <TikTokPanel onBack={() => setActiveTab("chats")} />
+              </div>
+            )}
+
+            {activeTab === "tiktok-live-report" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <TikTokLiveReportPage />
               </div>
             )}
 

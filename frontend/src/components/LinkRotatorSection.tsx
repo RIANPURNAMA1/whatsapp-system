@@ -119,13 +119,13 @@ export const LinkRotatorSection: React.FC = () => {
     setLoading(true);
     try {
       const { data } = await api.get("/rotators");
-      const result = Array.isArray(data?.data) ? data.data : data || [];
+      const result = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       setRotators(result);
 
       const { data: statsRes } = await api.get("/rotators/stats", {
         params: { period },
       });
-      if (statsRes.success) {
+      if (statsRes?.success) {
         setTotalPeriodClicks(statsRes.data.total_clicks || 0);
         setSourceBreakdown(statsRes.data.source_breakdown || {});
         const map: Record<number, number> = {};
@@ -283,16 +283,18 @@ export const LinkRotatorSection: React.FC = () => {
     fetchClickLogs(item.id, 1);
   };
 
+  const safeRotators = Array.isArray(rotators) ? rotators : [];
+
   const filteredData = useMemo(() =>
-    rotators.filter(
+    safeRotators.filter(
       (item) =>
         (item.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.short_code || item.shortCode || "").toLowerCase().includes(searchTerm.toLowerCase()),
     ),
-    [rotators, searchTerm],
+    [safeRotators, searchTerm],
   );
 
-  const totalClicks = useMemo(() => rotators.reduce((acc, r) => acc + (r.clicks || 0), 0), [rotators]);
+  const totalClicks = useMemo(() => safeRotators.reduce((acc, r) => acc + (r.clicks || 0), 0), [safeRotators]);
 
   return (
     <div className="min-h-screen bg-[#F0F2F5]">
@@ -335,7 +337,7 @@ export const LinkRotatorSection: React.FC = () => {
                 <LinkIcon className="w-5 h-5" style={{ color: "#1877F2" }} />
               </div>
               <div>
-                <p className="text-xl font-bold" style={{ color: "#050505" }}>{rotators.length}</p>
+                <p className="text-xl font-bold" style={{ color: "#050505" }}>{safeRotators.length}</p>
                 <p className="text-[11px]" style={{ color: "#65676B" }}>Total Link</p>
               </div>
             </div>

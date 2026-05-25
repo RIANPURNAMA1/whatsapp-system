@@ -8,11 +8,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import routes from "./routes.js";
-import tiktokRoutes from "./routes/tiktok.js";
+import tiktokRoutes from "./routes/live.js";
+import tiktokLiveReportRoutes from "./routes/liveReportRoutes.js";
 import rotatorPublicRoutes from "./routes/rotatorPublicRoutes.js";
 import publicTrackedLinkRoutes from "./routes/publicTrackedLinkRoutes.js";
 import { createSession } from "./whatsapp.js";
-import { migrateTikTokTables } from "./db_tiktok.js";
+import { migrateTikTokTables } from "./db_live.js";
 import { query, queryOne, ensureDbReady } from "./db.js";
 
 dotenv.config();
@@ -62,6 +63,7 @@ app.use("/", publicTrackedLinkRoutes);
 // ===============================================
 app.use("/api", routes);
 app.use("/api/tiktok", tiktokRoutes);
+app.use("/api/tiktok-live-reports", tiktokLiveReportRoutes);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 // Health check
 app.get("/health", (req, res) => {
@@ -92,6 +94,7 @@ async function checkAndSendScheduledReport() {
 
     const now = new Date();
     const currentDay = now.getDay(); // 0=Minggu, 1=Senin, ...
+    const currentDate = now.getDate();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     const todayStr = now.toISOString().split("T")[0];
@@ -99,9 +102,21 @@ async function checkAndSendScheduledReport() {
     // Skip if already sent today (check DB)
     if (settings.last_sent_date === todayStr) return;
 
-    // Check if today is in the scheduled days
-    const allowedDays = (settings.report_days || "1,2,3,4,5").split(",").map((d) => parseInt(d.trim()));
-    if (!allowedDays.includes(currentDay)) return;
+    const frequency = settings.report_frequency || 'daily';
+
+    if (frequency === 'daily') {
+      // Check if today is in the scheduled days
+      const allowedDays = (settings.report_days || "1,2,3,4,5").split(",").map((d) => parseInt(d.trim()));
+      if (!allowedDays.includes(currentDay)) return;
+    } else if (frequency === 'weekly') {
+      // Check if today is the scheduled day of week
+      const weeklyDay = settings.weekly_report_day !== null ? parseInt(settings.weekly_report_day) : 1;
+      if (currentDay !== weeklyDay) return;
+    } else if (frequency === 'monthly') {
+      // Check if today is the scheduled date of month
+      const monthlyDate = settings.monthly_report_date !== null ? parseInt(settings.monthly_report_date) : 1;
+      if (currentDate !== monthlyDate) return;
+    }
 
     // Parse report time (HH:MM)
     const reportTime = settings.report_time ? settings.report_time.substring(0, 5) : "17:00";
@@ -127,7 +142,7 @@ async function checkAndSendScheduledReport() {
     // Mark as sent in DB BEFORE sending to prevent duplicate if interval fires again
     await query("UPDATE leads_report_settings SET last_sent_date = ? WHERE id = ?", [todayStr, settings.id]);
 
-    console.log(`📊 Mengirim laporan leads per device ke ${targetGroups.length} grup...`);
+    console.log(`📊 Mengirim laporan leads ${frequency} per device ke ${targetGroups.length} grup...`);
 
     const { generateDeviceReport, sendReportToGroups } = await import("./services/leadsReportService.js");
 
@@ -140,10 +155,10 @@ async function checkAndSendScheduledReport() {
     for (let i = 0; i < activeSessions.length; i++) {
       const session = activeSessions[i];
       try {
-        console.log(`📊 [${i + 1}/${activeSessions.length}] Generating report for device: ${session.name} (${session.id})`);
+        console.log(`📊 [${i + 1}/${activeSessions.length}] Generating ${frequency} report for device: ${session.name} (${session.id})`);
 
         // Generate report for this device only
-        const report = await generateDeviceReport(session.id);
+        const report = await generateDeviceReport(session.id, null, null, frequency);
         if (!report) continue;
 
         // Send to groups using this specific session

@@ -14,7 +14,11 @@ import {
 
 const PERIODS = ["Hari ini", "Kemarin", "Minggu", "Bulan", "Custom"];
 
-export const TrafficClosingSection: React.FC = () => {
+interface TrafficClosingProps {
+  onBack?: () => void;
+}
+
+export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack }) => {
   const [period, setPeriod] = useState("Minggu");
   const [sessionId, setSessionId] = useState("all");
   const [startDate, setStartDate] = useState("");
@@ -165,6 +169,13 @@ export const TrafficClosingSection: React.FC = () => {
                 {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Filter className="w-4 h-4" />}
                 {isLoading ? "Memuat..." : "Tampilkan"}
               </button>
+              {onBack && (
+                <button onClick={onBack}
+                  className="h-9 px-4 text-sm font-semibold rounded-lg border transition-all hover:bg-slate-50"
+                  style={{ borderColor: "#CCD0D5", color: "#65676B" }}>
+                  Kembali
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 // Authentication Middleware
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "satu-pintu-secret-key-2024";
+const JWT_SECRET = process.env.JWT_SECRET || "918cfb63fffbbc45a16b96beb5fca0deb9a33f0b2180997cc2f15b2affeab1e393c1630e3e9cb02aaf3fe5ae64fbaad1e5c03df2bbe29ca4ba9792c5c1f7ad0a";
 
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];

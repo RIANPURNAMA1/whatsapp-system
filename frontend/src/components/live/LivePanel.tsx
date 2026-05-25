@@ -17,7 +17,7 @@ import {
   ToggleRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import useTikTok from "../../hooks/useTikTok";
+import useTikTok from "../../hooks/useLive";
 
 interface TikTokPanelProps {
   onBack?: () => void;
