@@ -1730,7 +1730,7 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
 
     if (dbKeywords.length === 0) return res.json({ success: true, data: [] });
 
-    let allowedSessions = (roleType === "system" || roleType === "manager")
+    let allowedSessions = (roleType === "system" || roleType === "manager" || roleType === "tiktok_operator")
       ? await query("SELECT id FROM wa_sessions")
       : await query("SELECT session_id as id FROM wa_user_sessions WHERE user_id = ?", [userId]);
 
