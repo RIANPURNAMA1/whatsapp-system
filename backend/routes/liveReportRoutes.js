@@ -170,7 +170,7 @@ router.get("/", authenticateToken, async (req, res) => {
     const { startDate, endDate } = req.query;
 
     let dateFilter = "";
-    const params: any[] = [userId];
+    const params = [userId];
 
     if (startDate) {
       dateFilter += " AND created_at >= ?";

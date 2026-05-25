@@ -85,7 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               { id: "link-rotator", title: "Rotator Tautan", icon: <Link2 className="w-[18px] h-[18px]" /> },
               { id: "ai-setting", title: "Asisten AI", icon: <Bot className="w-[18px] h-[18px]" /> },
               { id: "leads-report", title: "Laporan Performa", icon: <FileText className="w-[18px] h-[18px]" /> },
-              { id: "tiktok-live-report", title: "Laporan Live TikTok", icon: <Video className="w-[18px] h-[18px]" /> },
+              { id: "tiktok-live-report", title: "Laporan Live", icon: <Video className="w-[18px] h-[18px]" /> },
             ],
           }]
         : []),
