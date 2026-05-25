@@ -345,7 +345,13 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
                     <tbody>
                       {data.map((r) => {
                         const leads = (() => {
-                          try { const d = typeof r.leads_data === "string" ? JSON.parse(r.leads_data) : r.leads_data; return Array.isArray(d) ? d.length : "-"; } catch { return "-"; }
+                          try {
+                            const d = typeof r.leads_data === "string" ? JSON.parse(r.leads_data) : r.leads_data;
+                            if (!d) return "-";
+                            if (typeof d.total === "number") return d.total;
+                            if (Array.isArray(d)) return d.length;
+                            return "-";
+                          } catch { return "-"; }
                         })();
                         return (
                           <tr key={r.id} className="hover:bg-[#F5F6F8] transition-colors">

@@ -80,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             id: "marketing",
             label: "Marketing & Analitik",
             items: [
-              { id: "dashboard", title: "Ringkasan Eksekutif", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
+              { id: "dashboard", title: "Dashboard", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
               { id: "keyword-management", title: "Kata Kunci Pengikat", icon: <KeyRound className="w-[18px] h-[18px]" /> },
               { id: "link-rotator", title: "Rotator Tautan", icon: <Link2 className="w-[18px] h-[18px]" /> },
               { id: "ai-setting", title: "Asisten AI", icon: <Bot className="w-[18px] h-[18px]" /> },

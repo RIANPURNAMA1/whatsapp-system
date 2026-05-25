@@ -62,7 +62,7 @@ interface ConfirmData {
   gift_givers?: string;
   new_followers?: string;
   comments_count?: string;
-  leads_data?: LeadItem[];
+  leads_data?: LeadItem[] | { total: number; platforms: Record<string, string>; items: LeadItem[] };
 }
 
 export const tiktokLiveReportService = {
@@ -141,14 +141,14 @@ export const tiktokLiveReportService = {
   },
 
   /**
-   * Get TikTok leads from chats/leads-only
+   * Get all leads from chats/leads-only (all sources)
    */
-  async getTikTokLeads(): Promise<LeadItem[]> {
-    const response = await api.get<{ success: boolean; data: LeadItem[] }>(
-      `/chats/leads-only`
-    );
-    const allLeads = response.data.data || [];
-    return allLeads.filter(l => l.lead_source?.toLowerCase() === 'tiktok');
+  async getAllLeads(params?: { startDate?: string; endDate?: string }): Promise<LeadItem[]> {
+    let url = `/chats/leads-only`;
+    if (params?.startDate) url += `?startDate=${params.startDate}`;
+    if (params?.endDate) url += `${params?.startDate ? '&' : '?'}endDate=${params.endDate}`;
+    const response = await api.get<{ success: boolean; data: LeadItem[] }>(url);
+    return response.data.data || [];
   },
 
   /**

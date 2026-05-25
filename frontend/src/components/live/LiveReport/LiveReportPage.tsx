@@ -43,6 +43,24 @@ interface ParsedData {
   komentar: string;
 }
 
+function getLeadsTotal(data: any): number {
+  try {
+    const d = typeof data === 'string' ? JSON.parse(data) : data;
+    if (!d) return 0;
+    if (typeof d.total === 'number') return d.total;
+    if (Array.isArray(d)) return d.length;
+    return 0;
+  } catch { return 0; }
+}
+
+function getLeadsPlatforms(data: any): Record<string, string> | null {
+  try {
+    const d = typeof data === 'string' ? JSON.parse(data) : data;
+    if (d && d.platforms && typeof d.platforms === 'object') return d.platforms;
+    return null;
+  } catch { return null; }
+}
+
 function parseOcrText(text: string): ParsedData {
   const empty: ParsedData = {
     tayangan: '',
@@ -108,6 +126,8 @@ const TikTokLiveReportPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [reportDate, setReportDate] = useState(todayStr);
   const [editingReport, setEditingReport] = useState<EditingReport | null>(null);
   const [selectedReport, setSelectedReport] = useState<LiveReport | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -117,6 +137,8 @@ const TikTokLiveReportPage: React.FC = () => {
   const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
   const [tiktokLeads, setTiktokLeads] = useState<any[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
+  const [totalLeadsEdit, setTotalLeadsEdit] = useState("0");
+  const [platformSources, setPlatformSources] = useState<Record<string, string>>({});
   const [parsedData, setParsedData] = useState<ParsedData>({
     tayangan: '',
     berlian: '',
@@ -191,8 +213,20 @@ const TikTokLiveReportPage: React.FC = () => {
 
         setLoadingLeads(true);
         try {
-          const leads = await tiktokLiveReportService.getTikTokLeads();
+          const leads = await tiktokLiveReportService.getAllLeads({
+            startDate: reportDate,
+            endDate: `${reportDate} 23:59:59`,
+          });
           setTiktokLeads(leads);
+          setTotalLeadsEdit(leads.length.toString());
+          const groups: Record<string, number> = {};
+          leads.forEach((l: any) => {
+            const src = l.lead_source || 'Unknown';
+            groups[src] = (groups[src] || 0) + 1;
+          });
+          const platInputs: Record<string, string> = {};
+          Object.entries(groups).forEach(([k, v]) => { platInputs[k] = v.toString(); });
+          setPlatformSources(platInputs);
         } catch (e) {
           console.error('Error fetching TikTok leads:', e);
         } finally {
@@ -227,16 +261,18 @@ const TikTokLiveReportPage: React.FC = () => {
         gift_givers: parsedData.pemberi_hadiah,
         new_followers: parsedData.pengikut_baru,
         comments_count: parsedData.komentar,
-        leads_data: tiktokLeads,
+        leads_data: { total: parseInt(totalLeadsEdit) || 0, platforms: platformSources, date: reportDate, items: tiktokLeads },
       });
 
       toast.success('Laporan berhasil disimpan!');
       setOcrResult(null);
       setTiktokLeads([]);
+      setPlatformSources({});
       setFile(null);
       setPreview(null);
       setTitle('');
       setDescription('');
+      setReportDate(todayStr);
       await loadReports();
     } catch (error: any) {
       console.error('Error saving report:', error);
@@ -362,6 +398,11 @@ const TikTokLiveReportPage: React.FC = () => {
                     placeholder="Tambahkan catatan tentang live ini..." rows={3}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm resize-none" />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Tanggal Laporan</label>
+                  <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm" />
+                </div>
               </div>
 
               <button onClick={handleUpload} disabled={!file || !title || uploading}
@@ -424,12 +465,32 @@ const TikTokLiveReportPage: React.FC = () => {
                     <h4 className="text-sm font-semibold text-slate-900 mb-3">Leads dari Live</h4>
                     <div className="bg-rose-50 rounded-lg p-4 border border-rose-200 flex items-center justify-between">
                       <p className="text-sm text-rose-700">Total Leads</p>
-                      <p className="text-2xl font-bold text-rose-600">{tiktokLeads.length}</p>
+                      <input type="number" min="0"
+                        value={totalLeadsEdit}
+                        onChange={(e) => setTotalLeadsEdit(e.target.value)}
+                        className="w-24 text-2xl font-bold text-rose-600 bg-transparent border-b-2 border-rose-300 text-right focus:outline-none focus:border-rose-600" />
                     </div>
-                    {tiktokLeads.length > 0 && (
+                    {parseInt(totalLeadsEdit) > 0 && (
                       <p className="text-xs text-slate-500 mt-2">
-                        {tiktokLeads.length} leads akan otomatis disertakan dalam laporan.
+                        {totalLeadsEdit} leads akan otomatis disertakan dalam laporan.
                       </p>
+                    )}
+
+                    {Object.keys(platformSources).length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <h4 className="text-xs font-semibold text-slate-700 mb-2">Platform Sources</h4>
+                        <div className="space-y-1.5">
+                          {Object.entries(platformSources).map(([source, count]) => (
+                            <div key={source} className="flex items-center justify-between bg-slate-50 rounded px-3 py-1.5">
+                              <span className="text-xs text-slate-600 capitalize">{source}</span>
+                              <input type="number" min="0"
+                                value={count}
+                                onChange={(e) => setPlatformSources({ ...platformSources, [source]: e.target.value })}
+                                className="w-16 text-sm font-semibold text-slate-800 bg-transparent border-b border-slate-300 text-right focus:outline-none focus:border-blue-500" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -441,7 +502,7 @@ const TikTokLiveReportPage: React.FC = () => {
                   {saving ? <><Loader className="w-5 h-5 animate-spin" /> Menyimpan...</> : <><Save className="w-5 h-5" /> Simpan Laporan</>}
                 </button>
 
-                <button onClick={() => { setOcrResult(null); setTiktokLeads([]); setFile(null); setPreview(null); setTitle(''); setDescription(''); }}
+                <button onClick={() => { setOcrResult(null); setTiktokLeads([]); setPlatformSources({}); setFile(null); setPreview(null); setTitle(''); setDescription(''); setReportDate(todayStr); }}
                   className="w-full py-2 rounded-lg font-medium border border-slate-300 text-slate-600 hover:bg-slate-50 transition-all text-sm">
                   Batal & Upload Ulang
                 </button>
@@ -497,7 +558,7 @@ const TikTokLiveReportPage: React.FC = () => {
                       <td className="px-4 py-3 text-emerald-600">{report.new_followers || '-'}</td>
                       <td className="px-4 py-3 text-rose-600">{report.comments_count || '-'}</td>
                       <td className="px-4 py-3 text-slate-700">
-                        {(() => { try { const d = typeof report.leads_data === 'string' ? JSON.parse(report.leads_data) : report.leads_data; return Array.isArray(d) ? d.length : '-'; } catch { return '-'; } })()}
+                        {getLeadsTotal(report.leads_data) || '-'}
                       </td>
                       <td className="px-4 py-3 text-slate-500">{formatDate(report.created_at)}</td>
                       <td className="px-4 py-3">
@@ -585,7 +646,7 @@ const TikTokLiveReportPage: React.FC = () => {
                   { label: 'Pemberi Hadiah', value: selectedReport.gift_givers, bg: "bg-amber-50", text: "text-amber-600" },
                   { label: 'Pengikut Baru', value: selectedReport.new_followers, bg: "bg-emerald-50", text: "text-emerald-600" },
                   { label: 'Komentar', value: selectedReport.comments_count, bg: "bg-rose-50", text: "text-rose-600" },
-                  { label: 'Leads', value: (() => { try { const d = typeof selectedReport.leads_data === 'string' ? JSON.parse(selectedReport.leads_data) : selectedReport.leads_data; return Array.isArray(d) ? d.length : '-'; } catch { return '-'; } })(), bg: "bg-red-50", text: "text-red-600" },
+                  { label: 'Leads', value: getLeadsTotal(selectedReport.leads_data) || '-', bg: "bg-red-50", text: "text-red-600" },
                 ].map((item, i) => (
                   <div key={i} className={`${item.bg} rounded-lg p-4 border`}>
                     <p className={`text-xs font-medium ${item.text}`}>{item.label}</p>
@@ -593,6 +654,23 @@ const TikTokLiveReportPage: React.FC = () => {
                   </div>
                 ))}
               </div>
+
+              {(() => {
+                const platforms = getLeadsPlatforms(selectedReport.leads_data);
+                return platforms ? (
+                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-3">Platform Sources</h3>
+                    <div className="space-y-2">
+                      {Object.entries(platforms).map(([src, cnt]) => (
+                        <div key={src} className="flex items-center justify-between">
+                          <span className="text-sm text-slate-600 capitalize">{src}</span>
+                          <span className="text-sm font-semibold text-slate-800">{cnt} leads</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
 
               <div>
                 <h3 className="text-sm font-semibold text-slate-700 mb-2">
