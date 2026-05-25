@@ -307,7 +307,7 @@ const TikTokLiveReportPage: React.FC = () => {
             <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#EE1D52" }}>
               <Upload className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-slate-900">Buat Laporan Live TikTok</h1>
+            <h1 className="text-xl font-bold text-slate-900">Buat Laporan Live</h1>
           </div>
           <p className="text-sm text-slate-500">
             Upload screenshot hasil live, baca teks otomatis dengan AI, periksa data, dan simpan laporan
@@ -419,12 +419,11 @@ const TikTokLiveReportPage: React.FC = () => {
                   ))}
                 </div>
 
-                {/* TikTok Leads Count */}
                 {!loadingLeads && (
                   <div className="border-t border-slate-200 pt-4 mt-2">
-                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Leads dari TikTok Live</h4>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Leads dari Live</h4>
                     <div className="bg-rose-50 rounded-lg p-4 border border-rose-200 flex items-center justify-between">
-                      <p className="text-sm text-rose-700">Total Leads TikTok</p>
+                      <p className="text-sm text-rose-700">Total Leads</p>
                       <p className="text-2xl font-bold text-rose-600">{tiktokLeads.length}</p>
                     </div>
                     {tiktokLeads.length > 0 && (
@@ -586,7 +585,7 @@ const TikTokLiveReportPage: React.FC = () => {
                   { label: 'Pemberi Hadiah', value: selectedReport.gift_givers, bg: "bg-amber-50", text: "text-amber-600" },
                   { label: 'Pengikut Baru', value: selectedReport.new_followers, bg: "bg-emerald-50", text: "text-emerald-600" },
                   { label: 'Komentar', value: selectedReport.comments_count, bg: "bg-rose-50", text: "text-rose-600" },
-                  { label: 'Leads TikTok', value: (() => { try { const d = typeof selectedReport.leads_data === 'string' ? JSON.parse(selectedReport.leads_data) : selectedReport.leads_data; return Array.isArray(d) ? d.length : '-'; } catch { return '-'; } })(), bg: "bg-red-50", text: "text-red-600" },
+                  { label: 'Leads', value: (() => { try { const d = typeof selectedReport.leads_data === 'string' ? JSON.parse(selectedReport.leads_data) : selectedReport.leads_data; return Array.isArray(d) ? d.length : '-'; } catch { return '-'; } })(), bg: "bg-red-50", text: "text-red-600" },
                 ].map((item, i) => (
                   <div key={i} className={`${item.bg} rounded-lg p-4 border`}>
                     <p className={`text-xs font-medium ${item.text}`}>{item.label}</p>

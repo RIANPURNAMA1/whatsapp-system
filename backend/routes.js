@@ -129,7 +129,7 @@ const buildPeriodFilter = (period, columnName, startDate, endDate) => {
 };
 
 const JWT_SECRET =
-  "918cfb63fffbbc45a16b96beb5fca0deb9a33f0b2180997cc2f15b2affeab1e393c1630e3e9cb02aaf3fe5ae64fbaad1e5c03df2bbe29ca4ba9792c5c1f7ad0a";
+  process.env.JWT_SECRET || "918cfb63fffbbc45a16b96beb5fca0deb9a33f0b2180997cc2f15b2affeab1e393c1630e3e9cb02aaf3fe5ae64fbaad1e5c03df2bbe29ca4ba9792c5c1f7ad0a";
 
 // Helper untuk membangun filter organik dinamis
 const buildOrganikFilter = async () => {

@@ -58,9 +58,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const groups: { id: string; label: string; items: MenuItem[] }[] = isTikTokOperator
     ? [{
         id: "tiktok",
-        label: "Laporan TikTok",
+        label: "Laporan Live",
         items: [
-          { id: "tiktok-live-report", title: "Laporan Live TikTok", icon: <Video className="w-[18px] h-[18px]" /> },
+          { id: "tiktok-live-report", title: "Laporan Live", icon: <Video className="w-[18px] h-[18px]" /> },
         ],
       }]
     : [
