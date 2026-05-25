@@ -330,10 +330,12 @@ router.delete("/:id", authenticateToken, async (req, res) => {
       });
     }
 
-    // Delete file from storage
-    const filePath = path.join(uploadDir, report.image_filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Delete file from storage (if exists)
+    if (report.image_filename) {
+      const filePath = path.join(uploadDir, report.image_filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     // Delete from database

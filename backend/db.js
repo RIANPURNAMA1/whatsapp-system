@@ -111,7 +111,6 @@ async function initDatabase() {
     )`,
 
     // 1. BUAT TABEL ROLE DULU
-    // Di file db.js
     `CREATE TABLE IF NOT EXISTS sys_roles (
   id INT AUTO_INCREMENT PRIMARY KEY, -- WAJIB ADA AUTO_INCREMENT
   name VARCHAR(50) NOT NULL UNIQUE,

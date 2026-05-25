@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Loader2, BarChart3, Calendar } from "lucide-react";
+import { Loader2, BarChart3, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -80,6 +80,7 @@ const cardMeta = [
   { label: "Total Tayangan", key: "viewers", bg: "#EDE9FE", iconBg: "#8B5CF6", icon: "👁" },
   { label: "Total Berlian", key: "diamonds", bg: "#FEF3C7", iconBg: FB.orange, icon: "💎" },
   { label: "Total Hadiah", key: "gifts", bg: "#D1FAE5", iconBg: FB.green, icon: "🎁" },
+  { label: "Total Pengikut", key: "followers", bg: "#E0F2FE", iconBg: "#0EA5E9", icon: "👥" },
   { label: "Leads TikTok", key: "leads", bg: "#FFE4E6", iconBg: FB.red, icon: "👤" },
 ];
 
@@ -90,6 +91,8 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
   const [period, setPeriod] = useState<Period>("all");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [tablePage, setTablePage] = useState(1);
+  const tableLimit = 5;
 
   const fetchData = useCallback(async (p: Period, cs: string, ce: string) => {
     setLoading(true);
@@ -106,10 +109,11 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
       }
       const [reportsRes, leads] = await Promise.all([
         tiktokLiveReportService.getReports({ page: 1, limit: 1000, startDate, endDate }),
-        tiktokLiveReportService.getTikTokLeads(),
+        tiktokLiveReportService.getAllLeads({ startDate, endDate }),
       ]);
       setData(reportsRes.data);
       setLeadsCount(leads.length);
+      setTablePage(1);
     } catch (err) {
       console.error("Error fetching TikTok data:", err);
     } finally {
@@ -161,11 +165,17 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
   [totals]);
 
   const trendData = useMemo(() =>
-    [...data].reverse().map((r) => ({
-      tayangan: parseInt(r.viewers) || 0,
-      berlian: parseInt(r.diamonds) || 0,
-      label: new Date(r.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-    })),
+    [...data].reverse().map((r) => {
+      let ld: any;
+      try { ld = typeof r.leads_data === 'string' ? JSON.parse(r.leads_data) : r.leads_data; } catch {}
+      const leads = ld?.total ?? (Array.isArray(ld) ? ld.length : 0);
+      return {
+        tayangan: parseInt(r.viewers) || 0,
+        pengikut: parseInt(r.new_followers) || 0,
+        leads,
+        label: new Date(r.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+      };
+    }),
   [data]);
 
   const PIECOLORS = [FB.blue, "#8B5CF6", FB.orange, FB.green];
@@ -175,7 +185,8 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
     { value: totals.viewers.toLocaleString(), ...cardMeta[1] },
     { value: totals.diamonds.toLocaleString(), ...cardMeta[2] },
     { value: totals.gifts.toLocaleString(), ...cardMeta[3] },
-    { value: leadsCount.toLocaleString(), ...cardMeta[4] },
+    { value: totals.followers.toLocaleString(), ...cardMeta[4] },
+    { value: leadsCount.toLocaleString(), ...cardMeta[5] },
   ];
 
   const gridColor = FB.grayLight;
@@ -242,7 +253,7 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
         ) : (
           <div className="space-y-4">
             {/* ─── Summary Cards ────────────────────── */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               {summaryCards.map((card, i) => (
                 <div key={i} className="bg-white rounded-lg border p-4" style={{ borderColor: FB.grayLight }}>
                   <div className="flex items-center gap-3">
@@ -307,10 +318,10 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
               </ChartCard>
             </div>
 
-            {/* ─── Trend Line ───────────────────────── */}
+            {/* ─── Growth Line ──────────────────────── */}
             {trendData.length > 1 && (
               <ChartCard>
-                <ChartHeader title="Tren Tayangan & Berlian" />
+                <ChartHeader title="Pertumbuhan Tayangan, Pengikut & Leads" />
                 <div style={{ height: 220 }} className="p-2">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trendData} margin={{ top: 16, right: 16, left: -16, bottom: 0 }}>
@@ -320,7 +331,8 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
                       <Tooltip contentStyle={{ border: `1px solid ${gridColor}`, borderRadius: 8 }} />
                       <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                       <Line type="monotone" dataKey="tayangan" name="Tayangan" stroke={FB.blue} strokeWidth={2} dot={{ r: 3, fill: FB.blue }} />
-                      <Line type="monotone" dataKey="berlian" name="Berlian" stroke="#8B5CF6" strokeWidth={2} dot={{ r: 3, fill: "#8B5CF6" }} />
+                      <Line type="monotone" dataKey="pengikut" name="Pengikut" stroke={FB.green} strokeWidth={2} dot={{ r: 3, fill: FB.green }} />
+                      <Line type="monotone" dataKey="leads" name="Leads" stroke={FB.red} strokeWidth={2} dot={{ r: 3, fill: FB.red }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -343,7 +355,7 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.map((r) => {
+                      {data.slice((tablePage - 1) * tableLimit, tablePage * tableLimit).map((r) => {
                         const leads = (() => {
                           try {
                             const d = typeof r.leads_data === "string" ? JSON.parse(r.leads_data) : r.leads_data;
@@ -370,6 +382,31 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {data.length > tableLimit && (
+                <div className="flex items-center justify-between px-5 py-3 border-t" style={{ borderColor: FB.grayLight }}>
+                  <span className="text-xs" style={{ color: FB.gray }}>
+                    {(tablePage - 1) * tableLimit + 1}-{Math.min(tablePage * tableLimit, data.length)} dari {data.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setTablePage(p => Math.max(1, p - 1))} disabled={tablePage <= 1}
+                      className={`p-1.5 rounded transition-colors ${tablePage <= 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-[#F0F2F5]'}`}>
+                      <ChevronLeft className="w-4 h-4" style={{ color: FB.gray }} />
+                    </button>
+                    {Array.from({ length: Math.ceil(data.length / tableLimit) }, (_, i) => i + 1).map(p => (
+                      <button key={p} onClick={() => setTablePage(p)}
+                        className={`w-7 h-7 rounded text-xs font-medium transition-colors ${p === tablePage ? 'text-white' : ''}`}
+                        style={p === tablePage ? { backgroundColor: "#EE1D52" } : { color: FB.gray }}>
+                        {p}
+                      </button>
+                    ))}
+                    <button onClick={() => setTablePage(p => Math.min(Math.ceil(data.length / tableLimit), p + 1))}
+                      disabled={tablePage >= Math.ceil(data.length / tableLimit)}
+                      className={`p-1.5 rounded transition-colors ${tablePage >= Math.ceil(data.length / tableLimit) ? 'opacity-30 cursor-not-allowed' : 'hover:bg-[#F0F2F5]'}`}>
+                      <ChevronRight className="w-4 h-4" style={{ color: FB.gray }} />
+                    </button>
+                  </div>
                 </div>
               )}
             </ChartCard>
