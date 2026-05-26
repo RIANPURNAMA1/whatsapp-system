@@ -62,6 +62,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
       );
       if (res.data.success) {
         setData(res.data.data || []);
+        setPage(1);
         setSummary(res.data.summary || { total: 0, rataRataHari: 0, totalDevice: [] });
       }
     } catch (err: any) {
@@ -126,6 +127,11 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
         return { date, label, closing: count };
       });
   }, [data]);
+
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const paginatedData = data.slice((page - 1) * pageSize, page * pageSize);
 
   // ─── Closing Keywords inline management ───────────────
   const [showKeywordModal, setShowKeywordModal] = useState(false);
@@ -481,7 +487,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
                   </tr>
                 </thead>
                 <tbody>
-                  {data.map((d, i) => {
+                  {paginatedData.map((d, i) => {
                     const session = sessions.find((s: any) => s.id === d.session_id);
                     const bucket = getTimeBucket(d.durasiHari);
                     return (
@@ -518,6 +524,33 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+          {data.length > pageSize && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-[#E4E6EB]">
+              <span className="text-xs text-[#65676B]">
+                {pageSize * (page - 1) + 1}–{Math.min(pageSize * page, data.length)} dari {data.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={page <= 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#E4E6EB] text-[#65676B] disabled:opacity-40 hover:bg-[#F2F3F5]"
+                >« Prev</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className="w-7 h-7 text-xs font-medium rounded-lg transition-all"
+                    style={p === page ? { backgroundColor: "#1877F2", color: "#fff" } : { color: "#65676B" }}
+                  >{p}</button>
+                ))}
+                <button
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#E4E6EB] text-[#65676B] disabled:opacity-40 hover:bg-[#F2F3F5]"
+                >Next »</button>
+              </div>
             </div>
           )}
         </div>

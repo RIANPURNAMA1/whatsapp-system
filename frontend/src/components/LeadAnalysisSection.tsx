@@ -62,6 +62,10 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const paginatedData = data.slice((page - 1) * pageSize, page * pageSize);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -88,6 +92,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
       );
       if (res.data.success) {
         setData(res.data.data || []);
+        setPage(1);
         setSummary(res.data.summary || { total: 0 });
         setDeviceData(res.data.deviceData || []);
         if (res.data.categories) setCategories(res.data.categories);
@@ -289,7 +294,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
                       </tr>
                     </thead>
                     <tbody>
-                      {data.map((d: any, i: number) => {
+                      {paginatedData.map((d: any, i: number) => {
                         const cat = categories.find(c => c.key === d.category);
                         return (
                           <tr key={i} className="hover:bg-[#F5F6F8] transition-colors">
@@ -315,6 +320,35 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {data.length > pageSize && (
+                <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: FB.grayLight }}>
+                  <span className="text-xs" style={{ color: FB.gray }}>
+                    {pageSize * (page - 1) + 1}–{Math.min(pageSize * page, data.length)} dari {data.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={page <= 1}
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-40 hover:bg-[#F2F3F5] transition-all"
+                      style={{ borderColor: FB.grayLight, color: FB.gray }}
+                    >« Prev</button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        className="w-7 h-7 text-xs font-medium rounded-lg transition-all"
+                        style={p === page ? { backgroundColor: FB.blue, color: FB.white } : { color: FB.gray, backgroundColor: 'transparent' }}
+                      >{p}</button>
+                    ))}
+                    <button
+                      disabled={page >= totalPages}
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-40 hover:bg-[#F2F3F5] transition-all"
+                      style={{ borderColor: FB.grayLight, color: FB.gray }}
+                    >Next »</button>
+                  </div>
                 </div>
               )}
             </ChartCard>

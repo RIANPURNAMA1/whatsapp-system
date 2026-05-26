@@ -210,8 +210,8 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-[#050505]">TikTok Live Analytics</h1>
-              <p className="text-xs" style={{ color: FB.gray }}>Dashboard monitoring live TikTok</p>
+              <h1 className="text-xl font-bold text-[#050505]">Live Analytics</h1>
+              <p className="text-xs" style={{ color: FB.gray }}>Dashboard monitoring live</p>
             </div>
           </div>
           <button onClick={onBack}
