@@ -1,6 +1,10 @@
 import { query, queryOne } from "../db.js";
 import { getAllCategories, matchKeywords } from "./leadCategoryService.js";
 
+function toMySQLDatetime(date = new Date()) {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 export async function saveKendala(sessionId, chatJid, category, notes) {
   try {
     const contact = await queryOne(
@@ -21,7 +25,7 @@ export async function saveKendala(sessionId, chatJid, category, notes) {
         contact_name = VALUES(contact_name),
         detected_at = VALUES(detected_at),
         notes = VALUES(notes)
-    `, [sessionId, chatJid, contactName, category, firstMsg?.first_msg_time || new Date(), new Date().toISOString(), notes || null]);
+    `, [sessionId, chatJid, contactName, category, firstMsg?.first_msg_time || toMySQLDatetime(), toMySQLDatetime(), notes || null]);
 
     console.log(`[LeadAnalysis] Saved ${category} for ${contactName}`);
   } catch (err) {
@@ -90,7 +94,7 @@ export async function computeBadLeads(sessionId = null) {
             contact_name = VALUES(contact_name),
             detected_at = VALUES(detected_at),
             notes = VALUES(notes)
-        `, [c.session_id, c.chat_jid, contactName, firstMsg?.first_msg_time || c.template_sent_at, new Date().toISOString()]);
+        `, [c.session_id, c.chat_jid, contactName, firstMsg?.first_msg_time || c.template_sent_at, toMySQLDatetime()]);
 
         count++;
       }

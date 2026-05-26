@@ -1,5 +1,12 @@
 import { query, queryOne } from "../db.js";
 
+function toMySQLDatetime(date) {
+  if (!date) return null;
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return date;
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 export async function saveClosingEvent(sessionId, chatJid, closingTime, source) {
   try {
     const firstMsg = await queryOne(`
@@ -27,7 +34,7 @@ export async function saveClosingEvent(sessionId, chatJid, closingTime, source) 
         closing_time = IF(VALUES(closing_time) < closing_time, VALUES(closing_time), closing_time),
         durasi_jam = VALUES(durasi_jam),
         source = VALUES(source)
-    `, [sessionId, chatJid, contactName, firstChatTime, closingTime, durasiJam, source]);
+    `, [sessionId, chatJid, contactName, toMySQLDatetime(firstChatTime), toMySQLDatetime(closingTime), durasiJam, source]);
 
     console.log(`[ClosingTraffic] Saved: ${contactName} (${sessionId}) via ${source}`);
   } catch (err) {
