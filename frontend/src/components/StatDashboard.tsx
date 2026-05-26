@@ -57,7 +57,6 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
   const [tempDates, setTempDates] = useState({ start: todayStart, end: todayEnd });
   const [appliedDates, setAppliedDates] = useState({ start: todayStart, end: todayEnd });
   const [loading, setLoading] = useState(true);
-  const [socialMediaData, setSocialMediaData] = useState<any[]>([]);
   const [loadingSocial, setLoadingSocial] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deviceLeadsData, setDeviceLeadsData] = useState([]);
@@ -183,36 +182,21 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
     finally { setLoadingLabels(false); }
   }, [data.sessions, activeFilter, appliedDates]);
 
-  const fetchSocialStats = useCallback(async () => {
-    setLoadingSocial(true);
-    try {
-      const token = localStorage.getItem("token");
-      const params = new URLSearchParams();
-      if (activeFilter === "Custom") { params.append("startDate", appliedDates.start); params.append("endDate", appliedDates.end); }
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/stats/social/media?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (json.success) setSocialMediaData(json.data || []);
-    } catch (err) { console.error("Fetch Social Error:", err); }
-    finally { setLoadingSocial(false); }
-  }, [activeFilter, appliedDates]);
-
   const totalClosingFromLabels = useMemo(() => {
     return allLabels.filter(l => l.name.toLowerCase().includes("closing")).reduce((acc, curr) => acc + (parseInt(curr.chat_count) || 0), 0);
   }, [allLabels]);
 
   useEffect(() => {
     (async () => {
-      await Promise.all([fetchDashboard(true), fetchSocialStats(), fetchOverallLeads()]);
+      await Promise.all([fetchDashboard(true), fetchOverallLeads()]);
     })();
     if (activeFilter !== "Custom") {
       const intervalMs = settings.autoRefresh ? parseInt(settings.refreshInterval, 10) * 1000 : 0;
       if (intervalMs <= 0) return;
-      const interval = setInterval(() => { fetchDashboard(false); fetchSocialStats(); fetchOverallLeads(); }, intervalMs);
+      const interval = setInterval(() => { fetchDashboard(false); fetchOverallLeads(); }, intervalMs);
       return () => clearInterval(interval);
     }
-  }, [fetchDashboard, fetchSocialStats, fetchOverallLeads, activeFilter, appliedDates, selectedDevice, settings.autoRefresh, settings.refreshInterval]);
+  }, [fetchDashboard, fetchOverallLeads, activeFilter, appliedDates, selectedDevice, settings.autoRefresh, settings.refreshInterval]);
 
   useEffect(() => {
     if (data.sessions.length > 0) fetchAllLabels();
@@ -228,6 +212,19 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
     { name: "Slow Response", value: data.stats.slowResponse || 0, color: "#f97316" },
     { name: "Tak Terjawab", value: data.stats.unanswered || 0, color: "#ef4444" },
   ], [data.stats]);
+
+  const statCards = useMemo(() => [
+    { label: "Pesan Masuk", value: data.stats.pesanMasukToday || 0, icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
+    { label: "Terkirim", value: data.stats.pesanKeluar || 0, icon: Send, color: "text-orange-600", bg: "bg-orange-50" },
+    { label: "Leads Organik", value: data.stats.leadsOrganik || 0, icon: Leaf, color: "text-emerald-600", bg: "bg-emerald-50" },
+    { label: "Leads Aktif", value: data.stats.leadAktif || 0, icon: Users, color: "text-indigo-600", bg: "bg-indigo-50" },
+    { label: "Device Online", value: data.stats.deviceConnected || 0, icon: Smartphone, color: "text-violet-600", bg: "bg-violet-50" },
+    {
+      label: "Status", value: data.stats.deviceConnected > 0 ? "Online" : "Offline",
+      icon: CheckCircle, color: data.stats.deviceConnected > 0 ? "text-emerald-600" : "text-red-600",
+      bg: data.stats.deviceConnected > 0 ? "bg-emerald-50" : "bg-red-50",
+    },
+  ], [data.stats.pesanMasukToday, data.stats.pesanKeluar, data.stats.leadsOrganik, data.stats.leadAktif, data.stats.deviceConnected]);
 
   if (showTikTokModal) {
     return <TikTokAnalyticsDashboard onBack={() => setShowTikTokModal(false)} />;
@@ -252,75 +249,68 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
     );
   }
 
-  const statCards = [
-    { label: "Pesan Masuk", value: data.stats.pesanMasukToday || 0, icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "Terkirim", value: data.stats.pesanKeluar || 0, icon: Send, color: "text-orange-600", bg: "bg-orange-50" },
-    { label: "Leads Organik", value: data.stats.leadsOrganik || 0, icon: Leaf, color: "text-emerald-600", bg: "bg-emerald-50" },
-    { label: "Leads Aktif", value: data.stats.leadAktif || 0, icon: Users, color: "text-indigo-600", bg: "bg-indigo-50" },
-    { label: "Device Online", value: data.stats.deviceConnected || 0, icon: Smartphone, color: "text-violet-600", bg: "bg-violet-50" },
-    {
-      label: "Status", value: data.stats.deviceConnected > 0 ? "Online" : "Offline",
-      icon: CheckCircle, color: data.stats.deviceConnected > 0 ? "text-emerald-600" : "text-red-600",
-      bg: data.stats.deviceConnected > 0 ? "bg-emerald-50" : "bg-red-50",
-    },
-  ];
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#F0F2F5" }}>
       <div className=" mx-auto px-4 sm:px-6 lg:px-8 py-5">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
+        <div className="mb-5 space-y-3">
+          {/* Row 1: Title + monitoring text */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#1877F2" }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#1877F2" }}>
               <Activity className="w-5 h-5 text-white" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "#050505" }}>
                 Dashboard
                 {refreshing && <Loader2 size={14} className="animate-spin" style={{ color: "#1877F2" }} />}
               </h1>
-              <p className="text-xs" style={{ color: "#65676B" }}>Satu Pintu — Monitoring</p>
+              <p className="text-xs truncate" style={{ color: "#65676B" }}>Satu Pintu — Monitoring</p>
             </div>
+          </div>
+
+          {/* Row 2: Action buttons — responsive wrap */}
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setShowTikTokModal(true)}
-              className={`h-8 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90 ${showTikTokModal ? 'ring-2 ring-offset-1' : ''}`}
+              className={`h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90 shrink-0 ${showTikTokModal ? 'ring-2 ring-offset-1' : ''}`}
               style={{ backgroundColor: "#EE1D52", color: "#FFFFFF" }}>
               <BarChart3 className="w-3.5 h-3.5" />
               Live TikTok
             </button>
             <button onClick={() => setShowLeadAnalysis(true)}
-              className="h-8 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90"
+              className="h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90 shrink-0"
               style={{ backgroundColor: "#1877F2", color: "#FFFFFF" }}>
               <BarChart3 className="w-3.5 h-3.5" />
               Analisis Leads
             </button>
             <button onClick={() => setShowTrafficClosing(true)}
-              className="h-8 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90"
+              className="h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90 shrink-0"
               style={{ backgroundColor: "#F5A623", color: "#FFFFFF" }}>
               <Timer className="w-3.5 h-3.5" />
               Trafik & Penutupan
             </button>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)}
-              className="h-9 px-3 border rounded-lg text-xs font-medium outline-none text-gray-700"
-              style={{ backgroundColor: "#FFFFFF", borderColor: "#CCD0D5" }}>
-              <option value="all">Semua Device</option>
-              {data.sessions.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            {/* Filter controls inline on desktop, wrap on mobile */}
+            <div className="flex items-center gap-2 flex-wrap ml-auto">
+              <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)}
+                className="h-9 px-3 border rounded-lg text-xs font-medium outline-none text-gray-700 bg-white"
+                style={{ borderColor: "#CCD0D5" }}>
+                <option value="all">Semua Device</option>
+                {data.sessions.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
 
-            <div className="flex h-9 bg-white border rounded-lg overflow-hidden" style={{ borderColor: "#CCD0D5" }}>
-              {Object.keys(FILTER_MAP).map(item => (
-                <button key={item} onClick={() => { setActiveFilter(item); setRefreshing(true); }}
-                  className={`px-3 text-[11px] font-semibold transition-all ${
-                    activeFilter === item
-                      ? "text-white"
-                      : "text-gray-500 hover:text-gray-800"
-                  }`}
-                  style={activeFilter === item ? { backgroundColor: "#1877F2", color: "#FFFFFF" } : {}}>
-                  {item}
-                </button>
-              ))}
+              <div className="flex h-9 bg-white border rounded-lg overflow-hidden" style={{ borderColor: "#CCD0D5" }}>
+                {Object.keys(FILTER_MAP).map(item => (
+                  <button key={item} onClick={() => { setActiveFilter(item); setRefreshing(true); }}
+                    className={`px-3 text-[11px] font-semibold transition-all ${
+                      activeFilter === item
+                        ? "text-white"
+                        : "text-gray-500 hover:text-gray-800"
+                    }`}
+                    style={activeFilter === item ? { backgroundColor: "#1877F2", color: "#FFFFFF" } : {}}>
+                    {item}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

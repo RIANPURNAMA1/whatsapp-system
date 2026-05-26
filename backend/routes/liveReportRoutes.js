@@ -164,25 +164,34 @@ router.post("/confirm", authenticateToken, async (req, res) => {
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    const roleType = req.user.role_type?.toLowerCase().trim();
+    const isAdmin = roleType === "system" || roleType === "manager";
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
     const offset = (page - 1) * limit;
     const { startDate, endDate } = req.query;
 
-    let dateFilter = "";
-    const params = [userId];
+    let whereClause = "";
+    const params = [];
+
+    if (!isAdmin) {
+      whereClause += " WHERE user_id = ?";
+      params.push(userId);
+    } else {
+      whereClause += " WHERE 1=1";
+    }
 
     if (startDate) {
-      dateFilter += " AND created_at >= ?";
+      whereClause += " AND created_at >= ?";
       params.push(startDate);
     }
     if (endDate) {
-      dateFilter += " AND created_at <= ?";
+      whereClause += " AND created_at <= ?";
       params.push(endDate + " 23:59:59");
     }
 
     const countResult = await queryOne(
-      `SELECT COUNT(*) as total FROM tiktok_live_reports WHERE user_id = ?${dateFilter}`,
+      `SELECT COUNT(*) as total FROM tiktok_live_reports${whereClause}`,
       params
     );
     const total = countResult?.total || 0;
@@ -191,8 +200,7 @@ router.get("/", authenticateToken, async (req, res) => {
       SELECT id, image_url, image_filename, extracted_text, ocr_confidence, 
              report_title, report_description, status, created_at, updated_at,
              viewers, diamonds, live_duration, gift_givers, new_followers, comments_count, leads_data
-      FROM tiktok_live_reports
-      WHERE user_id = ?${dateFilter}
+      FROM tiktok_live_reports${whereClause}
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `;

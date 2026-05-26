@@ -393,17 +393,37 @@ CREATE TABLE IF NOT EXISTS wa_rules (
       UNIQUE KEY unique_closing (session_id, chat_jid)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
+    `CREATE TABLE IF NOT EXISTS closing_keywords (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      session_id VARCHAR(50) NOT NULL,
+      keyword_text TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
     `CREATE TABLE IF NOT EXISTS lead_analysis (
       id INT AUTO_INCREMENT PRIMARY KEY,
       session_id VARCHAR(50) NOT NULL,
       chat_jid VARCHAR(100) NOT NULL,
       contact_name VARCHAR(200) DEFAULT NULL,
-      category ENUM('usia','biaya','bad') NOT NULL,
+      category VARCHAR(50) NOT NULL,
       first_chat_time DATETIME DEFAULT NULL,
       detected_at DATETIME NOT NULL,
       notes TEXT DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY unique_category (session_id, chat_jid, category)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+    `CREATE TABLE IF NOT EXISTS lead_categories (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(50) NOT NULL UNIQUE,
+      label VARCHAR(100) NOT NULL,
+      color VARCHAR(20) DEFAULT '#1877F2',
+      icon VARCHAR(10) DEFAULT '📊',
+      keywords JSON DEFAULT NULL,
+      is_active TINYINT(1) DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
   ];
@@ -416,6 +436,13 @@ CREATE TABLE IF NOT EXISTS wa_rules (
     // --- MIGRATE ENUM for sys_roles (existing table) ---
     try {
       await db.promise().query(`ALTER TABLE sys_roles MODIFY COLUMN type ENUM('system','manager','custom','tiktok_operator') DEFAULT 'custom'`);
+    } catch (_) {
+      // Table might not exist yet, skip
+    }
+
+    // --- MIGRATE lead_analysis.category from ENUM to VARCHAR ---
+    try {
+      await db.promise().query(`ALTER TABLE lead_analysis MODIFY COLUMN category VARCHAR(50) NOT NULL`);
     } catch (_) {
       // Table might not exist yet, skip
     }
@@ -707,6 +734,24 @@ CREATE TABLE IF NOT EXISTS wa_rules (
       if (!err.message.includes('Duplicate column')) {
         console.warn("⚠️ Migration warning for source:", err.message);
       }
+    }
+
+    // ⭐ SEED lead_categories
+    const defaultCategories = [
+      ['usia', 'Usia', '#1877F2', '🔴', JSON.stringify(['usia'])],
+      ['biaya', 'Biaya', '#F5A623', '🟡', JSON.stringify(['biaya', 'bisa persiapkan terlebih dahulu'])],
+      ['bad', 'BAD (Tidak Aktif)', '#E74C3C', '⚫', JSON.stringify(['ada yang bisa saya bantu hari ini'])],
+      ['bertato', 'Bertato', '#8B5CF6', '🔵', JSON.stringify(['tidak diperbolehkan bertato', 'ketentuan tidak diperbolehkan bertato'])],
+      ['tidak_memenuhi_syarat', 'Tidak Memenuhi Syarat', '#EC4899', '🔴', JSON.stringify(['belum memenuhi persyaratannya', 'belum memenuhi syarat'])],
+      ['belum_ada_data', 'Belum Ada Data', '#0EA5E9', '🔵', JSON.stringify(['boleh di bantu untuk di isi terlebih dahulu', 'bantu di isi terlebih dahulu'])],
+      ['tidak_ada_respon', 'Tidak Ada Respon', '#F59E0B', '🟠', JSON.stringify(['izin follow up ya', 'izin follow up'])],
+      ['matching_job', 'Matching Job', '#10B981', '🟢', JSON.stringify(['syarat untuk bisa matching job', 'mengikuti salah satu kelas mendunia'])],
+    ];
+    for (const [name, label, color, icon, keywords] of defaultCategories) {
+      await db.promise().query(
+        `INSERT IGNORE INTO lead_categories (name, label, color, icon, keywords) VALUES (?, ?, ?, ?, ?)`,
+        [name, label, color, icon, keywords]
+      );
     }
 
     console.log("✅ Semua tabel dan data awal WhatsApp System siap digunakan");

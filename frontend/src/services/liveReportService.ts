@@ -62,7 +62,7 @@ interface ConfirmData {
   gift_givers?: string;
   new_followers?: string;
   comments_count?: string;
-  leads_data?: LeadItem[] | { total: number; platforms: Record<string, string>; items: LeadItem[] };
+  leads_data?: LeadItem[] | { total: number; platforms: Record<string, string>; date?: string; items: LeadItem[] };
 }
 
 export const tiktokLiveReportService = {

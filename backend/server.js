@@ -12,10 +12,11 @@ import tiktokRoutes from "./routes/live.js";
 import tiktokLiveReportRoutes from "./routes/liveReportRoutes.js";
 import rotatorPublicRoutes from "./routes/rotatorPublicRoutes.js";
 import publicTrackedLinkRoutes from "./routes/publicTrackedLinkRoutes.js";
+import leadAnalysisRoutes from "./routes/leadAnalysis.js";
+import leadCategoryRoutes from "./routes/leadCategoryRoutes.js";
 import { createSession } from "./whatsapp.js";
 import { migrateTikTokTables } from "./db_live.js";
 import { query, queryOne, ensureDbReady } from "./db.js";
-
 dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +63,8 @@ app.use("/", publicTrackedLinkRoutes);
 // 2. API Routes
 // ===============================================
 app.use("/api", routes);
+app.use("/api", leadAnalysisRoutes);
+app.use("/api", leadCategoryRoutes);
 app.use("/api/tiktok", tiktokRoutes);
 app.use("/api/tiktok-live-reports", tiktokLiveReportRoutes);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -223,6 +226,8 @@ httpServer.listen(PORT, async () => {
   try {
     await ensureDbReady();
     await migrateTikTokTables();
+
+    console.log("⚡ Redis Cache: Disabled");
     console.log(`🚀 Backend Run: http://localhost:${PORT}`);
 
     // Info Link yang benar
@@ -236,5 +241,13 @@ httpServer.listen(PORT, async () => {
     process.exit(1);
   }
 });
+
+// Graceful shutdown
+async function shutdown(signal) {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+  process.exit(0);
+}
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 export default app;

@@ -62,7 +62,7 @@ const ChartHeader: React.FC<{
 );
 
 // ─── ActivityChart ────────────────────────────────────────────────────────────
-export const ActivityChart: React.FC<ChartProps> = ({ data, dark }) => {
+export const ActivityChart: React.FC<ChartProps> = React.memo(({ data, dark }) => {
   const gridColor  = dark ? "#2D2F33" : "#E4E6EB";
   const axisColor  = dark ? "#65676B" : "#65676B";
   const textColor  = dark ? "#E4E6EB" : "#050505";
@@ -132,10 +132,10 @@ export const ActivityChart: React.FC<ChartProps> = ({ data, dark }) => {
       </div>
     </ChartCard>
   );
-};
+});
 
 // ─── SLAChart (Meta-style donut) ──────────────────────────────────────────────
-export const SLAChart: React.FC<ChartProps> = ({ data, dark }) => {
+export const SLAChart: React.FC<ChartProps> = React.memo(({ data, dark }) => {
   const totalValue = data.reduce((a, c) => a + (c.value || 0), 0);
   const sesuai     = data.find((d) => d.name === "Sesuai SLA");
   const slaRate    = totalValue ? Math.round(((sesuai?.value || 0) / totalValue) * 100) : 0;
@@ -232,10 +232,10 @@ export const SLAChart: React.FC<ChartProps> = ({ data, dark }) => {
       </div>
     </ChartCard>
   );
-};
+});
 
 // ─── DeviceBarChart ───────────────────────────────────────────────────────────
-export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
+export const DeviceBarChart: React.FC<ChartProps> = React.memo(({ data, dark }) => {
   const gridColor  = dark ? "#2D2F33" : "#E4E6EB";
   const axisColor  = dark ? "#65676B" : "#65676B";
   const textColor  = dark ? "#E4E6EB" : "#050505";
@@ -339,4 +339,4 @@ export const DeviceBarChart: React.FC<ChartProps> = ({ data, dark }) => {
       </div>
     </ChartCard>
   );
-};
+});

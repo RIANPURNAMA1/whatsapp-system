@@ -86,7 +86,6 @@ const cardMeta = [
 
 const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
   const [data, setData] = useState<any[]>([]);
-  const [leadsCount, setLeadsCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<Period>("all");
   const [customStart, setCustomStart] = useState("");
@@ -107,12 +106,8 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
         startDate = range.startDate;
         endDate = range.endDate;
       }
-      const [reportsRes, leads] = await Promise.all([
-        tiktokLiveReportService.getReports({ page: 1, limit: 1000, startDate, endDate }),
-        tiktokLiveReportService.getAllLeads({ startDate, endDate }),
-      ]);
+      const reportsRes = await tiktokLiveReportService.getReports({ page: 1, limit: 1000, startDate, endDate });
       setData(reportsRes.data);
-      setLeadsCount(leads.length);
       setTablePage(1);
     } catch (err) {
       console.error("Error fetching TikTok data:", err);
@@ -145,6 +140,19 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
     gifts: data.reduce((a, r) => a + (parseInt(r.gift_givers) || 0), 0),
     followers: data.reduce((a, r) => a + (parseInt(r.new_followers) || 0), 0),
   }), [data]);
+
+  const leadsCount = useMemo(() =>
+    data.reduce((sum, r) => {
+      try {
+        const ld = typeof r.leads_data === "string" ? JSON.parse(r.leads_data) : r.leads_data;
+        if (!ld) return sum;
+        if (typeof ld === "number") return sum + ld;
+        if (typeof ld.total === "number") return sum + ld.total;
+        if (Array.isArray(ld)) return sum + ld.length;
+        return sum;
+      } catch { return sum; }
+    }, 0),
+  [data]);
 
   const chartData = useMemo(() =>
     data.map((r) => ({

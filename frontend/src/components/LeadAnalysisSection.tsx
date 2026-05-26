@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
-  BarChart3, Users, UserX, DollarSign, Clock, AlertTriangle,
+  BarChart3, AlertTriangle, Settings2,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import CategoryManagementModal from "./CategoryManagementModal";
 
 const FB = {
   blue: "#1877F2",
@@ -28,12 +29,6 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: "yesterday", label: "Kemarin" },
   { key: "week", label: "Minggu Ini" },
   { key: "month", label: "Bulan Ini" },
-];
-
-const CATEGORIES = [
-  { key: "usia", label: "Usia", color: FB.blue, icon: "🔴" },
-  { key: "biaya", label: "Biaya", color: FB.orange, icon: "🟡" },
-  { key: "bad", label: "BAD", color: FB.red, icon: "⚫" },
 ];
 
 const ChartCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
@@ -62,9 +57,11 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
   const [sessionId, setSessionId] = useState("all");
   const [sessions, setSessions] = useState<any[]>([]);
   const [data, setData] = useState<any[]>([]);
-  const [summary, setSummary] = useState<any>({ total: 0, usia: 0, biaya: 0, bad: 0 });
+  const [summary, setSummary] = useState<any>({ total: 0 });
   const [deviceData, setDeviceData] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -91,8 +88,9 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
       );
       if (res.data.success) {
         setData(res.data.data || []);
-        setSummary(res.data.summary || { total: 0, usia: 0, biaya: 0, bad: 0 });
+        setSummary(res.data.summary || { total: 0 });
         setDeviceData(res.data.deviceData || []);
+        if (res.data.categories) setCategories(res.data.categories);
       }
     } catch (err) {
       console.error("Failed to fetch lead analysis:", err);
@@ -103,6 +101,20 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  useEffect(() => {
+    if (categories.length === 0) {
+      axios.get(`${import.meta.env.VITE_API_URL}/lead-categories`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      }).then(res => {
+        if (res.data.success) {
+          setCategories(res.data.data.map((c: any) => ({
+            key: c.name, label: c.label, color: c.color, icon: c.icon,
+          })));
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
   const formatDate = (ts: string) => {
     if (!ts) return "-";
     return new Date(ts).toLocaleDateString("id-ID", {
@@ -110,14 +122,17 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
     });
   };
 
-  const summaryCards = [
-    { label: "Total Analisis", value: summary.total, icon: "📊", bg: FB.blueLight, iconBg: FB.blue },
-    { label: "Kendala Usia", value: summary.usia, icon: "🔴", bg: FB.blueLight, iconBg: FB.blue },
-    { label: "Kendala Biaya", value: summary.biaya, icon: "🟡", bg: "#FFF8E7", iconBg: FB.orange },
-    { label: "BAD (Tidak Aktif)", value: summary.bad, icon: "⚫", bg: "#FFEBEE", iconBg: FB.red },
-  ];
+  const summaryCards = categories.map(c => ({
+    label: c.label,
+    value: summary[c.key] || 0,
+    icon: c.icon || "📊",
+    bg: c.color + "18",
+    iconBg: c.color,
+  }));
 
-  const pieData = CATEGORIES
+  summaryCards.unshift({ label: "Total Analisis", value: summary.total || 0, icon: "📊", bg: FB.blueLight, iconBg: FB.blue });
+
+  const pieData = categories
     .map(c => ({ name: c.label, value: summary[c.key] || 0, color: c.color }))
     .filter(d => d.value > 0);
 
@@ -135,10 +150,21 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
             </div>
             <div>
               <h1 className="text-xl font-bold text-[#050505]">Analisis Leads</h1>
-              <p className="text-xs" style={{ color: FB.gray }}>Kategorisasi kendala leads: Usia, Biaya, dan BAD</p>
+              <p className="text-xs" style={{ color: FB.gray }}>
+                Kategorisasi kendala leads
+                {categories.length > 0 && `: ${categories.map(c => c.label).join(", ")}`}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCategoryModal(true)}
+              className="flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg border hover:bg-[#F2F3F5] transition-all"
+              style={{ borderColor: "#CCD0D5", color: FB.gray }}
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+              Kelola Kategori
+            </button>
             <select value={sessionId} onChange={e => setSessionId(e.target.value)}
               className="h-8 px-3 text-xs border rounded-lg bg-white" style={{ borderColor: FB.grayLight, color: FB.gray }}>
               <option value="all">Semua Device</option>
@@ -233,9 +259,9 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
                         <YAxis tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
                         <Tooltip contentStyle={{ border: `1px solid ${gridColor}`, borderRadius: 8 }} />
                         <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                        <Bar dataKey="usia" name="Usia" fill={FB.blue} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="biaya" name="Biaya" fill={FB.orange} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="bad" name="BAD" fill={FB.red} radius={[4, 4, 0, 0]} />
+                        {categories.map(c => (
+                          <Bar key={c.key} dataKey={c.key} name={c.label} fill={c.color} radius={[4, 4, 0, 0]} />
+                        ))}
                       </BarChart>
                     </ResponsiveContainer>
                   )}
@@ -250,7 +276,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
                 <div className="flex flex-col items-center py-16 text-center">
                   <AlertTriangle className="w-12 h-12 mb-4" style={{ color: FB.grayLight }} />
                   <p className="font-medium" style={{ color: FB.gray }}>Belum ada data analisis</p>
-                  <p className="text-xs mt-1" style={{ color: FB.gray }}>Data akan muncul setelah admin merespon dengan kendala usia/biaya atau lead tidak aktif</p>
+                  <p className="text-xs mt-1" style={{ color: FB.gray }}>Data akan muncul setelah admin merespon dengan kendala kategori atau lead tidak aktif</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -264,7 +290,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
                     </thead>
                     <tbody>
                       {data.map((d: any, i: number) => {
-                        const cat = CATEGORIES.find(c => c.key === d.category);
+                        const cat = categories.find(c => c.key === d.category);
                         return (
                           <tr key={i} className="hover:bg-[#F5F6F8] transition-colors">
                             <td className="px-4 py-3 border" style={{ borderColor: FB.grayLight }}>
@@ -295,6 +321,12 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
           </div>
         )}
       </div>
+
+      <CategoryManagementModal
+        open={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        onSaved={() => { fetchData(); }}
+      />
     </div>
   );
 };

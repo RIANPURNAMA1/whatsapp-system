@@ -13,13 +13,14 @@ import { Boom } from "@hapi/boom";
 import QRCode from "qrcode";
 import pino from "pino";
 import { query, queryOne } from "./db.js";
+
 import qrcodeTerminal from "qrcode-terminal"; // Tambahkan ini
 import fs from "fs";
 import path from "path";
 
 import { handleAIResponse } from "./services/aiService.js";
 import { saveClosingEvent } from "./services/closingTrafficService.js";
-import { saveKendala } from "./services/leadAnalysisService.js";
+import { saveKendala, detectKendalaFromText } from "./services/leadAnalysisService.js";
 
 const logger = pino({ level: "silent" });
 
@@ -425,174 +426,156 @@ export async function createSession(sessionId, io) {
           await syncGroupMetadata(sessionId, metadata, sock);
         } catch (err) {
           console.error(`❌ Gagal sync grup dari chats.upsert:`, err.message);
+      }
+    }
+  }
+
+});
+
+  // ---- Event: messages.upsert ---- //
+  sock.ev.on("messages.upsert", async ({ messages, type }) => {
+    if (type !== "notify") return;
+
+    for (const msg of messages) {
+      if (
+        msg.key.remoteJid === "status@broadcast" ||
+        isJidBroadcast(msg.key.remoteJid)
+      ) {
+        continue;
+      }
+
+      let mediaUrl = null;
+      const messageType = Object.keys(msg.message || {})[0];
+      const isMedia = [
+        "imageMessage",
+        "videoMessage",
+        "documentMessage",
+      ].includes(messageType);
+
+      if (messageType === "imageMessage" || messageType === "videoMessage") {
+        console.log(`⏭️ Media ditolak (tidak didownload): ${messageType}`);
+        continue;
+      }
+
+      if (isMedia) {
+        try {
+          console.log(`📩 Downloading media: ${messageType}...`);
+          const buffer = await downloadMediaMessage(
+            msg,
+            "buffer",
+            {},
+            {
+              logger: console,
+              reuploadRequest: sock.updateMediaMessage,
+            }
+          );
+
+          const uploadDir = path.join(process.cwd(), "public", "uploads");
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+
+          let extension = "bin";
+          if (messageType === "imageMessage") extension = "jpg";
+          else if (messageType === "videoMessage") extension = "mp4";
+          else if (messageType === "documentMessage") {
+            const docMsg = msg.message.documentMessage;
+            extension = docMsg.fileName?.split(".").pop()?.toLowerCase() || "pdf";
+          }
+
+          const fileName = `${Date.now()}_${msg.key.id}.${extension}`;
+          const uploadPath = path.join(uploadDir, fileName);
+          fs.writeFileSync(uploadPath, buffer);
+          mediaUrl = `/uploads/${fileName}`;
+        } catch (err) {
+          console.error("❌ Gagal download media:", err.message);
+        }
+      }
+
+      const processed = await processMessage(sessionId, msg, sock);
+
+      if (processed) {
+        processed.mediaUrl = mediaUrl;
+        processed.messageType = messageType?.replace("Message", "") || processed.messageType;
+
+        const caption =
+          msg.message?.[messageType]?.caption ||
+          msg.message?.extendedTextMessage?.text ||
+          msg.message?.conversation ||
+          processed.content;
+
+        processed.caption = caption;
+
+        if (
+          processed.messageType === "protocolMessage" ||
+          processed.messageType === "deleted"
+        ) {
+          continue;
+        }
+
+        await saveMessage(sessionId, processed);
+        await updateChat(sessionId, processed);
+
+        if (!msg.key.fromMe && processed.content) {
+          const lowerContent = processed.content.toLowerCase();
+          if (
+            (lowerContent.includes('nama') && lowerContent.includes('rekening') && lowerContent.includes('pengirim')) ||
+            (lowerContent.includes('total') && lowerContent.includes('transfer') && lowerContent.includes('rp')) ||
+            (lowerContent.includes('bank') && lowerContent.includes('transfer') && lowerContent.includes('total')) ||
+            (lowerContent.includes('nama') && lowerContent.includes('rekening') && lowerContent.includes('pembayaran'))
+          ) {
+            const ts = processed.timestamp || new Date().toISOString();
+            await saveClosingEvent(sessionId, processed.chatJid, ts, 'incoming_confirmation');
+          }
+        }
+
+        const payload = {
+          ...processed,
+          message_id: processed.messageId,
+          chat_jid: processed.chatJid,
+          is_from_me: msg.key.fromMe ? 1 : 0,
+          media_url: processed.mediaUrl,
+          caption: processed.caption,
+          sender_name: processed.pushName,
+        };
+
+        io.emit(`message:new:${sessionId}`, payload);
+
+        if (!msg.key.fromMe) {
+          io.emit("new_incoming_message", payload);
+        }
+
+        io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
+
+        if (msg.key.remoteJid?.endsWith("@g.us")) {
+          try {
+            const metadata = await sock.groupMetadata(msg.key.remoteJid);
+            await syncGroupMetadata(sessionId, metadata, sock);
+          } catch (err) {}
+        }
+
+        // Auto-detect kendala dari pesan admin (dinamis dari DB)
+        if (msg.key.fromMe && caption) {
+          const cat = await detectKendalaFromText(sessionId, processed.chatJid, caption);
+          if (cat) {
+            console.log(`[Kendala] Cek pesan admin ke ${processed.chatJid}: "${caption.slice(0, 80)}" → ${cat}`);
+          }
+        }
+
+        if (caption) {
+          handleAIResponse(
+            sessionId, 
+            msg.key.remoteJid, 
+            caption, 
+            sock, 
+            msg.key.fromMe,
+            msg.key
+          );
         }
       }
     }
   });
 
-  // ---- Event: messages.upsert ---- //
-sock.ev.on("messages.upsert", async ({ messages, type }) => {
-  if (type !== "notify") return;
-
-  for (const msg of messages) {
-    // 1. FILTER BROADCAST & STATUS SAJA
-    // Penting: msg.key.fromMe JANGAN di-continue di sini agar AI bisa mendeteksi balasan manual Admin
-    if (
-      msg.key.remoteJid === "status@broadcast" ||
-      isJidBroadcast(msg.key.remoteJid)
-    ) {
-      continue;
-    }
-
-    // 2. PROSES DOWNLOAD MEDIA (Jika ada)
-    let mediaUrl = null;
-    const messageType = Object.keys(msg.message || {})[0];
-    const isMedia = [
-      "imageMessage",
-      "videoMessage",
-      "documentMessage",
-    ].includes(messageType);
-
-    // Tolak download untuk image/video
-    if (messageType === "imageMessage" || messageType === "videoMessage") {
-      console.log(`⏭️ Media ditolak (tidak didownload): ${messageType}`);
-      continue;
-    }
-
-    if (isMedia) {
-      try {
-        console.log(`📩 Downloading media: ${messageType}...`);
-        const buffer = await downloadMediaMessage(
-          msg,
-          "buffer",
-          {},
-          {
-            logger: console,
-            reuploadRequest: sock.updateMediaMessage,
-          }
-        );
-
-        const uploadDir = path.join(process.cwd(), "public", "uploads");
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        let extension = "bin";
-        if (messageType === "imageMessage") extension = "jpg";
-        else if (messageType === "videoMessage") extension = "mp4";
-        else if (messageType === "documentMessage") {
-          const docMsg = msg.message.documentMessage;
-          extension = docMsg.fileName?.split(".").pop()?.toLowerCase() || "pdf";
-        }
-
-        const fileName = `${Date.now()}_${msg.key.id}.${extension}`;
-        const uploadPath = path.join(uploadDir, fileName);
-        fs.writeFileSync(uploadPath, buffer);
-        mediaUrl = `/uploads/${fileName}`;
-      } catch (err) {
-        console.error("❌ Gagal download media:", err.message);
-      }
-    }
-
-    // 3. PROSES PESAN (Mapping Data)
-    const processed = await processMessage(sessionId, msg, sock);
-
-    if (processed) {
-      processed.mediaUrl = mediaUrl;
-      processed.messageType = messageType?.replace("Message", "") || processed.messageType;
-
-      // Ambil Teks/Caption asli
-      const caption =
-        msg.message?.[messageType]?.caption ||
-        msg.message?.extendedTextMessage?.text ||
-        msg.message?.conversation ||
-        processed.content;
-
-      processed.caption = caption;
-
-      // 4. FILTER PESAN PROTOKOL (Pesan hapus/edit)
-      if (
-        processed.messageType === "protocolMessage" ||
-        processed.messageType === "deleted"
-      ) {
-        continue;
-      }
-
-      // 5. SIMPAN KE DATABASE & UPDATE LIST CHAT
-      // Tetap simpan pesan dari Admin (isFromMe) agar dashboard sinkron
-      await saveMessage(sessionId, processed);
-      await updateChat(sessionId, processed);
-
-      // Auto-detect closing: lead sends back confirmation format
-      if (!msg.key.fromMe && processed.content) {
-        const lowerContent = processed.content.toLowerCase();
-        if (
-          (lowerContent.includes('nama') && lowerContent.includes('rekening') && lowerContent.includes('pengirim')) ||
-          (lowerContent.includes('total') && lowerContent.includes('transfer') && lowerContent.includes('rp')) ||
-          (lowerContent.includes('bank') && lowerContent.includes('transfer') && lowerContent.includes('total')) ||
-          (lowerContent.includes('nama') && lowerContent.includes('rekening') && lowerContent.includes('pembayaran'))
-        ) {
-          const ts = processed.timestamp || new Date().toISOString();
-          await saveClosingEvent(sessionId, processed.chatJid, ts, 'incoming_confirmation');
-        }
-      }
-
-      // 6. NOTIFIKASI REALTIME (Socket.io)
-      const payload = {
-        ...processed,
-        message_id: processed.messageId,
-        chat_jid: processed.chatJid,
-        is_from_me: msg.key.fromMe ? 1 : 0,
-        media_url: processed.mediaUrl,
-        caption: processed.caption,
-        sender_name: processed.pushName,
-      };
-
-      // Update UI untuk device spesifik
-      io.emit(`message:new:${sessionId}`, payload);
-
-      // Notifikasi umum jika bukan dari Admin
-      if (!msg.key.fromMe) {
-        io.emit("new_incoming_message", payload);
-      }
-
-      // Update daftar percakapan (Sidebar)
-      io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
-
-      // Sinkronisasi Grup jika pesan dari grup
-      if (msg.key.remoteJid?.endsWith("@g.us")) {
-        try {
-          const metadata = await sock.groupMetadata(msg.key.remoteJid);
-          await syncGroupMetadata(sessionId, metadata, sock);
-        } catch (err) {}
-      }
-
-      // ===============================================
-      // 🚀 LOGIKA AUTO-REPLY AI (INTERACTIVE MODE)
-      // ===============================================
-      if (caption) {
-        /**
-         * PENTING: 
-         * Parameter terakhir 'msg.key.fromMe' dikirim ke handleAIResponse.
-         * Jika true (Admin balas), fungsi AI akan melakukan clearTimeout (Stop AI).
-         * Jika false (User tanya), fungsi AI akan mendaftarkan antrean baru.
-         */
-        handleAIResponse(
-          sessionId, 
-          msg.key.remoteJid, 
-          caption, 
-          sock, 
-          msg.key.fromMe,
-          msg.key
-        );
-      }
-    }
-  }
-});
-
-
-
-  
   // ---- Event: messages.update ----
   sock.ev.on("messages.update", async (updates) => {
     for (const { key, update } of updates) {
@@ -1092,22 +1075,63 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
     io.emit(`message:new:${sessionId}`, processed);
     io.emit(`chat:update:${sessionId}`, { chatJid: processed.chatJid });
 
-    // Auto-detect closing: admin sends payment template
+    // Auto-detect closing: dynamic keywords per session
     const lower = (text || '').toLowerCase();
-    if (
-      lower.includes('mohon bantu kirimkan bukti pembayaran') ||
-      lower.includes('format konfirmasi pembayaran') ||
-      (lower.includes('bukti pembayaran') && lower.includes('konfirmasi'))
-    ) {
-      await saveClosingEvent(sessionId, jid, new Date().toISOString(), 'outgoing_template');
+    console.log(`[Kendala] Cek pesan dari panel ke ${jid}: "${(text || '').slice(0, 80)}"`);
+    try {
+      const closingKeywords = await query(
+        "SELECT keyword_text FROM closing_keywords WHERE session_id = ?",
+        [sessionId]
+      );
+      const isClosing = closingKeywords.some(kw => {
+        const parts = kw.keyword_text.toLowerCase().split('|').map(s => s.trim());
+        return parts.every(part => lower.includes(part));
+      });
+      if (isClosing) {
+        await saveClosingEvent(sessionId, jid, new Date().toISOString(), 'outgoing_template');
+      }
+    } catch (err) {
+      console.error("[ClosingKeyword] Error detecting:", err.message);
     }
 
     // Auto-detect lead kendala: usia / biaya
-    if (lower.includes('terkendala usia') || lower.includes('kendala usia') || lower.includes('usia ya kak')) {
-      await saveKendala(sessionId, jid, 'usia', 'Admin membalas dengan kendala usia');
+    if (lower.includes('usia')) {
+      console.log(`[Kendala] → TERDETEKSI: usia`);
+      await saveKendala(sessionId, jid, 'usia', 'Admin membalas terkait usia');
     }
-    if (lower.includes('kendalanya biaya') || lower.includes('kendala biaya') || lower.includes('biaya ya kak')) {
-      await saveKendala(sessionId, jid, 'biaya', 'Admin membalas dengan kendala biaya');
+    if (lower.includes('biaya') || lower.includes('bisa persiapkan terlebih dahulu')) {
+      console.log(`[Kendala] → TERDETEKSI: biaya`);
+      await saveKendala(sessionId, jid, 'biaya', 'Admin membalas terkait biaya');
+    }
+    // Auto-detect: bertato
+    if (lower.includes('tidak diperbolehkan bertato') || lower.includes('ketentuan tidak diperbolehkan bertato')) {
+      console.log(`[Kendala] → TERDETEKSI: bertato`);
+      await saveKendala(sessionId, jid, 'bertato', 'Admin membalas kendala tato');
+    }
+    // Auto-detect: tidak memenuhi syarat
+    if (lower.includes('belum memenuhi persyaratannya') || lower.includes('belum memenuhi syarat')) {
+      console.log(`[Kendala] → TERDETEKSI: tidak_memenuhi_syarat`);
+      await saveKendala(sessionId, jid, 'tidak_memenuhi_syarat', 'Admin membalas belum memenuhi syarat');
+    }
+    // Auto-detect: belum ada data
+    if (lower.includes('boleh di bantu untuk di isi terlebih dahulu') || lower.includes('bantu di isi terlebih dahulu')) {
+      console.log(`[Kendala] → TERDETEKSI: belum_ada_data`);
+      await saveKendala(sessionId, jid, 'belum_ada_data', 'Admin meminta isi data terlebih dahulu');
+    }
+    // Auto-detect: tidak ada respon
+    if (lower.includes('izin follow up ya') || lower.includes('izin follow up')) {
+      console.log(`[Kendala] → TERDETEKSI: tidak_ada_respon`);
+      await saveKendala(sessionId, jid, 'tidak_ada_respon', 'Admin follow up karena tidak ada respon');
+    }
+    // Auto-detect: matching job
+    if (lower.includes('syarat untuk bisa matching job') || lower.includes('mengikuti salah satu kelas mendunia')) {
+      console.log(`[Kendala] → TERDETEKSI: matching_job`);
+      await saveKendala(sessionId, jid, 'matching_job', 'Admin membalas syarat matching job');
+    }
+    // Auto-detect: bad (tidak aktif)
+    if (lower === 'bad' || lower.startsWith('bad\n') || lower.startsWith('bad ') || lower.includes('ada yang bisa saya bantu hari ini')) {
+      console.log(`[Kendala] → TERDETEKSI: bad`);
+      await saveKendala(sessionId, jid, 'bad', 'Admin menandai sebagai BAD/Tidak Aktif');
     }
   }
 

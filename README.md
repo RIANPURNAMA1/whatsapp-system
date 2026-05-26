@@ -48,8 +48,11 @@ Laporan leads otomatis yang dikirim ke grup WhatsApp secara terjadwal. Konfigura
 ### 14. Lead Obstacle Analysis
 Analisis hambatan leads: usia (prospek menunda karena masalah usia), biaya (kendala harga), bad leads (tidak merespon setelah admin kirim data). Ditampilkan dalam pie chart dan bar chart dengan filter periode.
 
+### 14b. Dynamic Lead Categories
+Kategori leads dinamis yang dapat dikonfigurasi sepenuhnya dari UI. Admin dapat menambah, mengedit, dan menghapus kategori beserta kata kunci deteksinya. Ketika admin membalas pesan lead dengan kata kunci yang cocok, sistem otomatis mengklasifikasikan lead ke kategori tersebut. Ditampilkan dalam bar chart distribusi per kategori dan tabel detail per lead. 8 kategori default sudah tersedia: usia, biaya, tato, tidak memenuhi syarat, belum ada data, BPKB, Samsat, dan STNK.
+
 ### 15. Closing Traffic Tracking
-Lacak waktu konversi dari first chat hingga closing. Deteksi otomatis via: pengiriman template payment, penerimaan konfirmasi pembayaran dari lead, atau pemberian label yang mengandung kata "closing". Dilengkapi rata-rata waktu closing per perangkat.
+Lacak waktu konversi dari first chat hingga closing. Deteksi otomatis ketika admin membalas dengan template konfirmasi closing ("Baik ka terimakasih atas konfirmasinya..."), atau pemberian label yang mengandung kata "closing". Ditampilkan dalam summary cards (total, rata-rata, tercepat, terlama dalam hari), grafik garis tren closing per hari, distribusi waktu closing, dan detail tabel. Dilengkapi filter periode dan perangkat.
 
 ### 16. Link Rotator
 Buat tautan pendek (`/r/[slug]`) yang mendistribusikan pengunjung ke beberapa nomor WhatsApp dengan sistem rotasi weighted round-robin. Mendukung tipe direct (redirect langsung) dan lander (halaman perantara). Dilengkapi analitik klik per tautan, per hari, dan breakdown sumber.
@@ -75,6 +78,9 @@ Wawasan dashboard yang dihasilkan AI menggunakan Gemini. Bisa diekspor ke PDF at
 ### 23. TikTok Integration
 Kelola komentar TikTok, pesan langsung, dan leads TikTok. Balas komentar langsung dari dashboard. Atur auto-reply rules untuk TikTok. Terima webhook event dari TikTok (komentar, pesan, follow). Statistik TikTok.
 
+### 23b. TikTok Live Report & Analytics
+Laporan dan analitik TikTok Live. Role **TikTok Operator** dapat mengunggah laporan live (tayangan, pengikut baru, leads, durasi, jam tayang). Role **System/Manager** melihat dashboard analitik semua data dari semua operator, dilengkapi grafik garis tren pertumbuhan (tayangan, pengikut, leads), pie chart breakdown platform, summary cards, dan tabel riwayat laporan dengan filter periode.
+
 ### 24. Device Management Panel
 Panel kontrol perangkat: lihat status koneksi, buat sesi baru, reconnect, logout, dan hapus sesi. Dilengkapi informasi detail setiap perangkat.
 
@@ -82,7 +88,7 @@ Panel kontrol perangkat: lihat status koneksi, buat sesi baru, reconnect, logout
 Kelola pengguna sistem: buat, edit, hapus. Atur username, password, nama lengkap, role, dan cabang. Lihat status online berdasarkan aktivitas login.
 
 ### 26. Role-Based Access Control (RBAC)
-Tiga tipe role: **System** (Super Admin — akses penuh), **Manager** (akses marketing dan manajemen pengguna), **Custom** (terbatas pada sesi WhatsApp yang ditetapkan). Role system tidak bisa diedit/dihapus.
+Empat tipe role: **System** (Super Admin — akses penuh), **Manager** (akses marketing dan manajemen pengguna), **Custom** (terbatas pada sesi WhatsApp yang ditetapkan), **TikTok Operator** (khusus upload laporan TikTok Live, tidak ada akses dashboard analitik). Role system tidak bisa diedit/dihapus. Dashboard dan menu sidebar menyesuaikan secara otomatis berdasarkan role.
 
 ### 27. Secure Authentication
 Login dengan username, password, dan CAPTCHA kode acak 6 karakter. Menggunakan JWT token dengan expiry 24 jam. Auto-logout saat token expired.

@@ -1,4 +1,5 @@
 import { query, queryOne } from "../db.js";
+import { getAllCategories, matchKeywords } from "./leadCategoryService.js";
 
 export async function saveKendala(sessionId, chatJid, category, notes) {
   try {
@@ -33,8 +34,6 @@ export async function computeBadLeads(sessionId = null) {
     const sessionFilter = sessionId ? "AND m.session_id = ?" : "";
     const params = sessionId ? [sessionId] : [];
 
-    // Cari admin yang kirim template data diri (Nama, Usia, Asal Kota, dll)
-    // lalu lead tidak balas dalam 1 jam
     const badCandidates = await query(`
       SELECT m.session_id, m.chat_jid, m.timestamp as template_sent_at
       FROM wa_messages m
@@ -50,7 +49,6 @@ export async function computeBadLeads(sessionId = null) {
       ORDER BY m.session_id, m.chat_jid, m.timestamp DESC
     `, params);
 
-    // Deduplicate: ambil template terakhir per chat
     const templateMap = new Map();
     badCandidates.forEach(c => {
       const key = `${c.session_id}-${c.chat_jid}`;
@@ -60,13 +58,11 @@ export async function computeBadLeads(sessionId = null) {
     });
 
     let count = 0;
-
     for (const [, c] of templateMap) {
       const templateTime = new Date(c.template_sent_at);
       const now = new Date();
       const hoursSinceTemplate = (now - templateTime) / (1000 * 60 * 60);
 
-      // Cek apakah lead balas setelah template dikirim
       const lastLeadMsg = await queryOne(`
         SELECT MAX(timestamp) as last_reply
         FROM wa_messages
@@ -75,7 +71,6 @@ export async function computeBadLeads(sessionId = null) {
 
       const hasReply = lastLeadMsg && lastLeadMsg.last_reply;
 
-      // BAD jika: sudah > 1 jam sejak template dikirim DAN lead belum balas
       if (hoursSinceTemplate >= 1 && !hasReply) {
         const contact = await queryOne(
           "SELECT name, push_name FROM wa_contacts WHERE session_id = ? AND jid = ?",
@@ -100,7 +95,6 @@ export async function computeBadLeads(sessionId = null) {
         count++;
       }
     }
-
     return count;
   } catch (err) {
     console.error("[LeadAnalysis] Error computing bad leads:", err.message);
@@ -145,18 +139,25 @@ export async function getLeadAnalysis(sessionId = null, period = "Minggu") {
     ORDER BY la.detected_at DESC
   `, params);
 
-  // Usia summary
-  const usiaCount = data.filter(d => d.category === 'usia').length;
-  const biayaCount = data.filter(d => d.category === 'biaya').length;
-  const badCount = data.filter(d => d.category === 'bad').length;
+  const categories = await getAllCategories();
+  const catKeys = categories.map(c => c.name);
 
-  return {
-    data,
-    summary: {
-      total: data.length,
-      usia: usiaCount,
-      biaya: biayaCount,
-      bad: badCount
+  const summary = { total: data.length };
+  catKeys.forEach(c => summary[c] = data.filter(d => d.category === c).length);
+
+  return { data, summary };
+}
+
+export async function detectKendalaFromText(sessionId, chatJid, text) {
+  if (!text) return null;
+  const categories = await getAllCategories();
+  for (const cat of categories) {
+    const keywords = typeof cat.keywords === "string" ? JSON.parse(cat.keywords) : (cat.keywords || []);
+    if (matchKeywords(text, keywords)) {
+      console.log(`[Kendala] → TERDETEKSI: ${cat.name} (keyword match di "${text.slice(0, 60)}")`);
+      await saveKendala(sessionId, chatJid, cat.name, `Admin membalas terkait ${cat.label}`);
+      return cat.name;
     }
-  };
+  }
+  return null;
 }

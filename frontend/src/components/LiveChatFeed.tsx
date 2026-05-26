@@ -10,7 +10,7 @@ interface LiveFeedProps {
   sessions?: any[];
 }
 
-const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan, onNavigate, sessions = [] }) => {
+const LiveFeed: React.FC<LiveFeedProps> = React.memo(({ messages, totalPesan, onNavigate, sessions = [] }) => {
   const { selectChat, chats, setActiveSession } = useStore();
   const connectedSessions = sessions.filter((s) => s.status === "connected");
 
@@ -267,6 +267,6 @@ const LiveFeed: React.FC<LiveFeedProps> = ({ messages, totalPesan, onNavigate, s
       )}
     </div>
   );
-};
+});
 
 export default LiveFeed;

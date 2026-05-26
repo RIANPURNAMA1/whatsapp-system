@@ -9,7 +9,7 @@ interface StatCardProps {
   dark?: boolean;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ 
+const StatCard: React.FC<StatCardProps> = React.memo(({ 
   dark, 
   title, 
   value, 
@@ -53,6 +53,6 @@ const StatCard: React.FC<StatCardProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default StatCard;

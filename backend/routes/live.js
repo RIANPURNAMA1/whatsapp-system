@@ -248,6 +248,33 @@ router.post("/leads/webhook", async (req, res) => {
   }
 });
 
+// GET: Count TikTok leads (for dashboard card)
+router.get("/leads/count", authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    let whereClause = "WHERE platform = 'tiktok'";
+    let params = [];
+
+    if (startDate && endDate) {
+      whereClause += " AND DATE(created_at) BETWEEN ? AND ?";
+      params.push(startDate, endDate);
+    }
+
+    const [rows] = await query(
+      `SELECT COUNT(*) as total FROM tiktok_leads ${whereClause}`,
+      params
+    );
+
+    res.json({
+      success: true,
+      total: rows[0]?.total || 0,
+    });
+  } catch (err) {
+    console.error("Error count TikTok leads:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ========== TIKTOK ANALYTICS ==========
 
 // GET: Get TikTok analytics

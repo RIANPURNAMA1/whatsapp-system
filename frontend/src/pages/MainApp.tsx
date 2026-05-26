@@ -29,6 +29,7 @@ import AISettingPage from "../components/AISettingPage";
 import GroupList from "@/components/Grouplist";
 import TikTokPanel from "../components/live/LivePanel";
 import { TikTokLiveReportPage } from "../components/live/LiveReport";
+import TikTokAnalyticsDashboard from "../components/live/LiveAnalyticsDashboard";
 import { LeadsReportPage } from "./LeadsReportPage";
 import { TrafficClosingSection } from "../components/TrafficClosingSection";
 import { LeadAnalysisSection } from "../components/LeadAnalysisSection";
@@ -68,7 +69,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
   const [activeTab, setActiveTab] = useState<string>(
     user?.role_type === "tiktok_operator"
       ? "tiktok-live-report"
-      : user?.role_type === "system" || user?.role_type === "manager"
+      : user?.role_type === "system" || user?.role_type === "manager" || user?.role_type === "custom"
         ? "dashboard"
         : "chats",
   );
@@ -104,11 +105,18 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
   // 4. Handlers
   const handleSystemLogout = async () => {
     const result = await Swal.fire({
-      title: "Keluar Aplikasi?",
-      text: "Anda akan diarahkan kembali ke halaman login.",
+      title: "",
+      html: `
+        <div style="text-align:left">
+          <div style="font-size:16px;font-weight:700;color:#1E3A5F;margin-bottom:8px">Keluar Aplikasi?</div>
+          <div style="border-left:3px solid #1E3A5F;padding-left:12px;font-size:13px;color:#4A6F8F;line-height:1.5">
+            Anda akan diarahkan kembali ke halaman login.
+          </div>
+        </div>
+      `,
       icon: "question",
       showCancelButton: true,
-      confirmButtonColor: "#8b5cf6",
+      confirmButtonColor: "#1E3A5F",
       cancelButtonColor: "#e5e7eb",
       confirmButtonText: "Ya, Keluar",
       background: "#ffffff",
@@ -286,6 +294,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
                   </div>
                 )}
 
+
                   {/* View Manajemen Perangkat */}
                 {activeTab === "devices" && (
                   <DevicePanel
@@ -317,7 +326,11 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
 
             {activeTab === "tiktok-live-report" && (
               <div className="flex-1 overflow-y-auto h-full">
-                <TikTokLiveReportPage />
+                {user?.role_type === "tiktok_operator" ? (
+                  <TikTokLiveReportPage />
+                ) : (
+                  <TikTokAnalyticsDashboard onBack={() => setActiveTab("dashboard")} />
+                )}
               </div>
             )}
 

@@ -435,7 +435,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
           <div className="space-y-2">
             {filteredKeywords.map((k: any) => (
               <div key={k.id} className="bg-white rounded-lg border p-4 transition-all hover:shadow-sm" style={{ borderColor: "#E4E6EB" }}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 group">
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 font-bold text-white text-sm" style={{ backgroundColor: platformColors[k.platform?.toLowerCase()] || "#65676B" }}>
                     {k.platform?.charAt(0).toUpperCase() || "?"}
                   </div>

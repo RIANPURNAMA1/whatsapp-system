@@ -7,7 +7,8 @@ import { log } from "console";
 import { query, queryOne } from "./db.js";
 import { generateLeadsReport, sendReportToGroups } from "./services/leadsReportService.js";
 import { saveClosingEvent } from "./services/closingTrafficService.js";
-import { getLeadAnalysis, computeBadLeads } from "./services/leadAnalysisService.js";
+
+import { getOrSet, cacheKey, invalidateDashboard, invalidateSocialMedia, invalidateSessions, invalidateAll, DEFAULT_TTL } from "./services/cacheService.js";
 import {
   createSession,
   sendTextMessage,
@@ -461,30 +462,30 @@ router.delete("/users/:id", async (req, res) => {
 router.get("/sessions", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const roleType = req.user.role_type.toLowerCase().trim(); // Standarisasi role
+    const roleType = req.user.role_type.toLowerCase().trim();
 
-    let sessionsData;
-
-    if (roleType === "system" || roleType === "manager") {
-      sessionsData = await query(
-        "SELECT * FROM wa_sessions ORDER BY created_at DESC",
-      );
-    } else {
-      // Query ini mencakup Manager & Custom sekaligus
-      // Mengambil semua session yang terhubung dengan user ini di tabel pivot
-      sessionsData = await query(
-        `SELECT s.* FROM wa_sessions s
-         INNER JOIN wa_user_sessions us ON s.id = us.session_id
-         WHERE us.user_id = ?
-         ORDER BY s.created_at DESC`,
-        [userId],
-      );
-    }
-
-    console.log(
-      `[DEBUG] User ${userId} (${roleType}) menemukan ${sessionsData.length} sesi`,
+    const result = await getOrSet(
+      cacheKey("sessions", userId, roleType),
+      async () => {
+        let sessionsData;
+        if (roleType === "system" || roleType === "manager") {
+          sessionsData = await query("SELECT * FROM wa_sessions ORDER BY created_at DESC");
+        } else {
+          sessionsData = await query(
+            `SELECT s.* FROM wa_sessions s
+             INNER JOIN wa_user_sessions us ON s.id = us.session_id
+             WHERE us.user_id = ?
+             ORDER BY s.created_at DESC`,
+            [userId],
+          );
+        }
+        console.log(`[DEBUG] User ${userId} (${roleType}) menemukan ${sessionsData.length} sesi`);
+        return { success: true, data: sessionsData };
+      },
+      DEFAULT_TTL.SESSIONS,
     );
-    res.json({ success: true, data: sessionsData });
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -2015,155 +2016,150 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const roleType = req.user.role_type?.toLowerCase().trim();
 
-    // 1. ACL & Device Filtering
-    let allowedSessions = [];
-    if (roleType === "system" || roleType === "manager") {
-      allowedSessions = await query("SELECT id, name FROM wa_sessions ORDER BY name ASC");
-    } else {
-      allowedSessions = await query(
-        `SELECT s.id, s.name FROM wa_sessions s 
-         INNER JOIN wa_user_sessions us ON s.id = us.session_id 
-         WHERE us.user_id = ? ORDER BY s.name ASC`, [userId]
-      );
-    }
-
-    const allowedIds = allowedSessions.map(s => s.id);
-    if (allowedIds.length === 0) return res.json({ success: true, summary: { totalLeads: 0, totalClosing: 0 }, deviceData: [] });
-
-    let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) 
-      ? [sessionId] 
-      : allowedIds;
-
-    const inPlaceholder = targetSessionIds.map(() => '?').join(',');
-
-    // 2. Logika Filter Waktu
-    let dateFilterMsg = "";
-    let dateFilterClosing = "";
-    let queryParams = [...targetSessionIds];
-
-    if (period && period !== "Custom") {
-      switch (period) {
-        case "Hari ini":
-          dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
-          dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
-          break;
-        case "Kemarin":
-          dateFilterMsg = "AND DATE(m.timestamp) = SUBDATE(CURDATE(), 1)";
-          dateFilterClosing = "AND DATE(cl.assigned_at) = SUBDATE(CURDATE(), 1)";
-          break;
-        case "Minggu":
-          dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-          dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-          break;
-        case "Bulan":
-          dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-          dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-          break;
-        default:
-          dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
-          dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
-      }
-    } else if (startDate && endDate) {
-      const startFull = `${startDate} ${startTime || '00:00:00'}`;
-      const endFull = `${endDate} ${endTime || '23:59:59'}`;
-      dateFilterMsg = "AND m.timestamp BETWEEN ? AND ?";
-      dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ?";
-      queryParams.push(startFull, endFull);
-    } else {
-      dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
-      dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
-    }
-
-    // 3. Query Paralel
-    // Perhatikan: query closing menggunakan targetSessionIds sendiri untuk IN (?)
-    const organikFilter = await buildOrganikFilter();
-    const [keywords, closingDataRaw, messages, organikDataRaw] = await Promise.all([
-      query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
-      
-      // Mengelompokkan closing per session agar bisa tampil di Bar Chart
-      query(`SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as total_closing 
-             FROM wa_chat_labels cl 
-             JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
-             WHERE cl.session_id IN (${inPlaceholder}) 
-             AND LOWER(l.name) LIKE '%closing%' ${dateFilterClosing}
-             GROUP BY cl.session_id`, (startDate && endDate) ? [...targetSessionIds, queryParams[queryParams.length-2], queryParams[queryParams.length-1]] : targetSessionIds),
-
-      query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
-             FROM wa_messages m
-             WHERE m.session_id IN (${inPlaceholder}) 
-             AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams),
-
-      query(`SELECT session_id, COUNT(*) as total_organik 
-             FROM wa_messages 
-             WHERE session_id IN (${inPlaceholder}) 
-             AND is_from_me = 1 AND chat_jid NOT LIKE '%@g.us' AND chat_jid NOT LIKE '%@newsletter'
-             ${organikFilter}
-             ${dateFilterMsg.replace('m.', '')}
-             GROUP BY session_id`, queryParams)
-    ]);
-
-    // 4. Mapping Closing per Device
-    const closingMap = new Map();
-    closingDataRaw.forEach(c => closingMap.set(c.session_id, parseInt(c.total_closing)));
-
-    // 4.1 Mapping Organik per Device
-    const organikMap = new Map();
-    organikDataRaw.forEach(o => organikMap.set(o.session_id, parseInt(o.total_organik)));
-
-    // 5. Perhitungan Leads
-    const keywordMap = new Map();
-    const deviceLeadsMap = new Map();
-    const platformLeadsSet = new Map();
-    let totalLeadsSet = new Set();
-
-    targetSessionIds.forEach(id => {
-      deviceLeadsMap.set(id, new Set());
-      keywordMap.set(id, keywords.filter(k => k.session_id === id));
-    });
-
-    messages.forEach((msg) => {
-      const sId = msg.session_id;
-      const sender = msg.chat_jid;
-      const sessionKeywords = keywordMap.get(sId) || [];
-
-      sessionKeywords.forEach((k) => {
-        const platform = k.platform.toLowerCase().trim();
-        const kw = k.keyword_text.toLowerCase().trim();
-
-        if (msg.content && msg.content.includes(kw)) {
-          if (!platformLeadsSet.has(platform)) platformLeadsSet.set(platform, new Set());
-          platformLeadsSet.get(platform).add(`${sId}-${sender}`);
-          totalLeadsSet.add(`${sId}-${sender}`);
-          deviceLeadsMap.get(sId).add(sender);
+    const result = await getOrSet(
+      cacheKey("social_leads", userId, roleType, period || "hari_ini", sessionId || "all", startDate, endDate),
+      async () => {
+        let allowedSessions = [];
+        if (roleType === "system" || roleType === "manager") {
+          allowedSessions = await query("SELECT id, name FROM wa_sessions ORDER BY name ASC");
+        } else {
+          allowedSessions = await query(
+            `SELECT s.id, s.name FROM wa_sessions s 
+             INNER JOIN wa_user_sessions us ON s.id = us.session_id 
+             WHERE us.user_id = ? ORDER BY s.name ASC`, [userId]
+          );
         }
-      });
-    });
 
-    const totalLeads = totalLeadsSet.size;
-    const totalClosing = Array.from(closingMap.values()).reduce((a, b) => a + b, 0);
+        const allowedIds = allowedSessions.map(s => s.id);
+        if (allowedIds.length === 0) return { success: true, summary: { totalLeads: 0, totalClosing: 0 }, deviceData: [] };
 
-    // 6. Response JSON
-    res.json({
-      success: true,
-      summary: {
-        totalLeads,
-        totalClosing,
-        averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0,
-        platformBreakdown: Array.from(platformLeadsSet.keys()).map(p => ({
-          platform: p.toUpperCase(),
-          count: platformLeadsSet.get(p).size
-        }))
+        let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) 
+          ? [sessionId] 
+          : allowedIds;
+
+        const inPlaceholder = targetSessionIds.map(() => '?').join(',');
+
+        let dateFilterMsg = "";
+        let dateFilterClosing = "";
+        let queryParams = [...targetSessionIds];
+
+        if (period && period !== "Custom") {
+          switch (period) {
+            case "Hari ini":
+              dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+              dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+              break;
+            case "Kemarin":
+              dateFilterMsg = "AND DATE(m.timestamp) = SUBDATE(CURDATE(), 1)";
+              dateFilterClosing = "AND DATE(cl.assigned_at) = SUBDATE(CURDATE(), 1)";
+              break;
+            case "Minggu":
+              dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+              dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+              break;
+            case "Bulan":
+              dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+              dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+              break;
+            default:
+              dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+              dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+          }
+        } else if (startDate && endDate) {
+          const startFull = `${startDate} ${startTime || '00:00:00'}`;
+          const endFull = `${endDate} ${endTime || '23:59:59'}`;
+          dateFilterMsg = "AND m.timestamp BETWEEN ? AND ?";
+          dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ?";
+          queryParams.push(startFull, endFull);
+        } else {
+          dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+          dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+        }
+
+        const organikFilter = await buildOrganikFilter();
+        const [keywords, closingDataRaw, messages, organikDataRaw] = await Promise.all([
+          query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
+          query(`SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as total_closing 
+                 FROM wa_chat_labels cl 
+                 JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
+                 WHERE cl.session_id IN (${inPlaceholder}) 
+                 AND LOWER(l.name) LIKE '%closing%' ${dateFilterClosing}
+                 GROUP BY cl.session_id`, (startDate && endDate) ? [...targetSessionIds, queryParams[queryParams.length-2], queryParams[queryParams.length-1]] : targetSessionIds),
+          query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
+                 FROM wa_messages m
+                 WHERE m.session_id IN (${inPlaceholder}) 
+                 AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams),
+          query(`SELECT session_id, COUNT(*) as total_organik 
+                 FROM wa_messages 
+                 WHERE session_id IN (${inPlaceholder}) 
+                 AND is_from_me = 1 AND chat_jid NOT LIKE '%@g.us' AND chat_jid NOT LIKE '%@newsletter'
+                 ${organikFilter}
+                 ${dateFilterMsg.replace('m.', '')}
+                 GROUP BY session_id`, queryParams)
+        ]);
+
+        const closingMap = new Map();
+        closingDataRaw.forEach(c => closingMap.set(c.session_id, parseInt(c.total_closing)));
+
+        const organikMap = new Map();
+        organikDataRaw.forEach(o => organikMap.set(o.session_id, parseInt(o.total_organik)));
+
+        const keywordMap = new Map();
+        const deviceLeadsMap = new Map();
+        const platformLeadsSet = new Map();
+        let totalLeadsSet = new Set();
+
+        targetSessionIds.forEach(id => {
+          deviceLeadsMap.set(id, new Set());
+          keywordMap.set(id, keywords.filter(k => k.session_id === id));
+        });
+
+        messages.forEach((msg) => {
+          const sId = msg.session_id;
+          const sender = msg.chat_jid;
+          const sessionKeywords = keywordMap.get(sId) || [];
+
+          sessionKeywords.forEach((k) => {
+            const platform = k.platform.toLowerCase().trim();
+            const kw = k.keyword_text.toLowerCase().trim();
+
+            if (msg.content && msg.content.includes(kw)) {
+              if (!platformLeadsSet.has(platform)) platformLeadsSet.set(platform, new Set());
+              platformLeadsSet.get(platform).add(`${sId}-${sender}`);
+              totalLeadsSet.add(`${sId}-${sender}`);
+              deviceLeadsMap.get(sId).add(sender);
+            }
+          });
+        });
+
+        const totalLeads = totalLeadsSet.size;
+        const totalClosing = Array.from(closingMap.values()).reduce((a, b) => a + b, 0);
+
+        return {
+          success: true,
+          summary: {
+            totalLeads,
+            totalClosing,
+            averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0,
+            platformBreakdown: Array.from(platformLeadsSet.keys()).map(p => ({
+              platform: p.toUpperCase(),
+              count: platformLeadsSet.get(p).size
+            }))
+          },
+          deviceData: allowedSessions
+            .filter(s => targetSessionIds.includes(s.id))
+            .map(s => ({
+              name: s.name.toUpperCase(),
+              lead_count: deviceLeadsMap.get(s.id)?.size || 0,
+              closing_count: closingMap.get(s.id) || 0,
+              leads_organik: organikMap.get(s.id) || 0
+            }))
+        };
       },
-      deviceData: allowedSessions
-        .filter(s => targetSessionIds.includes(s.id))
-        .map(s => ({
-          name: s.name.toUpperCase(),
-          lead_count: deviceLeadsMap.get(s.id)?.size || 0,
-          closing_count: closingMap.get(s.id) || 0,
-          leads_organik: organikMap.get(s.id) || 0
-        }))
-    });
+      DEFAULT_TTL.SOCIAL_MEDIA,
+    );
 
+    res.json(result);
   } catch (error) {
     console.error("API Error at /social/media/all/leads:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
@@ -2176,79 +2172,87 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const roleType = req.user.role_type.toLowerCase().trim();
 
-    let allowedSessions = [];
-    if (roleType === "system" || roleType === "manager") {
-      allowedSessions = await query("SELECT id, name, status FROM wa_sessions ORDER BY name ASC");
-    } else {
-      allowedSessions = await query(
-        `SELECT s.id, s.name, s.status FROM wa_sessions s INNER JOIN wa_user_sessions us ON s.id = us.session_id WHERE us.user_id = ? ORDER BY s.name ASC`,
-        [userId],
-      );
-    }
+    const result = await getOrSet(
+      cacheKey("dashboard", userId, roleType, period, sessionId || "all", startDate, endDate),
+      async () => {
+        let allowedSessions = [];
+        if (roleType === "system" || roleType === "manager") {
+          allowedSessions = await query("SELECT id, name, status FROM wa_sessions ORDER BY name ASC");
+        } else {
+          allowedSessions = await query(
+            `SELECT s.id, s.name, s.status FROM wa_sessions s INNER JOIN wa_user_sessions us ON s.id = us.session_id WHERE us.user_id = ? ORDER BY s.name ASC`,
+            [userId],
+          );
+        }
 
-    const allowedIds = allowedSessions.map((s) => s.id);
-    if (allowedIds.length === 0) {
-      return res.json({ success: true, stats: {}, devices: [] });
-    }
+        const allowedIds = allowedSessions.map((s) => s.id);
+        if (allowedIds.length === 0) {
+          return { success: true, stats: {}, devices: [] };
+        }
 
-    let finalSessionIds = sessionId && sessionId !== "all" && allowedIds.includes(sessionId) ? [sessionId] : allowedIds;
-    const placeholders = finalSessionIds.map(() => "?").join(",");
-    const sessionFilter = `AND m.session_id IN (${placeholders})`;
+        let finalSessionIds = sessionId && sessionId !== "all" && allowedIds.includes(sessionId) ? [sessionId] : allowedIds;
+        const placeholders = finalSessionIds.map(() => "?").join(",");
+        const sessionFilter = `AND m.session_id IN (${placeholders})`;
 
-    const periodFilter = buildPeriodFilter(period, "m.timestamp", startDate, endDate);
-    const organikFilter = await buildOrganikFilter();
+        const periodFilter = buildPeriodFilter(period, "m.timestamp", startDate, endDate);
+        const organikFilter = await buildOrganikFilter();
 
-    const [minTimeRow] = await query(
-      `SELECT MIN(timestamp) as min_t FROM wa_messages m WHERE 1=1 AND ${periodFilter}`,
-      [],
-    );
-    const minPeriodTimestamp = minTimeRow?.min_t || "2000-01-01 00:00:00";
+        const [minTimeRow] = await query(
+          `SELECT MIN(timestamp) as min_t FROM wa_messages m WHERE 1=1 AND ${periodFilter}`,
+          [],
+        );
+        const minPeriodTimestamp = minTimeRow?.min_t || "2000-01-01 00:00:00";
 
-    const [
-      [rowPesanMasukAllTime],
-      [rowPesanMasukPeriod],
-      [rowPesanKeluar],
-      [rowLeadsOrganik],
-      [rowLeadMasuk],
-      [rowLeadAktif],
-      [rowSlowResponse],
-      [rowUnanswered],
-      liveMessages,
-      trendData,
-      devicePerformance,
-    ] = await Promise.all([
-      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${sessionFilter}`, [...finalSessionIds]),
-      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter}`, [...finalSessionIds]),
-      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter}`, [...finalSessionIds]),
-      query(`SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${organikFilter.replace('content', 'm.content')} AND ${periodFilter} ${sessionFilter}`, [...finalSessionIds]),
-      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m.chat_jid AND older.timestamp < ?)`, [...finalSessionIds, minPeriodTimestamp]),
-      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`, [...finalSessionIds]),
-      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
-      query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
-      query(`SELECT m.id, m.chat_jid AS sender_jid, m.session_id, COALESCE(ct.push_name, m.chat_jid) AS sender, m.content AS message_text, s.name AS received_via, m.timestamp AS received_at FROM wa_messages m INNER JOIN (SELECT MAX(id) as max_id FROM wa_messages WHERE is_from_me = 0 GROUP BY chat_jid) last_msg ON m.id = last_msg.max_id LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid LEFT JOIN wa_sessions s ON s.id = m.session_id WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${sessionFilter} ORDER BY m.timestamp DESC LIMIT 15`, [...finalSessionIds]),
-      query(`SELECT ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, SUM(m.is_from_me = 0) AS masuk, SUM(m.is_from_me = 1) AS keluar FROM wa_messages m WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} GROUP BY time ORDER BY time ASC`, [...finalSessionIds]),
-      query(`SELECT s.name, (SELECT COUNT(DISTINCT m2.chat_jid) FROM wa_messages m2 WHERE m2.session_id = s.id AND m2.is_from_me = 0 AND m2.chat_jid NOT LIKE '%@g.us' AND ${periodFilter.replace(/m\./g, "m2.")} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m2.chat_jid AND older.timestamp < ?)) AS lead_count, (SELECT COUNT(*) FROM wa_messages mo WHERE mo.session_id = s.id AND mo.is_from_me = 1 AND mo.chat_jid NOT LIKE '%@g.us' AND mo.chat_jid NOT LIKE '%@newsletter' ${organikFilter.replace('content', 'mo.content')} AND ${periodFilter.replace(/m\./g, "mo.")}) AS leads_organik FROM wa_sessions s WHERE s.id IN (${placeholders})`, [minPeriodTimestamp, ...finalSessionIds]),
-    ]);
+        const [
+          [rowPesanMasukAllTime],
+          [rowPesanMasukPeriod],
+          [rowPesanKeluar],
+          [rowLeadsOrganik],
+          [rowLeadMasuk],
+          [rowLeadAktif],
+          [rowSlowResponse],
+          [rowUnanswered],
+          liveMessages,
+          trendData,
+          devicePerformance,
+        ] = await Promise.all([
+          query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${sessionFilter}`, [...finalSessionIds]),
+          query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter}`, [...finalSessionIds]),
+          query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter}`, [...finalSessionIds]),
+          query(`SELECT COUNT(*) AS count FROM wa_messages m WHERE m.is_from_me = 1 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${organikFilter.replace('content', 'm.content')} AND ${periodFilter} ${sessionFilter}`, [...finalSessionIds]),
+          query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m.chat_jid AND older.timestamp < ?)`, [...finalSessionIds, minPeriodTimestamp]),
+          query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) ${sessionFilter}`, [...finalSessionIds]),
+          query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
+          query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
+          query(`SELECT m.id, m.chat_jid AS sender_jid, m.session_id, COALESCE(ct.push_name, m.chat_jid) AS sender, m.content AS message_text, s.name AS received_via, m.timestamp AS received_at FROM wa_messages m INNER JOIN (SELECT MAX(id) as max_id FROM wa_messages WHERE is_from_me = 0 GROUP BY chat_jid) last_msg ON m.id = last_msg.max_id LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid LEFT JOIN wa_sessions s ON s.id = m.session_id WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${sessionFilter} ORDER BY m.timestamp DESC LIMIT 15`, [...finalSessionIds]),
+          query(`SELECT ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, SUM(m.is_from_me = 0) AS masuk, SUM(m.is_from_me = 1) AS keluar FROM wa_messages m WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} GROUP BY time ORDER BY time ASC`, [...finalSessionIds]),
+          query(`SELECT s.name, (SELECT COUNT(DISTINCT m2.chat_jid) FROM wa_messages m2 WHERE m2.session_id = s.id AND m2.is_from_me = 0 AND m2.chat_jid NOT LIKE '%@g.us' AND ${periodFilter.replace(/m\./g, "m2.")} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m2.chat_jid AND older.timestamp < ?)) AS lead_count, (SELECT COUNT(*) FROM wa_messages mo WHERE mo.session_id = s.id AND mo.is_from_me = 1 AND mo.chat_jid NOT LIKE '%@g.us' AND mo.chat_jid NOT LIKE '%@newsletter' ${organikFilter.replace('content', 'mo.content')} AND ${periodFilter.replace(/m\./g, "mo.")}) AS leads_organik FROM wa_sessions s WHERE s.id IN (${placeholders})`, [minPeriodTimestamp, ...finalSessionIds]),
+        ]);
 
-    res.json({
-      success: true,
-      stats: {
-        pesanMasukAllTime: rowPesanMasukAllTime?.count || 0,
-        pesanMasukToday: rowPesanMasukPeriod?.count || 0,
-        pesanKeluar: rowPesanKeluar?.count || 0,
-        leadsOrganik: rowLeadsOrganik?.count || 0,
-        totalDevice: allowedSessions.length,
-        deviceConnected: allowedSessions.filter((s) => s.status === "connected").length,
-        leadMasuk: rowLeadMasuk?.count || 0,
-        leadAktif: rowLeadAktif?.count || 0,
-        slowResponse: rowSlowResponse?.count || 0,
-        unanswered: rowUnanswered?.count || 0,
+        return {
+          success: true,
+          stats: {
+            pesanMasukAllTime: rowPesanMasukAllTime?.count || 0,
+            pesanMasukToday: rowPesanMasukPeriod?.count || 0,
+            pesanKeluar: rowPesanKeluar?.count || 0,
+            leadsOrganik: rowLeadsOrganik?.count || 0,
+            totalDevice: allowedSessions.length,
+            deviceConnected: allowedSessions.filter((s) => s.status === "connected").length,
+            leadMasuk: rowLeadMasuk?.count || 0,
+            leadAktif: rowLeadAktif?.count || 0,
+            slowResponse: rowSlowResponse?.count || 0,
+            unanswered: rowUnanswered?.count || 0,
+          },
+          devices: allowedSessions,
+          messages: liveMessages,
+          chartData: trendData,
+          deviceStats: devicePerformance,
+        };
       },
-      devices: allowedSessions,
-      messages: liveMessages,
-      chartData: trendData,
-      deviceStats: devicePerformance,
-    });
+      DEFAULT_TTL.DASHBOARD,
+    );
+
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: err.message });
@@ -3910,70 +3914,6 @@ router.post("/leads-report/send-now", authenticateToken, async (req, res) => {
 });
 
 // ===============================================
-// LEAD ANALYSIS - Usia, Biaya, Bad
-// ===============================================
-router.get("/leads/analysis", authenticateToken, async (req, res) => {
-  try {
-    const { sessionId, period = "Minggu" } = req.query;
-    const userId = req.user.id;
-    const roleType = req.user.role_type?.toLowerCase().trim();
-
-    let allowedSessions = [];
-    if (roleType === "system" || roleType === "manager") {
-      allowedSessions = await query("SELECT id, name FROM wa_sessions ORDER BY name ASC");
-    } else {
-      allowedSessions = await query(
-        `SELECT s.id, s.name FROM wa_sessions s 
-         INNER JOIN wa_user_sessions us ON s.id = us.session_id 
-         WHERE us.user_id = ? ORDER BY s.name ASC`, [userId]
-      );
-    }
-
-    const allowedIds = allowedSessions.map(s => s.id);
-    if (allowedIds.length === 0) {
-      return res.json({ success: true, data: [], summary: { total: 0, usia: 0, biaya: 0, bad: 0 } });
-    }
-
-    const targetId = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) ? sessionId : null;
-
-    // Compute bad leads first
-    await computeBadLeads(targetId);
-
-    const result = await getLeadAnalysis(targetId, period || "Minggu");
-
-    // Filter by allowed sessions
-    const filteredData = result.data.filter(d => allowedIds.includes(d.session_id));
-
-    // Per-device breakdown
-    const deviceMap = {};
-    filteredData.forEach(d => {
-      if (!deviceMap[d.session_id]) deviceMap[d.session_id] = { usia: 0, biaya: 0, bad: 0 };
-      if (deviceMap[d.session_id][d.category] !== undefined) deviceMap[d.session_id][d.category]++;
-    });
-
-    const deviceData = allowedSessions
-      .filter(s => !targetId || s.id === targetId)
-      .map(s => ({
-        name: s.name.toUpperCase(),
-        ...(deviceMap[s.id] || { usia: 0, biaya: 0, bad: 0 }),
-        total: Object.values(deviceMap[s.id] || { usia: 0, biaya: 0, bad: 0 }).reduce((a, b) => a + b, 0)
-      }));
-
-    const summary = {
-      total: filteredData.length,
-      usia: filteredData.filter(d => d.category === 'usia').length,
-      biaya: filteredData.filter(d => d.category === 'biaya').length,
-      bad: filteredData.filter(d => d.category === 'bad').length
-    };
-
-    res.json({ success: true, data: filteredData, summary, deviceData });
-  } catch (error) {
-    console.error("API Error at /leads/analysis:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
-  }
-});
-
-// ===============================================
 // TRAFIK CLOSING - Baca dari tabel closing_traffic
 // ===============================================
 router.get("/closing/traffic", authenticateToken, async (req, res) => {
@@ -4042,6 +3982,7 @@ router.get("/closing/traffic", authenticateToken, async (req, res) => {
     // Format durasi label
     const formatted = data.map(d => {
       const durasiJam = parseFloat(d.durasi_jam) || 0;
+      const durasiHari = Math.round((durasiJam / 24) * 100) / 100;
       return {
         session_id: d.session_id,
         chat_jid: d.chat_jid,
@@ -4049,13 +3990,16 @@ router.get("/closing/traffic", authenticateToken, async (req, res) => {
         firstChat: d.first_chat_time,
         closingTime: d.closing_time,
         durasiJam,
-        durasiLabel: durasiJam >= 24
-          ? `${Math.floor(durasiJam / 24)}h ${Math.round(durasiJam % 24)}j`
-          : `${Math.round(durasiJam * 10) / 10}j`
+        durasiHari,
+        durasiLabel: durasiHari >= 1
+          ? `${durasiHari} hari`
+          : `${Math.round(durasiJam * 10) / 10} jam`
       };
     });
 
     const total = formatted.length;
+    const totalHari = formatted.reduce((s, d) => s + d.durasiHari, 0);
+    const rataRataHari = total > 0 ? Math.round((totalHari / total) * 100) / 100 : 0;
     const totalJam = formatted.reduce((s, d) => s + d.durasiJam, 0);
     const rataRataJam = total > 0 ? Math.round((totalJam / total) * 100) / 100 : 0;
 
@@ -4063,20 +4007,84 @@ router.get("/closing/traffic", authenticateToken, async (req, res) => {
       .filter(s => targetSessionIds.includes(s.id))
       .map(s => {
         const dev = formatted.filter(d => d.session_id === s.id);
-        const avg = dev.length > 0 ? Math.round((dev.reduce((a, d) => a + d.durasiJam, 0) / dev.length) * 100) / 100 : 0;
-        return { name: s.name.toUpperCase(), total: dev.length, rataRataJam: avg };
+        const avgHari = dev.length > 0 ? Math.round((dev.reduce((a, d) => a + d.durasiHari, 0) / dev.length) * 100) / 100 : 0;
+        return { name: s.name.toUpperCase(), total: dev.length, rataRataHari: avgHari };
       });
 
     res.json({
       success: true,
       data: formatted,
-      summary: { total, rataRataJam, totalDevice: deviceSummary },
+      summary: { total, rataRataJam, rataRataHari, totalDevice: deviceSummary },
       deviceData: deviceSummary
     });
 
   } catch (error) {
     console.error("API Error at /closing/traffic:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
+// ─── Closing Keywords CRUD ─────────────────────────────────────────
+router.get("/closing-keywords", authenticateToken, async (req, res) => {
+  try {
+    const data = await query(`
+      SELECT ck.*, ws.name as session_name
+      FROM closing_keywords ck
+      LEFT JOIN wa_sessions ws ON ck.session_id = ws.id
+      ORDER BY ws.name ASC, ck.created_at DESC
+    `);
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/closing-keywords", authenticateToken, async (req, res) => {
+  try {
+    const { session_id, keyword_text } = req.body;
+    if (!session_id || !keyword_text) {
+      return res.status(400).json({ success: false, message: "Perangkat dan kata kunci harus diisi" });
+    }
+    await query(
+      "INSERT INTO closing_keywords (session_id, keyword_text) VALUES (?, ?)",
+      [session_id, keyword_text.trim()]
+    );
+    res.json({ success: true, message: "Kata kunci closing berhasil ditambahkan" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.put("/closing-keywords/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { session_id, keyword_text } = req.body;
+    if (!session_id || !keyword_text) {
+      return res.status(400).json({ success: false, message: "Perangkat dan kata kunci harus diisi" });
+    }
+    const result = await query(
+      "UPDATE closing_keywords SET session_id = ?, keyword_text = ? WHERE id = ?",
+      [session_id, keyword_text.trim(), id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Kata kunci tidak ditemukan" });
+    }
+    res.json({ success: true, message: "Kata kunci closing berhasil diperbarui" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.delete("/closing-keywords/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query("DELETE FROM closing_keywords WHERE id = ?", [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Kata kunci tidak ditemukan" });
+    }
+    res.json({ success: true, message: "Kata kunci closing berhasil dihapus" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

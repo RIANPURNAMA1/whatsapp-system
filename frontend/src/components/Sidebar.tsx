@@ -68,6 +68,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         id: "whatsapp",
         label: "Pengelolaan WhatsApp",
         items: [
+          ...(!canManageMarketing && !isSystemAdmin ? [{ id: "dashboard", title: "Dashboard", icon: <BarChart2 className="w-[18px] h-[18px]" /> }] : []),
           { id: "leads-only", title: "Leads Baru", icon: <UserSearch className="w-[18px] h-[18px]" /> },
           { id: "chats", title: "Chat WA", icon: <MessageSquare className="w-[18px] h-[18px]" /> },
           { id: "all-messages", title: "Global Inbox", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
@@ -207,23 +208,21 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-2 border-t border-[#F0F2F5] bg-[#FFFFFF]">
           <button
             onClick={() => { onLogout(); setIsSidebarOpen(false); }}
-            title={collapsed ? "Keluar Akun" : undefined}
+            title={collapsed ? "Keluar Aplikasi" : undefined}
             className={`
-              flex items-center gap-3 rounded-lg transition-all duration-150 text-[#65676B] hover:text-red-600 hover:bg-red-50/60
+              flex items-center gap-3 rounded-lg transition-all duration-150 text-[#1E3A5F] hover:text-[#0D2137] hover:bg-[#E8EEF5]
               ${collapsed ? "justify-center h-10 w-10 mx-auto" : "w-full px-3 h-10"}
             `}
           >
-            <span className="shrink-0 text-[#65676B] hover:text-red-500">
+            <span className="shrink-0 text-[#1E3A5F]">
               <LogOut className="w-[18px] h-[18px]" />
             </span>
             {!collapsed && (
               <div className="flex flex-col items-start text-left min-w-0 leading-tight">
-                <span className="text-[13px] font-medium text-[#050505] group-hover:text-red-600 truncate">
-                  Keluar Sesi
+                <span className="text-[13px] font-medium text-[#1E3A5F] truncate">
+                  Keluar Aplikasi?
                 </span>
-                <span className="text-[10px] text-[#65676B] truncate">
-                  Log out account
-                </span>
+                
               </div>
             )}
           </button>
