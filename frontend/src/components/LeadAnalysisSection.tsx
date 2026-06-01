@@ -148,20 +148,17 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
     <div className="min-h-screen" style={{ backgroundColor: FB.grayBg }}>
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-5">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: FB.blue }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: FB.blue }}>
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-[#050505]">Analisis Leads</h1>
-              <p className="text-xs" style={{ color: FB.gray }}>
-                Kategorisasi kendala leads
-                {categories.length > 0 && `: ${categories.map(c => c.label).join(", ")}`}
-              </p>
+              <p className="text-sm" style={{ color: FB.gray }}>Analisis kendala kategori leads</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowCategoryModal(true)}
               className="flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg border hover:bg-[#F2F3F5] transition-all"

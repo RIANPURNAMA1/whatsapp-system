@@ -74,7 +74,14 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
         : "chats",
   );
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem("sidebarOpen");
+    return saved !== null ? JSON.parse(saved) : window.innerWidth >= 768;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("sidebarOpen", JSON.stringify(isSidebarOpen));
+  }, [isSidebarOpen]);
   const [addDeviceSessionId, setAddDeviceSessionId] = useState<string | null>(
     null,
   );
