@@ -605,79 +605,28 @@ CREATE TABLE IF NOT EXISTS wa_rules (
       console.warn("⚠️ Migration warning for leads_report_settings:", err.message);
     }
 
-    // Add last_sent_date column to existing leads_report_settings table
-    try {
-      await db.promise().query(`
-        ALTER TABLE leads_report_settings
-        ADD COLUMN IF NOT EXISTS last_sent_date DATE DEFAULT NULL AFTER target_groups
-      `);
-      console.log("✅ Added last_sent_date to leads_report_settings");
-    } catch (err) {
-      // MySQL < 8.0.19 doesn't support IF NOT EXISTS in ALTER TABLE
-      if (err.code === "ER_DUP_FIELDNAME") {
-        console.log("✅ last_sent_date already exists in leads_report_settings");
-      } else {
-        console.warn("⚠️ Migration warning for last_sent_date:", err.message);
-      }
-    }
-
-    // Add queue_delay column to existing leads_report_settings table
-    try {
-      await db.promise().query(`
-        ALTER TABLE leads_report_settings
-        ADD COLUMN IF NOT EXISTS queue_delay INT DEFAULT 3000 AFTER last_sent_date
-      `);
-      console.log("✅ Added queue_delay to leads_report_settings");
-    } catch (err) {
-      if (err.code === "ER_DUP_FIELDNAME") {
-        console.log("✅ queue_delay already exists in leads_report_settings");
-      } else {
-        console.warn("⚠️ Migration warning for queue_delay:", err.message);
-      }
-    }
-
-    // Add report_frequency column
-    try {
-      await db.promise().query(`
-        ALTER TABLE leads_report_settings
-        ADD COLUMN IF NOT EXISTS report_frequency ENUM('daily','weekly','monthly') DEFAULT 'daily' AFTER queue_delay
-      `);
-      console.log("✅ Added report_frequency to leads_report_settings");
-    } catch (err) {
-      if (err.code === "ER_DUP_FIELDNAME") {
-        console.log("✅ report_frequency already exists in leads_report_settings");
-      } else {
-        console.warn("⚠️ Migration warning for report_frequency:", err.message);
-      }
-    }
-
-    // Add weekly_report_day column
-    try {
-      await db.promise().query(`
-        ALTER TABLE leads_report_settings
-        ADD COLUMN IF NOT EXISTS weekly_report_day INT DEFAULT 1 AFTER report_frequency
-      `);
-      console.log("✅ Added weekly_report_day to leads_report_settings");
-    } catch (err) {
-      if (err.code === "ER_DUP_FIELDNAME") {
-        console.log("✅ weekly_report_day already exists in leads_report_settings");
-      } else {
-        console.warn("⚠️ Migration warning for weekly_report_day:", err.message);
-      }
-    }
-
-    // Add monthly_report_date column
-    try {
-      await db.promise().query(`
-        ALTER TABLE leads_report_settings
-        ADD COLUMN IF NOT EXISTS monthly_report_date INT DEFAULT 1 AFTER weekly_report_day
-      `);
-      console.log("✅ Added monthly_report_date to leads_report_settings");
-    } catch (err) {
-      if (err.code === "ER_DUP_FIELDNAME") {
-        console.log("✅ monthly_report_date already exists in leads_report_settings");
-      } else {
-        console.warn("⚠️ Migration warning for monthly_report_date:", err.message);
+    // Add columns to existing leads_report_settings table (MySQL-compatible, no IF NOT EXISTS)
+    const leadsColumns = [
+      { name: "last_sent_date", sql: "ALTER TABLE leads_report_settings ADD COLUMN last_sent_date DATE DEFAULT NULL AFTER target_groups" },
+      { name: "queue_delay", sql: "ALTER TABLE leads_report_settings ADD COLUMN queue_delay INT DEFAULT 3000 AFTER last_sent_date" },
+      { name: "report_frequency", sql: "ALTER TABLE leads_report_settings ADD COLUMN report_frequency ENUM('daily','weekly','monthly') DEFAULT 'daily' AFTER queue_delay" },
+      { name: "weekly_report_day", sql: "ALTER TABLE leads_report_settings ADD COLUMN weekly_report_day INT DEFAULT 1 AFTER report_frequency" },
+      { name: "monthly_report_date", sql: "ALTER TABLE leads_report_settings ADD COLUMN monthly_report_date INT DEFAULT 1 AFTER weekly_report_day" },
+    ];
+    for (const col of leadsColumns) {
+      try {
+        const [rows] = await db.promise().query(
+          "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+          [process.env.DB_NAME || "whatsapp_system", "leads_report_settings", col.name]
+        );
+        if (rows.length === 0) {
+          await db.promise().query(col.sql);
+          console.log(`✅ Added column: ${col.name} to leads_report_settings`);
+        } else {
+          console.log(`✅ ${col.name} already exists in leads_report_settings`);
+        }
+      } catch (err) {
+        console.warn(`⚠️ Migration warning for ${col.name}:`, err.message);
       }
     }
 
