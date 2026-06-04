@@ -1,7 +1,41 @@
-import { Smartphone, PlusCircle, RefreshCw, LogOut, Trash2, Wifi, WifiOff } from "lucide-react";
+import { useState } from "react";
+import { Smartphone, PlusCircle, RefreshCw, LogOut, Trash2, Pencil, Wifi, WifiOff, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { sessionApi } from "../services/api";
+import useStore from "../store/useStore";
 
 const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onReconnect, onLogout }: any) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const updateSession = useStore(s => s.updateSession);
+
+  const startEdit = (id: string, currentName: string) => {
+    setEditingId(id);
+    setEditValue(currentName);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditValue("");
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || !editValue.trim()) return;
+    try {
+      await sessionApi.rename(editingId, editValue.trim());
+      updateSession({ id: editingId, name: editValue.trim() });
+    } catch (err) {
+      console.error("Failed to rename device:", err);
+    }
+    setEditingId(null);
+    setEditValue("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") saveEdit();
+    if (e.key === "Escape") cancelEdit();
+  };
+
   return (
     <div className="flex-1 bg-[#F0F2F5] flex flex-col overflow-hidden h-full">
       {/* HEADER */}
@@ -69,7 +103,39 @@ const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onRec
 
                   {/* INFO */}
                   <div className="flex-1 min-w-0 mb-2.5">
-                    <p className="text-[13px] font-semibold truncate" style={{ color: "#050505" }}>{session.name || "Tanpa Nama"}</p>
+                    {editingId === session.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={e => setEditValue(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          autoFocus
+                          className="flex-1 text-[13px] font-semibold px-2 py-1 rounded border outline-none"
+                          style={{ borderColor: "#1877F2" }}
+                          onClick={e => e.stopPropagation()}
+                        />
+                        <button onClick={e => { e.stopPropagation(); saveEdit(); }}
+                          className="p-1 rounded hover:bg-[#E7F3FF] transition-colors"
+                          style={{ color: "#31A24C" }}>
+                          <Check size={14} />
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); cancelEdit(); }}
+                          className="p-1 rounded hover:bg-[#FFEBEE] transition-colors"
+                          style={{ color: "#E74C3C" }}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[13px] font-semibold truncate" style={{ color: "#050505" }}>{session.name || "Tanpa Nama"}</p>
+                        <button onClick={e => { e.stopPropagation(); startEdit(session.id, session.name || ""); }}
+                          className="p-0.5 rounded transition-all hover:bg-[#F0F2F5]"
+                          style={{ color: "#65676B" }}>
+                          <Pencil size={11} />
+                        </button>
+                      </div>
+                    )}
                     <p className="text-[11px] truncate" style={{ color: "#65676B" }}>{session.phone_number || "Belum terhubung"}</p>
                   </div>
 

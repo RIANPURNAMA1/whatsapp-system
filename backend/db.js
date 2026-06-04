@@ -447,6 +447,14 @@ CREATE TABLE IF NOT EXISTS wa_rules (
       // Table might not exist yet, skip
     }
 
+    // --- INDEXES for wa_messages performance ---
+    try {
+      await db.promise().query(`ALTER TABLE wa_messages ADD INDEX idx_session_fromme_time (session_id, is_from_me, timestamp)`);
+    } catch (_) {}
+    try {
+      await db.promise().query(`ALTER TABLE wa_messages ADD INDEX idx_chatjid_time (chat_jid, timestamp)`);
+    } catch (_) {}
+
     // --- SEEDING DEFAULT DATA ---
 
     // 1. Insert Default Roles

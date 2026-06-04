@@ -109,6 +109,7 @@ router.post("/confirm", authenticateToken, async (req, res) => {
       new_followers,
       comments_count,
       leads_data,
+      report_date,
     } = req.body;
 
     if (!extracted_text) {
@@ -122,8 +123,8 @@ router.post("/confirm", authenticateToken, async (req, res) => {
       INSERT INTO tiktok_live_reports 
       (user_id, extracted_text, ocr_confidence, 
        report_title, report_description, status,
-       viewers, diamonds, live_duration, gift_givers, new_followers, comments_count, leads_data)
-      VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?)
+       viewers, diamonds, live_duration, gift_givers, new_followers, comments_count, leads_data, report_date)
+      VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const result = await query(insertQuery, [
@@ -139,6 +140,7 @@ router.post("/confirm", authenticateToken, async (req, res) => {
       new_followers || null,
       comments_count || null,
       leads_data ? JSON.stringify(leads_data) : null,
+      report_date || null,
     ]);
 
     return res.status(200).json({
@@ -182,26 +184,31 @@ router.get("/", authenticateToken, async (req, res) => {
     }
 
     if (startDate) {
-      whereClause += " AND created_at >= ?";
+      whereClause += " AND r.created_at >= ?";
       params.push(startDate);
     }
     if (endDate) {
-      whereClause += " AND created_at <= ?";
+      whereClause += " AND r.created_at <= ?";
       params.push(endDate + " 23:59:59");
     }
 
+    const countWhere = whereClause.replace(/r\./g, "");
+
     const countResult = await queryOne(
-      `SELECT COUNT(*) as total FROM tiktok_live_reports${whereClause}`,
+      `SELECT COUNT(*) as total FROM tiktok_live_reports${countWhere}`,
       params
     );
     const total = countResult?.total || 0;
 
     const selectQuery = `
-      SELECT id, image_url, image_filename, extracted_text, ocr_confidence, 
-             report_title, report_description, status, created_at, updated_at,
-             viewers, diamonds, live_duration, gift_givers, new_followers, comments_count, leads_data
-      FROM tiktok_live_reports${whereClause}
-      ORDER BY created_at DESC
+      SELECT r.id, r.image_url, r.image_filename, r.extracted_text, r.ocr_confidence, 
+             r.report_title, r.report_description, r.status, r.created_at, r.updated_at,
+             r.viewers, r.diamonds, r.live_duration, r.gift_givers, r.new_followers, r.comments_count, r.leads_data,
+             r.report_date, u.full_name as creator_name
+      FROM tiktok_live_reports r
+      LEFT JOIN wa_users u ON u.id = r.user_id
+      ${whereClause.replace('WHERE user_id = ?', 'WHERE r.user_id = ?')}
+      ORDER BY COALESCE(r.report_date, r.created_at) DESC
       LIMIT ? OFFSET ?
     `;
 
@@ -236,11 +243,13 @@ router.get("/:id", authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     const selectQuery = `
-      SELECT id, image_url, image_filename, extracted_text, ocr_confidence,
-             report_title, report_description, status, created_at, updated_at,
-             viewers, diamonds, live_duration, gift_givers, new_followers, comments_count, leads_data
-      FROM tiktok_live_reports
-      WHERE id = ? AND user_id = ?
+      SELECT r.id, r.image_url, r.image_filename, r.extracted_text, r.ocr_confidence,
+             r.report_title, r.report_description, r.status, r.created_at, r.updated_at,
+             r.viewers, r.diamonds, r.live_duration, r.gift_givers, r.new_followers, r.comments_count, r.leads_data,
+             r.report_date, u.full_name as creator_name
+      FROM tiktok_live_reports r
+      LEFT JOIN wa_users u ON u.id = r.user_id
+      WHERE r.id = ? AND r.user_id = ?
     `;
 
     const result = await queryOne(selectQuery, [id, userId]);

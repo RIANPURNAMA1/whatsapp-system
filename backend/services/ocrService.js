@@ -11,6 +11,7 @@ const groq = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
 });
 
+
 /**
  * Extract text from image using Groq Vision API
  * @param {string} imagePath - Path to the image file

@@ -23,6 +23,13 @@ const COLORS = [
   "#0EA5E9", "#F59E0B", "#10B981", "#6366F1", "#EF4444",
 ];
 
+const ICONS = [
+  "🔴", "📊", "👤", "💰", "🎂", "📍", "📞", "✉️",
+  "🏠", "👨‍👩‍👧‍👦", "💼", "🎓", "❤️", "⏰", "📅", "🔥",
+  "💎", "🏷️", "✅", "⚠️", "🚫", "🔄", "📝", "🎯",
+  "💬", "🤝", "📋", "🛒", "⭐", "🎉",
+];
+
 const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
@@ -146,13 +153,21 @@ const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) =>
                   ))}
                 </div>
               </div>
-              <input
-                placeholder="Icon (contoh: 🔴)"
-                value={form.icon}
-                onChange={e => setForm({ ...form, icon: e.target.value })}
-                className="px-3 py-2 text-sm border rounded-lg bg-white w-20"
-                style={{ borderColor: "#E4E6EB" }}
-              />
+              <div>
+                <span className="text-sm text-[#65676B]">Icon:</span>
+                <div className="flex gap-1 flex-wrap mt-1 max-w-[200px]">
+                  {ICONS.map(icon => (
+                    <button
+                      key={icon}
+                      onClick={() => setForm({ ...form, icon })}
+                      className="w-7 h-7 flex items-center justify-center text-sm rounded-md border-2 transition-all hover:bg-[#F0F2F5]"
+                      style={{ borderColor: form.icon === icon ? "#1877F2" : "transparent" }}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div>
               <label className="text-xs font-medium text-[#65676B] mb-1 block">Keywords (pisahkan dengan koma)</label>

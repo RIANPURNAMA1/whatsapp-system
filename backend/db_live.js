@@ -53,6 +53,8 @@ export async function migrateTikTokTables() {
      ADD COLUMN comments_count VARCHAR(50) DEFAULT NULL AFTER new_followers`,
     `ALTER TABLE tiktok_live_reports 
      ADD COLUMN leads_data JSON DEFAULT NULL AFTER comments_count`,
+    `ALTER TABLE tiktok_live_reports 
+     ADD COLUMN report_date DATE DEFAULT NULL AFTER leads_data`,
   ];
 
   for (const alterQuery of alterQueries) {

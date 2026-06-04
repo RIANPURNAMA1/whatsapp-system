@@ -106,7 +106,7 @@ export async function computeBadLeads(sessionId = null) {
   }
 }
 
-export async function getLeadAnalysis(sessionId = null, period = "Minggu") {
+export async function getLeadAnalysis(sessionId = null, period = "week") {
   let dateFilter = "";
   let params = [];
 
@@ -115,20 +115,27 @@ export async function getLeadAnalysis(sessionId = null, period = "Minggu") {
   }
 
   switch (period) {
+    case "today":
     case "Hari ini":
       dateFilter = "AND DATE(la.detected_at) = CURDATE()";
       break;
+    case "yesterday":
     case "Kemarin":
       dateFilter = "AND DATE(la.detected_at) = SUBDATE(CURDATE(), 1)";
       break;
+    case "week":
     case "Minggu":
       dateFilter = "AND la.detected_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
       break;
+    case "month":
     case "Bulan":
       dateFilter = "AND la.detected_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
       break;
+    case "all":
+    case "Semua":
+      break;
     default:
-      dateFilter = "AND DATE(la.detected_at) = CURDATE()";
+      dateFilter = "AND la.detected_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
   }
 
   const sessionFilter = sessionId ? "AND la.session_id = ?" : "";

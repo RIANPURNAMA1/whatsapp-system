@@ -58,6 +58,8 @@ export const sessionApi = {
   logout: (id: string) => api.delete(`/sessions/${id}`).then(r => r.data),
   getQR: (id: string) =>
     api.get<{ data: { qr: string | null; status: string } }>(`/sessions/${id}/qr`).then(r => r.data.data),
+  rename: (id: string, name: string) =>
+    api.put(`/sessions/${id}/name`, { name }).then(r => r.data),
 };
 
 // ===============================================

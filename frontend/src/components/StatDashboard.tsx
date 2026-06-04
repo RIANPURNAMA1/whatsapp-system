@@ -16,7 +16,7 @@ import {
   Timer,
 } from "lucide-react";
 import useStore from "../store/useStore";
-import { ActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
+import { LeadsActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
 import LiveFeed from "./LiveChatFeed";
 import StatCard from "./StatCard";
 import AIAnalyticSection from "./AIAnalyticSection";
@@ -148,7 +148,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
     }
   }, [activeFilter, appliedDates, selectedDevice]);
 
-  const fetchAllLabels = useCallback(async () => {
+  const fetchAllLabels = useCallback(async (sessionList: any[]) => {
     setLoadingLabels(true);
     try {
       const token = localStorage.getItem("token");
@@ -167,20 +167,20 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
         const json = await res.json();
         if (json.success) { setAllLabels(json.data || []); setLoadingLabels(false); return; }
       }
-      if (data.sessions.length > 0) {
+      if (sessionList.length > 0) {
         const allFetched: any[] = [];
-        for (const session of data.sessions) {
+        await Promise.all(sessionList.map(async (session: any) => {
           const r = await fetch(`${baseApi}/sessions/${session.id}/labels?${params}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const d = await r.json();
           if (d.success) allFetched.push(...(d.data || []).map((l: any) => ({ ...l, sessionName: session.name, session_id: session.id })));
-        }
+        }));
         setAllLabels(allFetched);
       }
     } catch (err) { console.error("Fetch labels error:", err); }
     finally { setLoadingLabels(false); }
-  }, [data.sessions, activeFilter, appliedDates]);
+  }, [activeFilter, appliedDates]);
 
   const totalClosingFromLabels = useMemo(() => {
     return allLabels.filter(l => l.name.toLowerCase().includes("closing")).reduce((acc, curr) => acc + (parseInt(curr.chat_count) || 0), 0);
@@ -198,9 +198,13 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
     }
   }, [fetchDashboard, fetchOverallLeads, activeFilter, appliedDates, selectedDevice, settings.autoRefresh, settings.refreshInterval]);
 
+  const sessionIdsKey = useMemo(() => data.sessions.map((s: any) => s.id).join(","), [data.sessions]);
+  const stableSessions = useMemo(() => data.sessions, [sessionIdsKey]);
+
   useEffect(() => {
-    if (data.sessions.length > 0) fetchAllLabels();
-  }, [data.sessions, fetchAllLabels]);
+    const sessions = data.sessions;
+    if (sessions.length > 0) fetchAllLabels(sessions);
+  }, [sessionIdsKey, fetchAllLabels]);
 
   const handleApplyCustomFilter = () => {
     setRefreshing(true);
@@ -356,7 +360,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
 
         {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <ActivityChart data={data.chartData} dark={false} />
+          <LeadsActivityChart data={data.chartData} dark={false} />
           <SLAChart data={slaData} dark={false} />
           <DeviceBarChart data={deviceLeadsData} dark={false} />
         </div>
@@ -374,7 +378,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
 
         <LabelSection isDarkMode={false} loadingLabels={loadingLabels} allLabels={allLabels}
           sessions={data.sessions} labelDeviceFilter={labelDeviceFilter} setLabelDeviceFilter={setLabelDeviceFilter} />
-        <SocialLeadsSection isDarkMode={false} sessions={data.sessions} />
+        <SocialLeadsSection isDarkMode={false} sessions={stableSessions} />
       </div>
     </div>
   );

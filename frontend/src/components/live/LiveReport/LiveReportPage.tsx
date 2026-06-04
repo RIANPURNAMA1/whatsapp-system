@@ -253,6 +253,7 @@ const TikTokLiveReportPage: React.FC = () => {
         new_followers: parsedData.pengikut_baru,
         comments_count: parsedData.komentar,
         leads_data: { total: parseInt(totalLeadsEdit) || 0, platforms: platformSources, date: reportDate, items: tiktokLeads },
+        report_date: reportDate,
       });
 
       toast.success('Laporan berhasil disimpan!');
@@ -292,8 +293,6 @@ const TikTokLiveReportPage: React.FC = () => {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   };
 
@@ -500,7 +499,7 @@ const TikTokLiveReportPage: React.FC = () => {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {['Judul', 'Tayangan', 'Berlian', 'Durasi', 'Hadiah', 'Pengikut', 'Komentar', 'Leads', 'Tanggal', 'Aksi'].map((h) => (
+                    {['Judul', 'Tayangan', 'Berlian', 'Durasi', 'Hadiah', 'Pengikut', 'Komentar', 'Leads', 'Tanggal', 'Dibuat oleh', 'Aksi'].map((h) => (
                       <th key={h} className="px-4 py-3 text-left font-semibold text-xs text-slate-700">{h}</th>
                     ))}
                   </tr>
@@ -523,7 +522,8 @@ const TikTokLiveReportPage: React.FC = () => {
                       <td className="px-4 py-3 text-slate-700">
                         {getLeadsTotal(report.leads_data) || '-'}
                       </td>
-                      <td className="px-4 py-3 text-slate-500">{formatDate(report.created_at)}</td>
+                      <td className="px-4 py-3 text-slate-500">{formatDate(report.report_date || report.created_at)}</td>
+                      <td className="px-4 py-3 text-slate-500">{report.creator_name || '-'}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1.5">
                           <button onClick={() => { setSelectedReport(report); setShowModal(true); }}
@@ -643,7 +643,7 @@ const TikTokLiveReportPage: React.FC = () => {
               </div>
 
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm text-slate-600">
-                <p>Dibuat: {formatDate(selectedReport.created_at)}</p>
+                <p>Tanggal Laporan: {formatDate(selectedReport.report_date || selectedReport.created_at)}</p>
                 <p className="mt-1">Status: {selectedReport.status}</p>
               </div>
             </div>

@@ -1,3 +1,5 @@
+const store = new Map();
+
 const DEFAULT_TTL = {
   DASHBOARD: 30,
   LEAD_ANALYSIS: 60,
@@ -14,47 +16,67 @@ export function cacheKey(...parts) {
 }
 
 export async function getFromCache(key) {
-  return null;
+  const entry = store.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiry) {
+    store.delete(key);
+    return null;
+  }
+  return entry.data;
 }
 
 export async function setToCache(key, data, ttlSeconds = 60) {
-  return false;
+  store.set(key, {
+    data,
+    expiry: Date.now() + ttlSeconds * 1000,
+  });
+  return true;
 }
 
 export async function getOrSet(key, fetchFn, ttlSeconds = 60) {
-  return fetchFn();
+  const cached = await getFromCache(key);
+  if (cached !== null) return cached;
+  const data = await fetchFn();
+  await setToCache(key, data, ttlSeconds);
+  return data;
 }
 
 export async function invalidateCache(key) {
-  return false;
+  store.delete(key);
+  return true;
 }
 
 export async function invalidatePattern(pattern) {
-  return false;
+  const lower = pattern.toLowerCase();
+  for (const key of store.keys()) {
+    if (key.includes(lower)) store.delete(key);
+  }
+  return true;
 }
 
 export async function invalidateDashboard() {
-  return false;
+  return invalidatePattern("dashboard");
 }
 
 export async function invalidateLeadAnalysis() {
-  return false;
+  return invalidatePattern("lead");
 }
 
 export async function invalidateSocialMedia() {
-  return false;
+  return invalidatePattern("social");
 }
 
 export async function invalidateSessions() {
-  return false;
+  return invalidatePattern("sessions");
 }
 
 export async function invalidateLabels() {
-  return false;
+  return invalidatePattern("labels");
 }
 
 export async function invalidateAll() {
-  return false;
+  store.clear();
+  return true;
 }
 
 export default {

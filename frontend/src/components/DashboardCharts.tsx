@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -61,42 +61,76 @@ const ChartHeader: React.FC<{
   </div>
 );
 
-// ─── ActivityChart ────────────────────────────────────────────────────────────
-export const ActivityChart: React.FC<ChartProps> = React.memo(({ data, dark }) => {
+// ─── Color palette for device lines ──────────────────────────────────────────
+const DEVICE_COLORS = [
+  "#1877F2", "#31A24C", "#F5A623", "#E74C3C", "#9B59B6",
+  "#1ABC9C", "#E67E22", "#3498DB", "#2ECC71", "#E91E63",
+  "#00BCD4", "#FF5722", "#673AB7", "#009688", "#795548",
+];
+
+// ─── LeadsActivityChart (per-device leads per hour/day) ──────────────────────
+export const LeadsActivityChart: React.FC<ChartProps> = React.memo(({ data, dark }) => {
   const gridColor  = dark ? "#2D2F33" : "#E4E6EB";
   const axisColor  = dark ? "#65676B" : "#65676B";
-  const textColor  = dark ? "#E4E6EB" : "#050505";
-  const mutedColor = dark ? "#65676B" : "#65676B";
 
-  const totalMasuk  = data.reduce((a, b) => a + (b.masuk  || 0), 0);
-  const totalKeluar = data.reduce((a, b) => a + (b.keluar || 0), 0);
+  // data is raw: [{ time, session_id, device_name, leads }]
+  // transform into Recharts format: [{ time, "Device1": 5, "Device2": 3 }]
+  const { chartData, deviceKeys, colorMap } = useMemo(() => {
+    const map = new Map<string, Record<string, number>>();
+    const devices = new Set<string>();
+
+    for (const row of data) {
+      if (!row.time || !row.device_name) continue;
+      devices.add(row.device_name);
+      if (!map.has(row.time)) map.set(row.time, { time: row.time });
+      const entry = map.get(row.time)!;
+      entry[row.device_name] = (entry[row.device_name] || 0) + (row.leads || 0);
+    }
+
+    const sorted = Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
+    const deviceArr = Array.from(devices).sort();
+    const cmap: Record<string, string> = {};
+    deviceArr.forEach((d, i) => { cmap[d] = DEVICE_COLORS[i % DEVICE_COLORS.length]; });
+
+    return { chartData: sorted, deviceKeys: deviceArr, colorMap: cmap };
+  }, [data]);
+
+  const totalLeads = chartData.reduce((a, b) => {
+    return a + deviceKeys.reduce((s, d) => s + ((b as any)[d] || 0), 0);
+  }, 0);
 
   return (
     <ChartCard dark={dark} className="h-[400px] flex flex-col">
       <ChartHeader
         dark={dark}
-        title="Aktivitas Pesan"
+        title="Aktivitas Leads Perdevice"
         subtitle={
-          <div className="flex items-center gap-4 mt-1">
+          <div className="flex items-center gap-4 mt-1 flex-wrap">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: FB.blue }} />
               <span className={`text-[11px] ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
-                Masuk <strong className={dark ? "text-[#E4E6EB]" : "text-[#050505]"}>{totalMasuk}</strong>
+                Total Leads Masuk <strong className={dark ? "text-[#E4E6EB]" : "text-[#050505]"}>{totalLeads}</strong>
               </span>
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: FB.green }} />
-              <span className={`text-[11px] ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
-                Keluar <strong className={dark ? "text-[#E4E6EB]" : "text-[#050505]"}>{totalKeluar}</strong>
+            {deviceKeys.slice(0, 5).map(name => (
+              <span key={name} className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colorMap[name] }} />
+                <span className={`text-[11px] ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
+                  {name} <strong className={dark ? "text-[#E4E6EB]" : "text-[#050505]"}>{chartData.reduce((a, b) => a + ((b as any)[name] || 0), 0)}</strong>
+                </span>
               </span>
-            </span>
+            ))}
+            {deviceKeys.length > 5 && (
+              <span className={`text-[11px] ${dark ? "text-[#65676B]" : "text-[#65676B]"}`}>
+                +{deviceKeys.length - 5} lainnya
+              </span>
+            )}
           </div>
         }
       />
 
       <div className="flex-1 min-h-0 p-2">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+          <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
             <XAxis
               dataKey="time"
@@ -117,16 +151,18 @@ export const ActivityChart: React.FC<ChartProps> = React.memo(({ data, dark }) =
               cursor={{ stroke: dark ? "#ffffff15" : "#00000008", strokeWidth: 1 }}
             />
 
-            <Line
-              type="monotone" dataKey="masuk" name="Masuk"
-              stroke={FB.blue} strokeWidth={2} dot={false}
-              activeDot={{ r: 4, fill: FB.blue, strokeWidth: 2, stroke: FB.white }}
-            />
-            <Line
-              type="monotone" dataKey="keluar" name="Keluar"
-              stroke={FB.green} strokeWidth={2} dot={false}
-              activeDot={{ r: 4, fill: FB.green, strokeWidth: 2, stroke: FB.white }}
-            />
+            {deviceKeys.map(name => (
+              <Line
+                key={name}
+                type="monotone"
+                dataKey={name}
+                name={name}
+                stroke={colorMap[name]}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, fill: colorMap[name], strokeWidth: 2, stroke: FB.white }}
+              />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       </div>

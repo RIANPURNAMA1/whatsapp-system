@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -31,6 +31,8 @@ interface LiveReport {
   gift_givers?: string;
   new_followers?: string;
   comments_count?: string;
+  report_date?: string;
+  creator_name?: string;
 }
 
 interface UploadResponse {
@@ -63,6 +65,7 @@ interface ConfirmData {
   new_followers?: string;
   comments_count?: string;
   leads_data?: LeadItem[] | { total: number; platforms: Record<string, string>; date?: string; items: LeadItem[] };
+  report_date?: string;
 }
 
 export const tiktokLiveReportService = {

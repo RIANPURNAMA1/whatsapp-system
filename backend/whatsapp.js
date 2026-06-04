@@ -21,6 +21,7 @@ import path from "path";
 import { handleAIResponse } from "./services/aiService.js";
 import { saveClosingEvent } from "./services/closingTrafficService.js";
 import { saveKendala, detectKendalaFromText } from "./services/leadAnalysisService.js";
+import { invalidateSessions } from "./services/cacheService.js";
 
 const logger = pino({ level: "silent" });
 
@@ -57,6 +58,9 @@ export async function createSession(sessionId, io) {
 
   sessions.set(sessionId, { sock, io, sessionId });
 
+  // ⭐ FIX: Flag untuk mencegah labels.association remove selama initial sync
+  let initialLabelSyncDone = false;
+
   // ---- Event: connection.update ----
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -84,6 +88,11 @@ export async function createSession(sessionId, io) {
     }
 
     if (connection === "close") {
+      const sessionObj = sessions.get(sessionId);
+      if (sessionObj?._loggingOut) {
+        return;
+      }
+
       const statusCode = lastDisconnect?.error?.output?.statusCode;
 
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
@@ -142,21 +151,17 @@ export async function createSession(sessionId, io) {
       });
       io.emit("session:update", connectedData);
 
-      // Proses sinkronisasi label (Gunakan delay agar data metadata dari WA siap)
+        // Proses sinkronisasi label
       setTimeout(async () => {
         try {
-          console.log(
-            `[${sessionId}] 📥 Memulai sinkronisasi menyeluruh dari HP...`,
-          );
+          console.log(`[${sessionId}] 📥 Memulai sinkronisasi label dari HP...`);
 
           const labelSource = sock.labels || sock;
 
           // --- LANGKAH 1: Ambil Master Label (Kamus Nama Label) ---
           if (typeof labelSource.getLabels === "function") {
             const masterLabels = await labelSource.getLabels();
-            console.log(
-              `[${sessionId}] 🏷️ Ditemukan ${masterLabels.length} jenis label di HP.`,
-            );
+            console.log(`[${sessionId}] 🏷️ ${masterLabels.length} jenis label di HP.`);
 
             for (const label of masterLabels) {
               await query(
@@ -167,45 +172,58 @@ export async function createSession(sessionId, io) {
             }
           }
 
-          // --- LANGKAH 2: Ambil Hubungan Chat ke Label ---
-          // Kita ambil semua chat yang ada di database lokal kita
+          // --- LANGKAH 2: Ambil Hubungan Chat ke Label (dengan retry) ---
           const localChats = await query(
             "SELECT jid FROM wa_chats WHERE session_id = ?",
             [sessionId],
           );
 
-          console.log(
-            `[${sessionId}] 🔄 Mencocokkan label untuk ${localChats.length} chat...`,
-          );
+          console.log(`[${sessionId}] 🔄 ${localChats.length} chat, mencocokkan label...`);
 
           if (typeof labelSource.getChatLabels === "function") {
-            for (const chat of localChats) {
-              // Tarik label dari memori library Baileys untuk JID ini
-              const chatLabelIds = await labelSource
-                .getChatLabels(chat.jid)
-                .catch(() => []);
+            let syncedAny = false;
+            let retries = 0;
+            const MAX_RETRIES = 4;
 
-              if (chatLabelIds && chatLabelIds.length > 0) {
-                for (const lId of chatLabelIds) {
-                  await query(
-                    "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
-                    [sessionId, chat.jid, lId],
-                  );
+            while (!syncedAny && retries <= MAX_RETRIES) {
+              if (retries > 0) {
+                console.log(`[${sessionId}] ⏳ Retry ${retries}/${MAX_RETRIES} (delay 20s)...`);
+                await new Promise(r => setTimeout(r, 20000));
+              }
+              retries++;
+
+              for (const chat of localChats) {
+                const chatLabelIds = await labelSource
+                  .getChatLabels(chat.jid)
+                  .catch(() => []);
+
+                if (chatLabelIds && chatLabelIds.length > 0) {
+                  syncedAny = true;
+                  for (const lId of chatLabelIds) {
+                    await query(
+                      "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
+                      [sessionId, chat.jid, lId],
+                    );
+                  }
                 }
               }
             }
+
+            if (!syncedAny) {
+              console.log(`[${sessionId}] ⚠️ Tidak ada label chat dari HP setelah ${MAX_RETRIES+1} percobaan.`);
+            } else {
+              console.log(`[${sessionId}] ✅ Label chat berhasil disinkronkan.`);
+            }
           }
 
-          console.log(`[${sessionId}] ✅ Sinkronisasi label dari HP selesai.`);
-          // Trigger frontend untuk memuat ulang data terbaru
+          initialLabelSyncDone = true;
+
+          console.log(`[${sessionId}] ✅ Sinkronisasi label selesai.`);
           io.emit(`chats:refresh:${sessionId}`);
         } catch (err) {
-          console.error(
-            `[${sessionId}] ❌ Gagal sinkron label dari device:`,
-            err.message,
-          );
+          console.error(`[${sessionId}] ❌ Gagal sinkron label:`, err.message);
         }
-      }, 10000); // Gunakan 10 detik agar sinkronisasi pesan awal selesai dulu
+      }, 10000);
     }
   });
 
@@ -327,7 +345,10 @@ export async function createSession(sessionId, io) {
         const chatJid = assoc.association?.chatId || assoc.chatId || assoc.id;
         const rawLabelId = assoc.association?.labelId || assoc.labelId;
 
-        if (!chatJid || !rawLabelId) continue;
+        if (!chatJid || !rawLabelId) {
+          console.log(`[${sessionId}] ⚠️ labels.association raw:`, JSON.stringify(assoc));
+          continue;
+        }
 
         // 🛠️ FIX: Pecah string jika labelId datang sebagai "3,4"
         const labelIds = String(rawLabelId).split(",");
@@ -339,14 +360,23 @@ export async function createSession(sessionId, io) {
             `[${sessionId}] 🏷️ Sinkronisasi DB: ${type} | JID: ${chatJid} | ID: ${labelId}`,
           );
 
-          if (type === "add") {
-            await query(
-              "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
-              [sessionId, chatJid, labelId],
-            );
-          } else if (type === "remove") {
+          if (type === "remove") {
+            // ⭐ FIX: Skip "remove" selama initial sync agar tidak menghapus
+            // record yang sudah ada (yang punya assigned_at asli).
+            if (!initialLabelSyncDone) {
+              console.log(
+                `[${sessionId}] ⏭️ Skip remove (initial sync): JID: ${chatJid} | ID: ${labelId}`,
+              );
+              continue;
+            }
             await query(
               "DELETE FROM wa_chat_labels WHERE session_id = ? AND chat_jid = ? AND wa_label_id = ?",
+              [sessionId, chatJid, labelId],
+            );
+          } else {
+            // "add" ATAU undefined type (initial sync) → INSERT IGNORE
+            await query(
+              "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
               [sessionId, chatJid, labelId],
             );
           }
@@ -559,6 +589,23 @@ export async function createSession(sessionId, io) {
           const cat = await detectKendalaFromText(sessionId, processed.chatJid, caption);
           if (cat) {
             console.log(`[Kendala] Cek pesan admin ke ${processed.chatJid}: "${caption.slice(0, 80)}" → ${cat}`);
+          }
+          // Auto-detect closing keywords untuk admin messages
+          try {
+            const lower = caption.toLowerCase();
+            const closingKeywords = await query(
+              "SELECT keyword_text FROM closing_keywords WHERE session_id = ?",
+              [sessionId]
+            );
+            const isClosing = closingKeywords.some(kw => {
+              const parts = kw.keyword_text.toLowerCase().split('|').map(s => s.trim());
+              return parts.some(part => lower.includes(part));
+            });
+            if (isClosing) {
+              await saveClosingEvent(sessionId, processed.chatJid, new Date().toISOString(), 'outgoing_messages');
+            }
+          } catch (err) {
+            console.error("[ClosingKeyword] Error detecting in messages.upsert:", err.message);
           }
         }
 
@@ -1085,7 +1132,7 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
       );
       const isClosing = closingKeywords.some(kw => {
         const parts = kw.keyword_text.toLowerCase().split('|').map(s => s.trim());
-        return parts.every(part => lower.includes(part));
+        return parts.some(part => lower.includes(part));
       });
       if (isClosing) {
         await saveClosingEvent(sessionId, jid, new Date().toISOString(), 'outgoing_template');
@@ -1240,8 +1287,15 @@ export async function logoutSession(sessionId, io = null) {
   if (session && session.sock) {
     try {
       console.log(`Logouting session: ${sessionId}...`);
+      session._loggingOut = true;
 
-      // Gunakan Promise.race agar jika logout macet, kita tetap lanjut
+      // Redam noise console.log dari Baileys internal saat logout
+      const origLog = console.log;
+      console.log = (...a) => {
+        if (typeof a[0] === 'string' && a[0].startsWith('Closing session')) return;
+        origLog.apply(console, a);
+      };
+
       await Promise.race([
         session.sock.logout(),
         new Promise((_, reject) =>
@@ -1251,12 +1305,11 @@ export async function logoutSession(sessionId, io = null) {
         console.log("Logout signal failed or timed out, forcing local delete."),
       );
 
-      // Pastikan socket benar-benar mati
       if (session.sock.ws) session.sock.ws.close();
     } catch (err) {
       console.error("Error during socket logout:", err.message);
     } finally {
-      // Hapus dari memori apapun yang terjadi
+      console.log = origLog;
       sessions.delete(sessionId);
     }
   }
@@ -1271,6 +1324,8 @@ export async function logoutSession(sessionId, io = null) {
     if (io) {
       io.emit("session:update", { id: sessionId, status: "disconnected", qr_code: null });
     }
+
+    await invalidateSessions();
 
     console.log(`Database updated for session: ${sessionId}`);
   } catch (dbErr) {

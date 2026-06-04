@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Loader2, BarChart3, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
@@ -91,9 +91,12 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [tablePage, setTablePage] = useState(1);
+  const [fetchKey, setFetchKey] = useState(0);
   const tableLimit = 5;
+  const fetchIdRef = useRef(0);
 
-  const fetchData = useCallback(async (p: Period, cs: string, ce: string) => {
+  const fetchData = async (p: Period, cs: string, ce: string) => {
+    const id = ++fetchIdRef.current;
     setLoading(true);
     try {
       let startDate: string | undefined;
@@ -107,30 +110,36 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
         endDate = range.endDate;
       }
       const reportsRes = await tiktokLiveReportService.getReports({ page: 1, limit: 1000, startDate, endDate });
-      setData(reportsRes.data);
-      setTablePage(1);
+      if (id === fetchIdRef.current) {
+        setData(reportsRes.data);
+        setTablePage(1);
+      }
     } catch (err) {
-      console.error("Error fetching TikTok data:", err);
+      if (id === fetchIdRef.current) {
+        console.error("Error fetching TikTok data:", err);
+      }
     } finally {
-      setLoading(false);
+      if (id === fetchIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchData(period, customStart, customEnd);
-  }, [period, fetchData]);
+  }, [period, fetchKey]);
 
   const handlePeriodClick = (p: Period) => {
     setPeriod(p);
     if (p !== "custom") {
-      fetchData(p, "", "");
+      setFetchKey(k => k + 1);
     }
   };
 
   const handleCustomFilter = () => {
     if (customStart && customEnd) {
       setPeriod("custom");
-      fetchData("custom", customStart, customEnd);
+      setFetchKey(k => k + 1);
     }
   };
 
@@ -172,6 +181,8 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
     ].filter((d) => d.value > 0),
   [totals]);
 
+  const getReportDate = (r: any) => r.report_date || r.created_at;
+
   const trendData = useMemo(() =>
     [...data].reverse().map((r) => {
       let ld: any;
@@ -181,7 +192,7 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
         tayangan: parseInt(r.viewers) || 0,
         pengikut: parseInt(r.new_followers) || 0,
         leads,
-        label: new Date(r.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+        label: new Date(getReportDate(r)).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
       };
     }),
   [data]);
@@ -357,7 +368,7 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
                   <table className="w-full text-sm border-collapse border" style={{ borderColor: FB.grayLight }}>
                     <thead>
                       <tr>
-                        {["Judul", "Tayangan", "Berlian", "Hadiah", "Pengikut", "Komentar", "Leads", "Tanggal"].map((h) => (
+                        {["Judul", "Tayangan", "Berlian", "Hadiah", "Pengikut", "Komentar", "Leads", "Tanggal", "Dibuat oleh"].map((h) => (
                           <th key={h} className="px-4 py-3 text-left font-semibold text-[11px] uppercase tracking-wide border" style={{ color: FB.gray, borderColor: FB.grayLight, backgroundColor: FB.grayBg }}>{h}</th>
                         ))}
                       </tr>
@@ -383,7 +394,10 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
                             <td className="px-4 py-3 border text-right" style={{ color: "#050505", borderColor: FB.grayLight }}>{r.comments_count || "-"}</td>
                             <td className="px-4 py-3 border text-right" style={{ color: FB.green, borderColor: FB.grayLight }}>{leads}</td>
                             <td className="px-4 py-3 border text-center whitespace-nowrap" style={{ color: FB.gray, borderColor: FB.grayLight }}>
-                              {new Date(r.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                              {new Date(getReportDate(r)).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                            </td>
+                            <td className="px-4 py-3 border text-center whitespace-nowrap" style={{ color: FB.gray, borderColor: FB.grayLight }}>
+                              {r.creator_name || "-"}
                             </td>
                           </tr>
                         );

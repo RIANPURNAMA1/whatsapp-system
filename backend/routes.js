@@ -132,14 +132,22 @@ const buildPeriodFilter = (period, columnName, startDate, endDate) => {
 const JWT_SECRET =
   process.env.JWT_SECRET || "918cfb63fffbbc45a16b96beb5fca0deb9a33f0b2180997cc2f15b2affeab1e393c1630e3e9cb02aaf3fe5ae64fbaad1e5c03df2bbe29ca4ba9792c5c1f7ad0a";
 
-// Helper untuk membangun filter organik dinamis
+// Helper untuk membangun filter organik dinamis (cache 60 detik)
+let organikFilterCache = { result: null, expiry: 0 };
 const buildOrganikFilter = async () => {
-  const organikKeywords = await query("SELECT keyword, is_active FROM organik_keywords WHERE is_active = TRUE");
-  if (organikKeywords.length === 0) {
-    return "AND LOWER(content) LIKE '%iya kakak%'";
+  if (organikFilterCache.result && Date.now() < organikFilterCache.expiry) {
+    return organikFilterCache.result;
   }
-  const conditions = organikKeywords.map(k => `LOWER(content) LIKE '%${k.keyword.toLowerCase()}%'`).join(" OR ");
-  return `AND (${conditions})`;
+  const organikKeywords = await query("SELECT keyword, is_active FROM organik_keywords WHERE is_active = TRUE");
+  let result;
+  if (organikKeywords.length === 0) {
+    result = "AND LOWER(content) LIKE '%iya kakak%'";
+  } else {
+    const conditions = organikKeywords.map(k => `LOWER(content) LIKE '%${k.keyword.toLowerCase()}%'`).join(" OR ");
+    result = `AND (${conditions})`;
+  }
+  organikFilterCache = { result, expiry: Date.now() + 60000 };
+  return result;
 };
 
 // --- LETAKKAN DI SINI ---
@@ -505,6 +513,35 @@ router.get("/sessions/:sessionId", async (req, res) => {
   res.json({ success: true, data: session });
 });
 
+// PUT: Ubah nama sesi (tanpa reconnect)
+router.put("/sessions/:sessionId/name", authenticateToken, async (req, res) => {
+  const { sessionId } = req.params;
+  const { name } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ success: false, message: "Nama tidak boleh kosong" });
+  }
+
+  try {
+    const existing = await queryOne("SELECT id FROM wa_sessions WHERE id = ?", [sessionId]);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "Sesi tidak ditemukan" });
+    }
+
+    await query("UPDATE wa_sessions SET name = ?, updated_at = NOW() WHERE id = ?", [name.trim(), sessionId]);
+
+    const io = req.app.get("io") || req.app.get("socketio");
+    if (io) {
+      io.emit("session:update", { id: sessionId, name: name.trim() });
+    }
+
+    res.json({ success: true, message: "Nama perangkat berhasil diubah" });
+  } catch (err) {
+    console.error("Error updating session name:", err);
+    res.status(500).json({ success: false, message: "Gagal mengubah nama perangkat" });
+  }
+});
+
 // POST: Buat sesi baru
 // ===============================================
 // SESSION MANAGEMENT ROUTES (System, Manager, Custom)
@@ -680,6 +717,7 @@ router.post("/sessions/reconnect/:sessionId", async (req, res) => {
 
       try {
         if (oldSession?.sock) {
+          oldSession._loggingOut = true;
           // Gunakan end() atau ws.terminate() tergantung versi Baileys
           if (typeof oldSession.sock.end === "function") {
             await oldSession.sock.end();
@@ -774,7 +812,7 @@ router.delete("/sessions/:sessionId", async (req, res) => {
   const { sessionId } = req.params;
 
   try {
-    console.log(`[System] Memulai penghapusan permanen sesi: ${sessionId}`);
+    console.log(`[System] Memulai penghapusan sesi: ${sessionId}`);
 
     // 1. Matikan koneksi WhatsApp & Bersihkan dari Memory/Socket
     const io = req.app.get("socketio") || req.app.get("io");
@@ -786,17 +824,14 @@ router.delete("/sessions/:sessionId", async (req, res) => {
       );
     }
 
-    // 2. Hapus Sesi dari Database
-    const result = await query("DELETE FROM wa_sessions WHERE id = ?", [
-      sessionId,
-    ]);
+    // ⭐ FIX: Jangan hapus wa_sessions agar data historis (closing_traffic, dll) tetap terbaca
+    // Cukup disconnect dan sembunyikan dari daftar sesi aktif
+    await query(
+      "UPDATE wa_sessions SET status = 'disconnected', qr_code = NULL, phone_number = NULL WHERE id = ?",
+      [sessionId],
+    );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Sesi tidak ditemukan di database.",
-      });
-    }
+    await invalidateSessions();
 
     if (io) {
       io.emit("session:update", {
@@ -807,8 +842,7 @@ router.delete("/sessions/:sessionId", async (req, res) => {
       });
     }
 
-    // 3. Hapus Folder File Session (Auth Info / MD Baileys Data)
-    // Kita lakukan secara dinamis agar folder benar-benar hilang dari storage
+    // 2. Hapus Folder File Session (Auth Info / MD Baileys Data)
     const fs = await import("fs");
     const path = await import("path");
     const sessionDir = path.join(process.cwd(), "sessions", sessionId);
@@ -821,14 +855,13 @@ router.delete("/sessions/:sessionId", async (req, res) => {
         );
       } catch (fsErr) {
         console.error(`[Error] Gagal menghapus folder fisik: ${fsErr.message}`);
-        // Kita tidak menghentikan respon sukses karena data di DB sudah terhapus
       }
     }
 
-    // 4. Berikan Respon Sukses
+    // 3. Berikan Respon Sukses
     res.json({
       success: true,
-      message: `Sesi '${sessionId}' dan seluruh riwayat (pesan, chat, kontak) berhasil dihapus secara permanen dari sistem.`,
+      message: `Sesi '${sessionId}' berhasil diputuskan. Data historis closing tetap tersimpan.`,
     });
   } catch (err) {
     console.error("Critical Error during session deletion:", err);
@@ -2225,7 +2258,7 @@ router.get("/stats/dashboard", authenticateToken, async (req, res) => {
           query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 10 MINUTE) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
           query(`SELECT COUNT(DISTINCT m.chat_jid) AS count FROM wa_messages m WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND m.timestamp <= DATE_SUB(NOW(), INTERVAL 24 HOUR) AND ${periodFilter} ${sessionFilter} AND NOT EXISTS (SELECT 1 FROM wa_messages r WHERE r.chat_jid = m.chat_jid AND r.is_from_me = 1 AND r.timestamp > m.timestamp)`, [...finalSessionIds]),
           query(`SELECT m.id, m.chat_jid AS sender_jid, m.session_id, COALESCE(ct.push_name, m.chat_jid) AS sender, m.content AS message_text, s.name AS received_via, m.timestamp AS received_at FROM wa_messages m INNER JOIN (SELECT MAX(id) as max_id FROM wa_messages WHERE is_from_me = 0 GROUP BY chat_jid) last_msg ON m.id = last_msg.max_id LEFT JOIN wa_contacts ct ON ct.session_id = m.session_id AND ct.jid = m.chat_jid LEFT JOIN wa_sessions s ON s.id = m.session_id WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' ${sessionFilter} ORDER BY m.timestamp DESC LIMIT 15`, [...finalSessionIds]),
-          query(`SELECT ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, SUM(m.is_from_me = 0) AS masuk, SUM(m.is_from_me = 1) AS keluar FROM wa_messages m WHERE m.chat_jid NOT LIKE '%@g.us' AND ${periodFilter} ${sessionFilter} GROUP BY time ORDER BY time ASC`, [...finalSessionIds]),
+          query(`SELECT ${["Minggu", "Bulan", "Custom"].includes(period) ? "DATE(m.timestamp)" : "DATE_FORMAT(m.timestamp, '%H:00')"} AS time, m.session_id, s.name AS device_name, COUNT(DISTINCT m.chat_jid) AS leads FROM wa_messages m JOIN wa_sessions s ON m.session_id = s.id WHERE m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' AND m.chat_jid NOT LIKE '%@newsletter' AND ${periodFilter} ${sessionFilter} GROUP BY time, m.session_id, s.name ORDER BY time ASC`, [...finalSessionIds]),
           query(`SELECT s.name, (SELECT COUNT(DISTINCT m2.chat_jid) FROM wa_messages m2 WHERE m2.session_id = s.id AND m2.is_from_me = 0 AND m2.chat_jid NOT LIKE '%@g.us' AND ${periodFilter.replace(/m\./g, "m2.")} AND NOT EXISTS (SELECT 1 FROM wa_messages older WHERE older.chat_jid = m2.chat_jid AND older.timestamp < ?)) AS lead_count, (SELECT COUNT(*) FROM wa_messages mo WHERE mo.session_id = s.id AND mo.is_from_me = 1 AND mo.chat_jid NOT LIKE '%@g.us' AND mo.chat_jid NOT LIKE '%@newsletter' ${organikFilter.replace('content', 'mo.content')} AND ${periodFilter.replace(/m\./g, "mo.")}) AS leads_organik FROM wa_sessions s WHERE s.id IN (${placeholders})`, [minPeriodTimestamp, ...finalSessionIds]),
         ]);
 
@@ -3971,10 +4004,11 @@ router.get("/closing/traffic", authenticateToken, async (req, res) => {
     }
 
     const data = await query(`
-      SELECT ct.*, ws.name as session_name
+      SELECT ct.*, COALESCE(ws.name, ct.session_id) as session_name
       FROM closing_traffic ct
-      JOIN wa_sessions ws ON ct.session_id = ws.id
+      LEFT JOIN wa_sessions ws ON ct.session_id = ws.id
       WHERE ct.session_id IN (${inPlaceholder})
+        AND ct.source != 'label'
         ${dateFilter}
       ORDER BY ct.closing_time DESC
     `, queryParams);
@@ -3993,7 +4027,9 @@ router.get("/closing/traffic", authenticateToken, async (req, res) => {
         durasiHari,
         durasiLabel: durasiHari >= 1
           ? `${durasiHari} hari`
-          : `${Math.round(durasiJam * 10) / 10} jam`
+          : `${Math.floor(durasiJam)}j ${Math.round((durasiJam - Math.floor(durasiJam)) * 60)}m`
+            .replace(/^0j /, '')
+            .replace(/ 0m$/, '')
       };
     });
 
@@ -4003,19 +4039,41 @@ router.get("/closing/traffic", authenticateToken, async (req, res) => {
     const totalJam = formatted.reduce((s, d) => s + d.durasiJam, 0);
     const rataRataJam = total > 0 ? Math.round((totalJam / total) * 100) / 100 : 0;
 
+    const useHours = rataRataHari < 1;
+    const unit = useHours ? 'jam' : 'hari';
+
+    const formatDurasi = (val) => {
+      if (useHours) {
+        const h = Math.floor(val);
+        const m = Math.round((val - h) * 60);
+        if (h === 0 && m === 0) return `0 ${unit}`;
+        if (h === 0) return `${m}m`;
+        if (m === 0) return `${h}j`;
+        return `${h}j ${m}m`;
+      }
+      return `${val} ${unit}`;
+    };
+
+    const rataRata = useHours ? rataRataJam : rataRataHari;
+
+    const durasiValues = formatted.map(d => useHours ? d.durasiJam : d.durasiHari);
+    const tercepat = total > 0 ? Math.min(...durasiValues) : 0;
+    const terlama = total > 0 ? Math.max(...durasiValues) : 0;
+
     const deviceSummary = allowedSessions
       .filter(s => targetSessionIds.includes(s.id))
       .map(s => {
         const dev = formatted.filter(d => d.session_id === s.id);
-        const avgHari = dev.length > 0 ? Math.round((dev.reduce((a, d) => a + d.durasiHari, 0) / dev.length) * 100) / 100 : 0;
-        return { name: s.name.toUpperCase(), total: dev.length, rataRataHari: avgHari };
+        const avg = dev.length > 0
+          ? Math.round((dev.reduce((a, d) => a + (useHours ? d.durasiJam : d.durasiHari), 0) / dev.length) * 100) / 100
+          : 0;
+        return { name: s.name.toUpperCase(), total: dev.length, rataRata: avg, unit, rataRataLabel: formatDurasi(avg) };
       });
 
     res.json({
       success: true,
       data: formatted,
-      summary: { total, rataRataJam, rataRataHari, totalDevice: deviceSummary },
-      deviceData: deviceSummary
+      summary: { total, rataRataJam, rataRataHari, rataRata, rataRataLabel: formatDurasi(rataRata), tercepat, tercepatLabel: formatDurasi(tercepat), terlama, terlamaLabel: formatDurasi(terlama), unit, totalDevice: deviceSummary },
     });
 
   } catch (error) {

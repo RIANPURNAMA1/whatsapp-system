@@ -90,15 +90,23 @@ export function useSocket(sessionId: string | null) {
     fetchChats(sessionId);
   }, [sessionId, fetchChats]);
 
+  // Global listener for session:update (always active, even without activeSession)
+  useEffect(() => {
+    const socket = getSocket();
+    socket.on('session:update', handleSessionUpdate);
+    return () => {
+      socket.off('session:update');
+    };
+  }, [handleSessionUpdate]);
+
+  // Session-specific listeners (only when sessionId is set)
   useEffect(() => {
     if (!sessionId) return;
 
     const socket = getSocket();
     joinSession(sessionId);
 
-    // Listeners
     socket.on(`qr:${sessionId}`, handleQR);
-    socket.on('session:update', handleSessionUpdate);
     socket.on(`session:connected:${sessionId}`, handleSessionConnected);
     socket.on(`message:new:${sessionId}`, handleNewMessage);
     socket.on(`message:status:${sessionId}`, handleMessageStatus);
@@ -106,11 +114,10 @@ export function useSocket(sessionId: string | null) {
 
     return () => {
       socket.off(`qr:${sessionId}`);
-      socket.off('session:update');
       socket.off(`session:connected:${sessionId}`);
       socket.off(`message:new:${sessionId}`);
       socket.off(`message:status:${sessionId}`);
       socket.off(`chat:update:${sessionId}`);
     };
-  }, [sessionId, handleQR, handleSessionUpdate, handleSessionConnected, handleNewMessage, handleMessageStatus, handleChatUpdate]);
+  }, [sessionId, handleQR, handleSessionConnected, handleNewMessage, handleMessageStatus, handleChatUpdate]);
 }

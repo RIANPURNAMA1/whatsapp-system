@@ -12,14 +12,17 @@ export async function saveClosingEvent(sessionId, chatJid, closingTime, source) 
     const firstMsg = await queryOne(`
       SELECT MIN(timestamp) as first_msg_time
       FROM wa_messages
-      WHERE session_id = ? AND chat_jid = ? AND is_from_me = 0
+      WHERE session_id = ? AND chat_jid = ?
     `, [sessionId, chatJid]);
 
-    const contact = await queryOne(`
-      SELECT name, push_name FROM wa_contacts WHERE session_id = ? AND jid = ?
-    `, [sessionId, chatJid]);
+    const jidVariants = [chatJid, chatJid.includes('@') ? chatJid : chatJid + '@s.whatsapp.net', chatJid.replace(/@.*$/, '')];
+    let contact = null;
+    for (const jv of jidVariants) {
+      contact = await queryOne(`SELECT name, push_name FROM wa_contacts WHERE session_id = ? AND jid = ?`, [sessionId, jv]);
+      if (contact?.name || contact?.push_name) break;
+    }
 
-    const contactName = contact?.name || contact?.push_name || chatJid.split('@')[0] || 'Unknown';
+    const contactName = contact?.name || contact?.push_name || chatJid.replace(/@.*$/, '') || 'Unknown';
     const firstChatTime = firstMsg?.first_msg_time || closingTime;
 
     const durasiMs = new Date(closingTime) - new Date(firstChatTime);
@@ -30,10 +33,10 @@ export async function saveClosingEvent(sessionId, chatJid, closingTime, source) 
       VALUES (?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         contact_name = VALUES(contact_name),
-        first_chat_time = VALUES(first_chat_time),
+        first_chat_time = IF(VALUES(first_chat_time) < first_chat_time OR first_chat_time IS NULL, VALUES(first_chat_time), first_chat_time),
         closing_time = IF(VALUES(closing_time) < closing_time, VALUES(closing_time), closing_time),
-        durasi_jam = VALUES(durasi_jam),
-        source = VALUES(source)
+        durasi_jam = TIMESTAMPDIFF(HOUR, first_chat_time, closing_time),
+        source = IF(VALUES(source) = 'label', VALUES(source), source)
     `, [sessionId, chatJid, contactName, toMySQLDatetime(firstChatTime), toMySQLDatetime(closingTime), durasiJam, source]);
 
     console.log(`[ClosingTraffic] Saved: ${contactName} (${sessionId}) via ${source}`);

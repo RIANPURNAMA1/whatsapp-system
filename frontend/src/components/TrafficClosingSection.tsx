@@ -63,7 +63,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
       if (res.data.success) {
         setData(res.data.data || []);
         setPage(1);
-        setSummary(res.data.summary || { total: 0, rataRataHari: 0, totalDevice: [] });
+        setSummary(res.data.summary || { total: 0, rataRataHari: 0, rataRata: 0, rataRataLabel: '0', tercepat: 0, tercepatLabel: '0', terlama: 0, terlamaLabel: '0', unit: 'hari', totalDevice: [] });
       }
     } catch (err: any) {
       console.error("Failed to fetch closing traffic:", err);
@@ -88,7 +88,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
   };
 
   const getTimeBucket = (hari: number) => {
-    if (hari < 1) return "< 1 hari";
+    if (hari < 1) return "0-24 jam";
     if (hari < 3) return "1-3 hari";
     if (hari < 7) return "3-7 hari";
     if (hari < 14) return "1-2 minggu";
@@ -96,14 +96,14 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
   };
 
   const bucketColors: Record<string, string> = {
-    "< 1 hari": "bg-[#1591DC] text-[#1877F2]",
+    "0-24 jam": "bg-[#1591DC] text-[#1877F2]",
     "1-3 hari": "bg-[#E7F3FF] text-[#1877F2]",
     "3-7 hari": "bg-[#FFF8E7] text-[#F5A623]",
     "1-2 minggu": "bg-[#FFF8E7] text-[#F5A623]",
     "> 2 minggu": "bg-[#FFEBEE] text-red-500",
   };
 
-  const buckets = ["< 1 hari", "1-3 hari", "3-7 hari", "1-2 minggu", "> 2 minggu"];
+  const buckets = ["0-24 jam", "1-3 hari", "3-7 hari", "1-2 minggu", "> 2 minggu"];
   const bucketCount: Record<string, number> = {};
   buckets.forEach(b => bucketCount[b] = 0);
   data.forEach(d => {
@@ -324,7 +324,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
               <p className="text-xs text-[#65676B]">Rata-rata Waktu Closing</p>
             </div>
             <p className="text-xl font-bold text-[#050505]">
-              {summary.rataRataHari > 0 ? `${summary.rataRataHari} hari` : "0 hari"}
+              {summary.rataRataLabel || `0 ${summary.unit}`}
             </p>
           </div>
 
@@ -337,8 +337,8 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
             </div>
             <p className="text-xl font-bold text-[#050505]">
               {data.length > 0
-                ? `${Math.min(...data.map(d => d.durasiHari ?? Infinity))} hari`
-                : "0 hari"}
+                ? summary.tercepatLabel
+                : `0 ${summary.unit}`}
             </p>
           </div>
 
@@ -351,8 +351,8 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
             </div>
             <p className="text-xl font-bold text-[#050505]">
               {data.length > 0
-                ? `${Math.max(...data.map(d => d.durasiHari || 0))} hari`
-                : "0 hari"}
+                ? summary.terlamaLabel
+                : `0 ${summary.unit}`}
             </p>
           </div>
         </div>
@@ -409,7 +409,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
                 <div key={i} className="bg-[#F0F2F5] p-3 rounded-lg border border-[#E4E6EB]">
                   <p className="text-xs text-[#65676B] font-medium">{d.name}</p>
                   <p className="text-base font-bold text-[#050505] mt-0.5">{d.total} closing</p>
-                  <p className="text-xs text-[#65676B]">rata-rata {d.rataRataHari} hari</p>
+                  <p className="text-xs text-[#65676B]">rata-rata {d.rataRataLabel}</p>
                 </div>
               ))}
             </div>
