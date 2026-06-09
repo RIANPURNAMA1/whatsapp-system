@@ -19,7 +19,7 @@ interface TrafficClosingProps {
 }
 
 export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack }) => {
-  const [period, setPeriod] = useState("Minggu");
+  const [period, setPeriod] = useState("Hari ini");
   const [sessionId, setSessionId] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");

@@ -599,7 +599,11 @@ export async function createSession(sessionId, io) {
             );
             const isClosing = closingKeywords.some(kw => {
               const parts = kw.keyword_text.toLowerCase().split('|').map(s => s.trim());
-              return parts.some(part => lower.includes(part));
+              return parts.some(part => {
+                const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(?:^|\\s)${escaped}(?:$|\\s|[.,!?;])`, 'i');
+                return regex.test(lower);
+              });
             });
             if (isClosing) {
               await saveClosingEvent(sessionId, processed.chatJid, new Date().toISOString(), 'outgoing_messages');
@@ -1132,7 +1136,11 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
       );
       const isClosing = closingKeywords.some(kw => {
         const parts = kw.keyword_text.toLowerCase().split('|').map(s => s.trim());
-        return parts.some(part => lower.includes(part));
+        return parts.some(part => {
+          const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`(?:^|\\s)${escaped}(?:$|\\s|[.,!?;])`, 'i');
+          return regex.test(lower);
+        });
       });
       if (isClosing) {
         await saveClosingEvent(sessionId, jid, new Date().toISOString(), 'outgoing_template');

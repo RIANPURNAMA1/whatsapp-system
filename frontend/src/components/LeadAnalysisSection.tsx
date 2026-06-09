@@ -53,7 +53,7 @@ interface LeadAnalysisProps {
 }
 
 export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => {
-  const [period, setPeriod] = useState<Period>("week");
+  const [period, setPeriod] = useState<Period>("today");
   const [sessionId, setSessionId] = useState("all");
   const [sessions, setSessions] = useState<any[]>([]);
   const [data, setData] = useState<any[]>([]);

@@ -52,5 +52,9 @@ export async function deleteCategory(id) {
 export function matchKeywords(text, keywords) {
   if (!text || !keywords || !Array.isArray(keywords) || keywords.length === 0) return false;
   const lower = text.toLowerCase();
-  return keywords.some(kw => lower.includes(kw.toLowerCase()));
+  return keywords.some(kw => {
+    const escaped = kw.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(?:^|\\s)${escaped}(?:$|\\s|[.,!?;])`, 'i');
+    return regex.test(lower);
+  });
 }
