@@ -25,6 +25,7 @@ import {
 } from "../utils/helpers";
 import type { Chat } from "../types";
 import { sessionApi } from "../services/api";
+import { getSocket } from "../services/socket";
 import toast from "react-hot-toast";
 import ManageLabelsModal from "./Managelabelsmodal";
 import LabelModal from "./Labelmodal";
@@ -65,6 +66,19 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
       loadLabels();
     }
   }, [sessionId, fetchChats]);
+
+  // Listen for real-time label changes from phone
+  useEffect(() => {
+    if (!sessionId) return;
+    const socket = getSocket();
+    const handleLabelChange = () => { loadLabels(); fetchChats(sessionId); };
+    socket.on(`label:created:${sessionId}`, handleLabelChange);
+    socket.on(`chat:label:update:${sessionId}`, handleLabelChange);
+    return () => {
+      socket.off(`label:created:${sessionId}`, handleLabelChange);
+      socket.off(`chat:label:update:${sessionId}`, handleLabelChange);
+    };
+  }, [sessionId]);
 
   const loadLabels = async () => {
     if (!sessionId) return;
@@ -402,41 +416,41 @@ const ChatListItem: React.FC<{
       )}
 
       <div className="relative shrink-0">
-        <Avatar name={displayName} imageUrl={chat.profile_pic_url} size="sm" isGroup={isGroup} className="w-[40px] h-[40px]" />
+        <Avatar name={displayName} imageUrl={chat.profile_pic_url} size="sm" isGroup={isGroup} className="w-[36px] h-[36px]" />
       </div>
 
-      <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
-        <div className="flex items-center justify-between mb-0.5">
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 min-w-0">
             {isGroup && <Users className="w-3 h-3 shrink-0" style={{ color: "#8C939D" }} />}
-            <span className={`text-[13px] truncate ${hasUnread ? "font-bold" : "font-semibold"}`} style={{ color: "#050505" }}>
+            <span className={`text-[12px] truncate ${hasUnread ? "font-bold" : "font-semibold"}`} style={{ color: "#050505" }}>
               {displayName}
             </span>
           </div>
-          <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? "font-semibold" : ""}`} style={{ color: hasUnread ? "#1877F2" : "#65676B" }}>
+          <span className={`text-[10px] shrink-0 ml-2 ${hasUnread ? "font-semibold" : ""}`} style={{ color: hasUnread ? "#1877F2" : "#65676B" }}>
             {formatChatTime(chat.last_message_time)}
           </span>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <span className={`text-[12px] truncate leading-tight flex-1 ${hasUnread ? "font-medium" : ""}`} style={{ color: hasUnread ? "#050505" : "#65676B" }}>
+        <div className="flex items-center justify-between gap-1.5 mt-0.5">
+          <span className={`text-[11px] truncate leading-tight flex-1 ${hasUnread ? "font-medium" : ""}`} style={{ color: hasUnread ? "#050505" : "#65676B" }}>
             {preview}
           </span>
 
           <div className="flex items-center gap-1 shrink-0">
             {chat.pinned === 1 && (
-              <Pin className="w-3 h-3 rotate-45" style={{ color: "#8C939D", fill: "#8C939D" }} />
+              <Pin className="w-2.5 h-2.5 rotate-45" style={{ color: "#8C939D", fill: "#8C939D" }} />
             )}
             {hasUnread && (
-              <div className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center" style={{ backgroundColor: "#1877F2" }}>
-                <span className="text-[10px] text-white font-bold leading-none">{chat.unread_count > 99 ? "99+" : chat.unread_count}</span>
+              <div className="min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center" style={{ backgroundColor: "#1877F2" }}>
+                <span className="text-[9px] text-white font-bold leading-none">{chat.unread_count > 99 ? "99+" : chat.unread_count}</span>
               </div>
             )}
           </div>
         </div>
 
         {sortedLabels.length > 0 && (
-          <div className="flex items-center gap-1 mt-1 overflow-hidden">
+          <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
             {sortedLabels.slice(0, 2).map((label: any) => (
               <span
                 key={label.id}

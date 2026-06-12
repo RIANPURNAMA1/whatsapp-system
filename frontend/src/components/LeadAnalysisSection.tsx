@@ -1,13 +1,32 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, createElement } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import type { LucideIcon } from "lucide-react";
 import {
-  BarChart3, AlertTriangle, Settings2,
+  Activity, BarChart3, User, DollarSign, MapPin, Phone, Mail, Home,
+  Users, Briefcase, GraduationCap, Heart, Clock, Calendar, Flame, Gem,
+  Tag, CheckCircle, AlertTriangle, Ban, RefreshCw, FileText, Target,
+  MessageSquare, ClipboardList, ShoppingCart, Star, PartyPopper, HelpCircle, ThumbsUp,
+  Settings2,
 } from "lucide-react";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Activity, BarChart3, User, DollarSign, MapPin, Phone, Mail, Home,
+  Users, Briefcase, GraduationCap, Heart, Clock, Calendar, Flame, Gem,
+  Tag, CheckCircle, AlertTriangle, Ban, RefreshCw, FileText, Target,
+  MessageSquare, ClipboardList, ShoppingCart, Star, PartyPopper, HelpCircle, ThumbsUp,
+};
+
+const IconDisplay = ({ name, size = 16 }: { name: string; size?: number }) => {
+  const Icon = ICON_MAP[name];
+  if (Icon) return createElement(Icon, { size });
+  return <span style={{ fontSize: size }}>{name || "📊"}</span>;
+};
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import CategoryManagementModal from "./CategoryManagementModal";
+import { Smartphone, TrendingUp, UserCheck } from "lucide-react";
 
 const FB = {
   blue: "#1877F2",
@@ -53,7 +72,8 @@ interface LeadAnalysisProps {
 }
 
 export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => {
-  const [period, setPeriod] = useState<Period>("today");
+  const navigate = useNavigate();
+  const [period, setPeriod] = useState<Period>("all");
   const [sessionId, setSessionId] = useState("all");
   const [sessions, setSessions] = useState<any[]>([]);
   const [data, setData] = useState<any[]>([]);
@@ -61,7 +81,8 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
   const [deviceData, setDeviceData] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [socialStats, setSocialStats] = useState<any[]>([]);
+  const [rawKeywords, setRawKeywords] = useState<any[]>([]);
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
@@ -84,19 +105,42 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
+      const token = localStorage.getItem("token");
       const params: any = { period };
       if (sessionId !== "all") params.sessionId = sessionId;
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/leads/analysis`,
-        { params, headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
-      if (res.data.success) {
-        setData(res.data.data || []);
+
+      const socialParams: Record<string, string> = {};
+      if (period === "all") socialParams.period = "Semua";
+      else if (period === "today") socialParams.period = "Hari ini";
+      else if (period === "yesterday") socialParams.period = "Kemarin";
+      else if (period === "week") socialParams.period = "Minggu";
+      else if (period === "month") socialParams.period = "Bulan";
+
+      const [analysisRes, socialRes, kwRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_API_URL}/leads/analysis`, {
+          params, headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${import.meta.env.VITE_API_URL}/social/media`, {
+          params: socialParams,
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${import.meta.env.VITE_API_URL}/keywords`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      if (analysisRes.data.success) {
+        setData(analysisRes.data.data || []);
         setPage(1);
-        setSummary(res.data.summary || { total: 0 });
-        setDeviceData(res.data.deviceData || []);
-        if (res.data.categories) setCategories(res.data.categories);
+        setSummary(analysisRes.data.summary || { total: 0 });
+        setDeviceData(analysisRes.data.deviceData || []);
+        if (analysisRes.data.categories) setCategories(analysisRes.data.categories);
       }
+
+      if (socialRes.data.success) {
+        setSocialStats(socialRes.data.data || []);
+      }
+      setRawKeywords(kwRes.data.data || []);
     } catch (err) {
       console.error("Failed to fetch lead analysis:", err);
     } finally {
@@ -130,12 +174,12 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
   const summaryCards = categories.map(c => ({
     label: c.label,
     value: summary[c.key] || 0,
-    icon: c.icon || "📊",
+    icon: c.icon || "BarChart3",
     bg: c.color + "18",
     iconBg: c.color,
   }));
 
-  summaryCards.unshift({ label: "Total Analisis", value: summary.total || 0, icon: "📊", bg: FB.blueLight, iconBg: FB.blue });
+  summaryCards.unshift({ label: "Total Analisis", value: summary.total || 0, icon: "BarChart3", bg: FB.blueLight, iconBg: FB.blue });
 
   const pieData = categories
     .map(c => ({ name: c.label, value: summary[c.key] || 0, color: c.color }))
@@ -160,7 +204,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => setShowCategoryModal(true)}
+              onClick={() => navigate("/kategori-leads")}
               className="flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg border hover:bg-[#F2F3F5] transition-all"
               style={{ borderColor: "#CCD0D5", color: FB.gray }}
             >
@@ -182,6 +226,13 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
               </button>
             )}
           </div>
+        </div>
+
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1.5 text-xs mb-4" style={{ color: FB.gray }}>
+          <button onClick={() => navigate("/")} className="hover:underline font-medium" style={{ color: FB.blue }}>Dashboard</button>
+          <span>/</span>
+          <span className="font-semibold" style={{ color: "#050505" }}>Analisis Leads</span>
         </div>
 
         {/* Date Filter */}
@@ -213,8 +264,8 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
               {summaryCards.map((card, i) => (
                 <div key={i} className="bg-white rounded-lg border p-4" style={{ borderColor: FB.grayLight }}>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: card.bg, color: card.iconBg }}>
-                      {card.icon}
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: card.bg, color: card.iconBg }}>
+                      <IconDisplay name={card.icon} size={18} />
                     </div>
                     <div className="min-w-0">
                       <p className="text-lg font-bold leading-tight text-[#050505]">{card.value}</p>
@@ -224,6 +275,68 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
                 </div>
               ))}
             </div>
+
+            {/* Social Media Ringkasan */}
+            {socialStats.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Activity size={15} style={{ color: FB.blue }} />
+                  <span className="text-[13px] font-bold" style={{ color: "#050505" }}>Ringkasan Social Media</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {socialStats.filter((s: any) => s.totalLeads > 0 || s.totalOrganik > 0).map((s: any) => {
+                    const deviceName = sessions.find((x: any) => x.id === s.session_id)?.name || "Unknown";
+                    const deviceKeywords = rawKeywords
+                      .filter((k: any) => k.session_id === s.session_id)
+                      .map((k: any) => k.platform.toLowerCase());
+                    const platforms = [...new Set(deviceKeywords)];
+                    const totalLeads = (s.totalLeads || 0) + (s.totalOrganik || 0);
+                    const convRate = s.totalLeads > 0 ? Math.round((s.totalClosing / s.totalLeads) * 100) : 0;
+                    return (
+                      <div key={s.session_id} className="bg-white rounded-lg border p-4" style={{ borderColor: FB.grayLight }}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Smartphone size={14} style={{ color: FB.blue }} />
+                          <span className="font-bold text-[13px]" style={{ color: "#050505" }}>{deviceName}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div>
+                            <p className="text-[10px] font-medium" style={{ color: FB.gray }}>Total Leads</p>
+                            <p className="text-base font-bold" style={{ color: "#050505" }}>{totalLeads}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[10px] font-medium" style={{ color: FB.gray }}>Conversion</p>
+                            <p className="text-base font-bold" style={{ color: FB.green }}>{convRate}%</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-medium" style={{ color: FB.gray }}>Closing</p>
+                            <p className="text-base font-bold" style={{ color: FB.green }}>{s.totalClosing || 0}</p>
+                          </div>
+                        </div>
+                        {platforms.length > 0 && (
+                          <div className="border-t pt-2" style={{ borderColor: FB.grayLight }}>
+                            <p className="text-[10px] font-medium mb-1.5" style={{ color: FB.gray }}>Platform Sources</p>
+                            <div className="space-y-1">
+                              {s.totalOrganik > 0 && (
+                                <div className="flex items-center justify-between py-1 px-2 rounded" style={{ backgroundColor: FB.grayBg }}>
+                                  <span className="text-[10px] font-medium" style={{ color: "#344054" }}>Leads Organik</span>
+                                  <span className="text-[10px] font-semibold" style={{ color: FB.blue }}>{s.totalOrganik}</span>
+                                </div>
+                              )}
+                              {platforms.map((p: string) => (
+                                <div key={p} className="flex items-center justify-between py-1 px-2 rounded" style={{ backgroundColor: FB.grayBg }}>
+                                  <span className="text-[10px] font-medium capitalize" style={{ color: "#344054" }}>{p}</span>
+                                  <span className="text-[10px] font-semibold" style={{ color: FB.gray }}>{s[`leads_${p}`] || 0}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -353,11 +466,6 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
         )}
       </div>
 
-      <CategoryManagementModal
-        open={showCategoryModal}
-        onClose={() => setShowCategoryModal(false)}
-        onSaved={() => { fetchData(); }}
-      />
     </div>
   );
 };

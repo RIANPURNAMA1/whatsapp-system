@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { getSocket, joinSession } from '../services/socket';
 import useStore from '../store/useStore';
 import { useSettings } from '../context/SettingsContext';
-import type { Message, Session } from '../types';
+import type { Message, Session, PresenceData } from '../types';
 import toast from 'react-hot-toast';
 
 export function useSocket(sessionId: string | null) {
@@ -15,6 +15,7 @@ export function useSocket(sessionId: string | null) {
     updateMessageStatus,
     selectedChat,
     fetchChats,
+    setPresence,
   } = useStore();
 
   const { settings } = useSettings();
@@ -86,9 +87,12 @@ export function useSocket(sessionId: string | null) {
 
   const handleChatUpdate = useCallback(({ chatJid }: { chatJid: string }) => {
     if (!sessionId) return;
-    // Jika ada perubahan profil atau nama grup, refresh list chat
     fetchChats(sessionId);
   }, [sessionId, fetchChats]);
+
+  const handlePresenceUpdate = useCallback((data: PresenceData) => {
+    setPresence(data);
+  }, [setPresence]);
 
   // Global listener for session:update (always active, even without activeSession)
   useEffect(() => {
@@ -111,6 +115,9 @@ export function useSocket(sessionId: string | null) {
     socket.on(`message:new:${sessionId}`, handleNewMessage);
     socket.on(`message:status:${sessionId}`, handleMessageStatus);
     socket.on(`chat:update:${sessionId}`, handleChatUpdate);
+    socket.on(`label:created:${sessionId}`, () => fetchChats(sessionId));
+    socket.on(`chat:label:update:${sessionId}`, () => fetchChats(sessionId));
+    socket.on(`presence:update:${sessionId}`, handlePresenceUpdate);
 
     return () => {
       socket.off(`qr:${sessionId}`);
@@ -118,6 +125,9 @@ export function useSocket(sessionId: string | null) {
       socket.off(`message:new:${sessionId}`);
       socket.off(`message:status:${sessionId}`);
       socket.off(`chat:update:${sessionId}`);
+      socket.off(`label:created:${sessionId}`);
+      socket.off(`chat:label:update:${sessionId}`);
+      socket.off(`presence:update:${sessionId}`);
     };
   }, [sessionId, handleQR, handleSessionConnected, handleNewMessage, handleMessageStatus, handleChatUpdate]);
 }

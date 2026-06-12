@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Tag, X, Check, Loader2 } from "lucide-react";
+import { getSocket } from "../services/socket";
 
 interface Label {
   id?: number;
@@ -132,6 +133,14 @@ export const LabelManagerPanel: React.FC<{
     fetchLabels();
   }, [fetchLabels]);
 
+  useEffect(() => {
+    if (!sessionId) return;
+    const socket = getSocket();
+    const handler = () => fetchLabels();
+    socket.on(`label:created:${sessionId}`, handler);
+    return () => { socket.off(`label:created:${sessionId}`, handler); };
+  }, [sessionId, fetchLabels]);
+
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100">
@@ -215,6 +224,18 @@ export function useChatLabels(sessionId: string, chatJid: string) {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const socket = getSocket();
+    const handler = () => fetchAll();
+    socket.on(`label:created:${sessionId}`, handler);
+    socket.on(`chat:label:update:${sessionId}`, handler);
+    return () => {
+      socket.off(`label:created:${sessionId}`, handler);
+      socket.off(`chat:label:update:${sessionId}`, handler);
+    };
+  }, [sessionId, fetchAll]);
 
   const toggleLabel = async (label: Label, isAssigned: boolean) => {
     setChatLabels((prev) =>

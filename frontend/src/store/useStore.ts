@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Session, Chat, Message, Stats } from '../types';
+import type { Session, Chat, Message, Stats, PresenceData } from '../types';
 import { sessionApi, chatApi, statsApi } from '../services/api';
 import axios from 'axios';
 
@@ -28,6 +28,7 @@ interface AppState {
   stats: Stats | null;
   groups: Chat[];
   activeTab: string;
+  presences: Record<string, PresenceData>;
   
   // --- STATE TEMA ---
   isDarkMode: boolean;
@@ -55,6 +56,7 @@ interface AppState {
   setShowNewChatModal: (show: boolean) => void;
   setSidebarOpen: (open: boolean) => void;
   fetchGroups: (sessionId: string) => Promise<void>;
+  setPresence: (data: PresenceData) => void;
   
   // --- ACTION TEMA ---
   toggleDarkMode: () => void;
@@ -79,6 +81,7 @@ const useStore = create<AppState>((set, get) => ({
   stats: null,
   groups: [],
   activeTab: 'dashboard',
+  presences: {},
 
   // Initial Value Tema dari LocalStorage
   isDarkMode: localStorage.getItem("theme") ? localStorage.getItem("theme") === "dark" : true,
@@ -217,6 +220,15 @@ const useStore = create<AppState>((set, get) => ({
   fetchStats: async (sid) => { try { const s = await statsApi.get(sid); set({ stats: s }); } catch { } },
   setShowNewChatModal: (show) => set({ showNewChatModal: show }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  setPresence: (data) => set(state => ({
+    presences: {
+      ...state.presences,
+      [data.jid]: {
+        ...data,
+        timestamp: Date.now(),
+      },
+    },
+  })),
 }));
 
 export default useStore;

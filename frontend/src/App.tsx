@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
 import { MainApp } from "./pages/MainApp";
 import LoginPage from "./components/LoginPage";
 import { SettingsProvider, useSettings } from "./context/SettingsContext";
 
 function AppContent() {
+  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -13,6 +15,8 @@ function AppContent() {
 
   const socketRef = useRef<Socket | null>(null);
   const lastSpeakTime = useRef<number>(0);
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   // --- LOGIKA AUTH & LOGOUT ---
   const handleLogin = (userData: any) => {
@@ -22,6 +26,7 @@ function AppContent() {
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
     setIsLoggedIn(true);
+    navigate("/");
     console.log("Login sukses! Sesi dimulai.");
   };
 
@@ -59,7 +64,7 @@ function AppContent() {
 
   // --- LOGIKA SUARA GLOBAL (respect settings) ---
   const speakNotification = () => {
-    if (!settings.notificationSound) return;
+    if (!settingsRef.current.notificationSound) return;
 
     const now = Date.now();
     if (now - lastSpeakTime.current < 4000) return;
@@ -93,7 +98,14 @@ function AppContent() {
     });
 
     socketRef.current.on("new_incoming_message", () => {
+      const s = settingsRef.current;
       speakNotification();
+      if (s.desktopNotification && "Notification" in window && Notification.permission === "granted") {
+        new Notification("Satu Pintu", {
+          body: "Ada pesan masuk baru",
+          icon: "/vite.svg",
+        });
+      }
     });
 
     return () => {
@@ -108,8 +120,14 @@ function AppContent() {
 
     if (token && savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
-        setIsLoggedIn(true);
+        // Decode token untuk cek expiration
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
+          handleLogout();
+        } else {
+          setUser(JSON.parse(savedUser));
+          setIsLoggedIn(true);
+        }
       } catch (e) {
         handleLogout();
       }
@@ -128,9 +146,13 @@ function AppContent() {
   return (
     <>
       {isLoggedIn ? (
-        <MainApp user={user} onLogout={handleLogout} />
+        <Routes>
+          <Route path="/*" element={<MainApp user={user} onLogout={handleLogout} />} />
+        </Routes>
       ) : (
-        <LoginPage onLogin={handleLogin} />
+        <Routes>
+          <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
+        </Routes>
       )}
     </>
   );

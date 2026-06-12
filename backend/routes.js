@@ -66,6 +66,7 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage: storage });
+const uploadMemory = multer({ storage: multer.memoryStorage() });
 
 // ... Lanjutkan ke Route API Anda ...
 // ===============================================
@@ -207,6 +208,7 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       { id: user.id, role_type: user.role_type },
       JWT_SECRET,
+      { expiresIn: "24h" },
     );
 
     // Kirim objek user yang bersih ke frontend
@@ -824,12 +826,11 @@ router.delete("/sessions/:sessionId", async (req, res) => {
       );
     }
 
-    // ⭐ FIX: Jangan hapus wa_sessions agar data historis (closing_traffic, dll) tetap terbaca
-    // Cukup disconnect dan sembunyikan dari daftar sesi aktif
-    await query(
-      "UPDATE wa_sessions SET status = 'disconnected', qr_code = NULL, phone_number = NULL WHERE id = ?",
-      [sessionId],
-    );
+    // Hapus dari tabel pivot user terlebih dahulu
+    await query("DELETE FROM wa_user_sessions WHERE session_id = ?", [sessionId]);
+
+    // Hapus sesi dari database
+    await query("DELETE FROM wa_sessions WHERE id = ?", [sessionId]);
 
     await invalidateSessions();
 
@@ -1861,7 +1862,7 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
 
 router.get("/social/media", authenticateToken, async (req, res) => {
   try {
-    const { startDate, endDate, sessionId } = req.query;
+    const { startDate, endDate, sessionId, period } = req.query;
     const userId = req.user.id;
     const roleType = req.user.role_type?.toLowerCase().trim();
 
@@ -1869,13 +1870,13 @@ router.get("/social/media", authenticateToken, async (req, res) => {
     let allowedSessions = [];
     if (roleType === "system" || roleType === "manager") {
       allowedSessions = await query(
-        "SELECT id FROM wa_sessions"
+        "SELECT id FROM wa_sessions WHERE status = 'connected'"
       );
     } else {
       allowedSessions = await query(
         `SELECT s.id FROM wa_sessions s 
          INNER JOIN wa_user_sessions us ON s.id = us.session_id 
-         WHERE us.user_id = ?`,
+         WHERE us.user_id = ? AND s.status = 'connected'`,
         [userId]
       );
     }
@@ -1903,16 +1904,31 @@ router.get("/social/media", authenticateToken, async (req, res) => {
 
     // 4. Siapkan filter tanggal
     let paramsMessages = [finalSessionIds];
-    let paramsClosing = [finalSessionIds];
     let dateFilterMsg = "";
-    let dateFilterClosing = "";
 
-    if (startDate && endDate) {
+    if (period && period !== "Custom") {
+      switch (period) {
+        case "Semua":
+          break;
+        case "Hari ini":
+          dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+          break;
+        case "Kemarin":
+          dateFilterMsg = "AND DATE(m.timestamp) = SUBDATE(CURDATE(), 1)";
+          break;
+        case "Minggu":
+          dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+          break;
+        case "Bulan":
+          dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+          break;
+        default:
+          dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+      }
+    } else if (startDate && endDate) {
+      const endWithTime = endDate.includes(':') ? endDate : `${endDate} 23:59:59`;
       dateFilterMsg = "AND m.timestamp BETWEEN ? AND ? ";
-      paramsMessages.push(startDate, endDate);
-
-      dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ? ";
-      paramsClosing.push(startDate, endDate);
+      paramsMessages.push(startDate, endWithTime);
     }
 
     // 5. Query Utama (Messages & Labels)
@@ -1925,10 +1941,38 @@ router.get("/social/media", authenticateToken, async (req, res) => {
         ${dateFilterMsg}
     `;
 
+    let paramsClosing = [finalSessionIds];
+    let dateFilterClosing = "";
+
+    if (period && period !== "Custom") {
+      switch (period) {
+        case "Semua":
+          break;
+        case "Hari ini":
+          dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+          break;
+        case "Kemarin":
+          dateFilterClosing = "AND DATE(cl.assigned_at) = SUBDATE(CURDATE(), 1)";
+          break;
+        case "Minggu":
+          dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+          break;
+        case "Bulan":
+          dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+          break;
+        default:
+          dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+      }
+    } else if (startDate && endDate) {
+      const endWithTime = endDate.includes(':') ? endDate : `${endDate} 23:59:59`;
+      dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ? ";
+      paramsClosing.push(startDate, endWithTime);
+    }
+
     const sqlClosing = `
       SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as closing_count
       FROM wa_chat_labels cl
-      JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
+      INNER JOIN wa_labels l ON l.wa_label_id = cl.wa_label_id AND l.session_id = cl.session_id
       WHERE cl.session_id IN (?)
         AND LOWER(l.name) LIKE '%closing%'
         ${dateFilterClosing}
@@ -1938,10 +1982,12 @@ router.get("/social/media", authenticateToken, async (req, res) => {
     const organikFilter = await buildOrganikFilter();
     const organikPlaceholder = finalSessionIds.map(() => "?").join(",");
     
-    let organikParams = finalSessionIds;
+    let organikParams = [...finalSessionIds];
     let organikDateFilter = "";
     if (dateFilterMsg) {
-      organikDateFilter = dateFilterMsg.replace('m.', '');
+      organikDateFilter = dateFilterMsg.replace(/m\./g, '');
+    }
+    if (startDate && endDate && !(period && period !== "Custom")) {
       organikParams = [...finalSessionIds, startDate, endDate];
     }
     
@@ -1986,7 +2032,7 @@ router.get("/social/media", authenticateToken, async (req, res) => {
           totalClosing: closingMap[sId] || 0,
           totalOrganik: organikMap[sId] || 0
         };
-        uniqueSenders[sId] = { all_leads: new Set() };
+        uniqueSenders[sId] = {};
         
         keywords.filter(k => k.session_id === sId).forEach((k) => {
           const pKey = `leads_${k.platform.toLowerCase()}`;
@@ -2006,9 +2052,6 @@ router.get("/social/media", authenticateToken, async (req, res) => {
           if (!uniqueSenders[sId][platformKey].has(sender)) {
             uniqueSenders[sId][platformKey].add(sender);
             stats[sId][platformKey]++;
-          }
-          if (!uniqueSenders[sId].all_leads.has(sender)) {
-            uniqueSenders[sId].all_leads.add(sender);
             stats[sId].totalLeads++;
           }
         }
@@ -2049,152 +2092,218 @@ router.get("/social/media/all/leads", authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const roleType = req.user.role_type?.toLowerCase().trim();
 
-    const result = await getOrSet(
-      cacheKey("social_leads", userId, roleType, period || "hari_ini", sessionId || "all", startDate, endDate),
-      async () => {
-        let allowedSessions = [];
-        if (roleType === "system" || roleType === "manager") {
-          allowedSessions = await query("SELECT id, name FROM wa_sessions ORDER BY name ASC");
-        } else {
-          allowedSessions = await query(
-            `SELECT s.id, s.name FROM wa_sessions s 
-             INNER JOIN wa_user_sessions us ON s.id = us.session_id 
-             WHERE us.user_id = ? ORDER BY s.name ASC`, [userId]
-          );
-        }
+    let allowedSessions = [];
+    if (roleType === "system" || roleType === "manager") {
+      allowedSessions = await query("SELECT id, name FROM wa_sessions WHERE status = 'connected' ORDER BY name ASC");
+    } else {
+      allowedSessions = await query(
+        `SELECT s.id, s.name FROM wa_sessions s 
+         INNER JOIN wa_user_sessions us ON s.id = us.session_id 
+         WHERE us.user_id = ? AND s.status = 'connected' ORDER BY s.name ASC`, [userId]
+      );
+    }
 
-        const allowedIds = allowedSessions.map(s => s.id);
-        if (allowedIds.length === 0) return { success: true, summary: { totalLeads: 0, totalClosing: 0 }, deviceData: [] };
+    const allowedIds = allowedSessions.map(s => s.id);
+    if (allowedIds.length === 0) {
+      return res.json({ success: true, summary: { totalLeads: 0, totalClosing: 0, platformBreakdown: [] }, deviceData: [] });
+    }
 
-        let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) 
-          ? [sessionId] 
-          : allowedIds;
+    let targetSessionIds = (sessionId && sessionId !== 'all' && allowedIds.includes(sessionId)) 
+      ? [sessionId] 
+      : allowedIds;
 
-        const inPlaceholder = targetSessionIds.map(() => '?').join(',');
+    const inPlaceholder = targetSessionIds.map(() => '?').join(',');
 
-        let dateFilterMsg = "";
-        let dateFilterClosing = "";
-        let queryParams = [...targetSessionIds];
+    let dateFilterMsg = "";
+    let queryParams = [...targetSessionIds];
+    let dateFilterClosing = "";
+    let closingParams = [...targetSessionIds];
 
-        if (period && period !== "Custom") {
-          switch (period) {
-            case "Hari ini":
-              dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
-              dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
-              break;
-            case "Kemarin":
-              dateFilterMsg = "AND DATE(m.timestamp) = SUBDATE(CURDATE(), 1)";
-              dateFilterClosing = "AND DATE(cl.assigned_at) = SUBDATE(CURDATE(), 1)";
-              break;
-            case "Minggu":
-              dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-              dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-              break;
-            case "Bulan":
-              dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-              dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-              break;
-            default:
-              dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
-              dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
-          }
-        } else if (startDate && endDate) {
-          const startFull = `${startDate} ${startTime || '00:00:00'}`;
-          const endFull = `${endDate} ${endTime || '23:59:59'}`;
-          dateFilterMsg = "AND m.timestamp BETWEEN ? AND ?";
-          dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ?";
-          queryParams.push(startFull, endFull);
-        } else {
+    if (period && period !== "Custom") {
+      switch (period) {
+        case "Semua":
+          break;
+        case "Hari ini":
           dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
           dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+          break;
+        case "Kemarin":
+          dateFilterMsg = "AND DATE(m.timestamp) = SUBDATE(CURDATE(), 1)";
+          dateFilterClosing = "AND DATE(cl.assigned_at) = SUBDATE(CURDATE(), 1)";
+          break;
+        case "Minggu":
+          dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+          dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+          break;
+        case "Bulan":
+          dateFilterMsg = "AND m.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+          dateFilterClosing = "AND cl.assigned_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+          break;
+        default:
+          dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+          dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+      }
+    } else if (startDate && endDate) {
+      const startFull = `${startDate} ${startTime || '00:00:00'}`;
+      const endFull = `${endDate} ${endTime || '23:59:59'}`;
+      dateFilterMsg = "AND m.timestamp BETWEEN ? AND ?";
+      queryParams.push(startFull, endFull);
+      dateFilterClosing = "AND cl.assigned_at BETWEEN ? AND ?";
+      closingParams.push(startFull, endFull);
+    } else {
+      dateFilterMsg = "AND DATE(m.timestamp) = CURDATE()";
+      dateFilterClosing = "AND DATE(cl.assigned_at) = CURDATE()";
+    }
+
+    const organikFilter = await buildOrganikFilter();
+    const [keywords, closingDataRaw, messages, organikDataRaw] = await Promise.all([
+      query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
+      query(`SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as total_closing 
+             FROM wa_chat_labels cl
+             INNER JOIN wa_labels l ON l.wa_label_id = cl.wa_label_id AND l.session_id = cl.session_id
+             WHERE cl.session_id IN (${inPlaceholder}) 
+             AND LOWER(l.name) LIKE '%closing%'
+             ${dateFilterClosing}
+             GROUP BY cl.session_id`, closingParams),
+      query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
+             FROM wa_messages m
+             WHERE m.session_id IN (${inPlaceholder}) 
+             AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams),
+      query(`SELECT session_id, COUNT(*) as total_organik 
+             FROM wa_messages 
+             WHERE session_id IN (${inPlaceholder}) 
+             AND is_from_me = 1 AND chat_jid NOT LIKE '%@g.us' AND chat_jid NOT LIKE '%@newsletter'
+             ${organikFilter}
+             ${dateFilterMsg.replace('m.', '')}
+             GROUP BY session_id`, queryParams)
+    ]);
+
+    const closingMap = new Map();
+    closingDataRaw.forEach(c => closingMap.set(c.session_id, parseInt(c.total_closing)));
+
+    const organikMap = new Map();
+    organikDataRaw.forEach(o => organikMap.set(o.session_id, parseInt(o.total_organik)));
+
+    const keywordMap = new Map();
+    const deviceLeadsMap = new Map();
+    const platformLeadsSet = new Map();
+    let totalLeadsSet = new Set();
+
+    targetSessionIds.forEach(id => {
+      deviceLeadsMap.set(id, 0);
+      keywordMap.set(id, keywords.filter(k => k.session_id === id));
+    });
+
+    messages.forEach((msg) => {
+      const sId = msg.session_id;
+      const sender = msg.chat_jid;
+      const sessionKeywords = keywordMap.get(sId) || [];
+
+      sessionKeywords.forEach((k) => {
+        const platform = k.platform.toLowerCase().trim();
+        const kw = k.keyword_text.toLowerCase().trim();
+
+        if (msg.content && msg.content.includes(kw)) {
+          if (!platformLeadsSet.has(platform)) platformLeadsSet.set(platform, new Set());
+          platformLeadsSet.get(platform).add(`${sId}-${sender}`);
+          totalLeadsSet.add(`${sId}-${platform}-${sender}`);
+          deviceLeadsMap.set(sId, deviceLeadsMap.get(sId) + 1);
         }
+      });
+    });
 
-        const organikFilter = await buildOrganikFilter();
-        const [keywords, closingDataRaw, messages, organikDataRaw] = await Promise.all([
-          query(`SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${inPlaceholder})`, targetSessionIds),
-          query(`SELECT cl.session_id, COUNT(DISTINCT cl.chat_jid) as total_closing 
-                 FROM wa_chat_labels cl 
-                 JOIN wa_labels l ON cl.wa_label_id = l.wa_label_id
-                 WHERE cl.session_id IN (${inPlaceholder}) 
-                 AND LOWER(l.name) LIKE '%closing%' ${dateFilterClosing}
-                 GROUP BY cl.session_id`, (startDate && endDate) ? [...targetSessionIds, queryParams[queryParams.length-2], queryParams[queryParams.length-1]] : targetSessionIds),
-          query(`SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
-                 FROM wa_messages m
-                 WHERE m.session_id IN (${inPlaceholder}) 
-                 AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us' ${dateFilterMsg}`, queryParams),
-          query(`SELECT session_id, COUNT(*) as total_organik 
-                 FROM wa_messages 
-                 WHERE session_id IN (${inPlaceholder}) 
-                 AND is_from_me = 1 AND chat_jid NOT LIKE '%@g.us' AND chat_jid NOT LIKE '%@newsletter'
-                 ${organikFilter}
-                 ${dateFilterMsg.replace('m.', '')}
-                 GROUP BY session_id`, queryParams)
-        ]);
+    const totalLeads = totalLeadsSet.size;
+    const totalClosing = Array.from(closingMap.values()).reduce((a, b) => a + b, 0);
 
-        const closingMap = new Map();
-        closingDataRaw.forEach(c => closingMap.set(c.session_id, parseInt(c.total_closing)));
-
-        const organikMap = new Map();
-        organikDataRaw.forEach(o => organikMap.set(o.session_id, parseInt(o.total_organik)));
-
-        const keywordMap = new Map();
-        const deviceLeadsMap = new Map();
-        const platformLeadsSet = new Map();
-        let totalLeadsSet = new Set();
-
-        targetSessionIds.forEach(id => {
-          deviceLeadsMap.set(id, new Set());
-          keywordMap.set(id, keywords.filter(k => k.session_id === id));
-        });
-
-        messages.forEach((msg) => {
-          const sId = msg.session_id;
-          const sender = msg.chat_jid;
-          const sessionKeywords = keywordMap.get(sId) || [];
-
-          sessionKeywords.forEach((k) => {
-            const platform = k.platform.toLowerCase().trim();
-            const kw = k.keyword_text.toLowerCase().trim();
-
-            if (msg.content && msg.content.includes(kw)) {
-              if (!platformLeadsSet.has(platform)) platformLeadsSet.set(platform, new Set());
-              platformLeadsSet.get(platform).add(`${sId}-${sender}`);
-              totalLeadsSet.add(`${sId}-${sender}`);
-              deviceLeadsMap.get(sId).add(sender);
-            }
-          });
-        });
-
-        const totalLeads = totalLeadsSet.size;
-        const totalClosing = Array.from(closingMap.values()).reduce((a, b) => a + b, 0);
-
-        return {
-          success: true,
-          summary: {
-            totalLeads,
-            totalClosing,
-            averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0,
-            platformBreakdown: Array.from(platformLeadsSet.keys()).map(p => ({
-              platform: p.toUpperCase(),
-              count: platformLeadsSet.get(p).size
-            }))
-          },
-          deviceData: allowedSessions
-            .filter(s => targetSessionIds.includes(s.id))
-            .map(s => ({
-              name: s.name.toUpperCase(),
-              lead_count: deviceLeadsMap.get(s.id)?.size || 0,
-              closing_count: closingMap.get(s.id) || 0,
-              leads_organik: organikMap.get(s.id) || 0
-            }))
-        };
+    res.json({
+      success: true,
+      summary: {
+        totalLeads,
+        totalClosing,
+        averageConversionRate: totalLeads > 0 ? Math.round((totalClosing / totalLeads) * 100) : 0,
+        platformBreakdown: Array.from(platformLeadsSet.keys()).map(p => ({
+          platform: p.toUpperCase(),
+          count: platformLeadsSet.get(p).size
+        }))
       },
-      DEFAULT_TTL.SOCIAL_MEDIA,
-    );
-
-    res.json(result);
+      deviceData: allowedSessions
+        .filter(s => targetSessionIds.includes(s.id))
+        .map(s => ({
+          name: s.name.toUpperCase(),
+          lead_count: deviceLeadsMap.get(s.id) || 0,
+          closing_count: closingMap.get(s.id) || 0,
+          leads_organik: organikMap.get(s.id) || 0
+        }))
+    });
   } catch (error) {
     console.error("API Error at /social/media/all/leads:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
+// Platform leads for Live Report page (across all sessions)
+router.get("/social/platform-leads", authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const keywords = await query("SELECT DISTINCT platform FROM lead_keywords");
+    const platforms = keywords.map(k => k.platform.toLowerCase().trim()).filter(Boolean);
+    const uniquePlatforms = [...new Set(platforms)];
+
+    const counts = {};
+    uniquePlatforms.forEach(p => { counts[p] = 0; });
+
+    const sessions = await query("SELECT id FROM wa_sessions WHERE status = 'connected'");
+    if (sessions.length > 0) {
+      const ids = sessions.map(s => s.id);
+      const placeholders = ids.map(() => '?').join(',');
+
+      let dateFilter = '';
+      const dateParams = [];
+      if (startDate) {
+        dateFilter += ' AND m.timestamp >= ?';
+        dateParams.push(startDate);
+      }
+      if (endDate) {
+        dateFilter += ' AND m.timestamp <= ?';
+        dateParams.push(endDate);
+      }
+
+      const messages = await query(
+        `SELECT m.session_id, m.chat_jid, LOWER(m.content) as content
+         FROM wa_messages m
+         WHERE m.session_id IN (${placeholders})
+         AND m.is_from_me = 0 AND m.chat_jid NOT LIKE '%@g.us'${dateFilter}`,
+        [...ids, ...dateParams]
+      );
+      const kwRows = await query(
+        `SELECT platform, keyword_text, session_id FROM lead_keywords WHERE session_id IN (${placeholders})`,
+        ids
+      );
+
+      const keywordMap = {};
+      ids.forEach(id => { keywordMap[id] = kwRows.filter(k => k.session_id === id); });
+      const senderSets = {};
+      uniquePlatforms.forEach(p => { senderSets[p] = new Set(); });
+
+      messages.forEach(msg => {
+        const sId = msg.session_id;
+        const sender = msg.chat_jid;
+        const sessionKeywords = keywordMap[sId] || [];
+        sessionKeywords.forEach(k => {
+          const p = k.platform.toLowerCase().trim();
+          const kw = k.keyword_text.toLowerCase().trim();
+          if (msg.content && msg.content.includes(kw)) {
+            senderSets[p].add(`${sId}-${sender}`);
+          }
+        });
+      });
+
+      uniquePlatforms.forEach(p => { counts[p] = senderSets[p].size; });
+    }
+
+    res.json({ success: true, platforms: counts });
+  } catch (error) {
+    console.error("Error at /social/platform-leads:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
@@ -3013,7 +3122,7 @@ router.post("/sessions/:sessionId/messages/text", async (req, res) => {
 // POST: Kirim pesan media
 router.post(
   "/sessions/:sessionId/messages/media",
-  upload.single("file"),
+  uploadMemory.single("file"),
   async (req, res) => {
     const { sessionId } = req.params;
     const { to, caption = "" } = req.body;

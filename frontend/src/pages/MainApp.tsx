@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
 import Swal from "sweetalert2";
 import toast, { Toaster } from "react-hot-toast";
@@ -25,14 +26,17 @@ import LeadsChatList from "../components/LeadsChatList";
 import { Menu, Users, ArrowLeft } from "lucide-react";
 import { KeywordManager } from "../components/KeywordManager";
 import { LinkRotatorSection } from "../components/LinkRotatorSection";
+import { LeadProductSection } from "../components/LeadProductSection";
 import AISettingPage from "../components/AISettingPage";
 import GroupList from "@/components/Grouplist";
 import TikTokPanel from "../components/live/LivePanel";
 import { TikTokLiveReportPage } from "../components/live/LiveReport";
 import TikTokAnalyticsDashboard from "../components/live/LiveAnalyticsDashboard";
 import { LeadsReportPage } from "./LeadsReportPage";
+import LabelsPage from "./LabelsPage";
 import { TrafficClosingSection } from "../components/TrafficClosingSection";
 import { LeadAnalysisSection } from "../components/LeadAnalysisSection";
+import KategoriLeadsPage from "./KategoriLeadsPage";
 import type { GroupChat } from "../types/Group";
 
 interface UserData {
@@ -47,6 +51,9 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
   user,
   onLogout,
 }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   // 1. Store State (Zustand)
   const {
     activeSession,
@@ -66,13 +73,32 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
   const { settings } = useSettings();
 
   // 2. Local State
-  const [activeTab, setActiveTab] = useState<string>(
-    user?.role_type === "tiktok_operator"
-      ? "tiktok-live-report"
-      : user?.role_type === "system" || user?.role_type === "manager" || user?.role_type === "custom"
-        ? "dashboard"
-        : "chats",
-  );
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === "/analisis-leads") setActiveTab("lead-analysis");
+    else if (path === "/kategori-leads") setActiveTab("kategori-leads");
+    else if (path === "/traffic-closing") setActiveTab("traffic-closing");
+    else if (path === "/leads-baru") setActiveTab("leads-only");
+    else if (path === "/chat-wa") setActiveTab("chats");
+    else if (path === "/global-inbox") setActiveTab("all-messages");
+    else if (path === "/grup") setActiveTab("groups");
+    else if (path === "/labels") setActiveTab("labels");
+    else if (path === "/perangkat") setActiveTab("devices");
+    else if (path === "/kata-kunci-pengikat") setActiveTab("keyword-management");
+    else if (path === "/rotator-tautan") setActiveTab("link-rotator");
+    else if (path === "/leads-product") setActiveTab("lead-products");
+    else if (path === "/asisten-ai") setActiveTab("ai-setting");
+    else if (path === "/laporan-performa") setActiveTab("leads-report");
+    else if (path === "/laporan-live") setActiveTab("tiktok-live-report");
+    else if (path === "/live-analytics") setActiveTab("live-analytics");
+    else if (path === "/hak-akses") setActiveTab("role-management");
+    else if (path === "/manajemen-anggota") setActiveTab("user-management");
+    else if (path === "/konfigurasi-sistem") setActiveTab("settings");
+    else if (user?.role_type === "tiktok_operator") setActiveTab("tiktok-live-report");
+    else setActiveTab("dashboard");
+  }, [location.pathname]);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     const saved = localStorage.getItem("sidebarOpen");
@@ -114,20 +140,34 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
     const result = await Swal.fire({
       title: "",
       html: `
-        <div style="text-align:left">
-          <div style="font-size:16px;font-weight:700;color:#1E3A5F;margin-bottom:8px">Keluar Aplikasi?</div>
-          <div style="border-left:3px solid #1E3A5F;padding-left:12px;font-size:13px;color:#4A6F8F;line-height:1.5">
+        <div style="text-align:center;padding:8px 0">
+          <div style="width:56px;height:56px;border-radius:16px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#EE1D52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </div>
+          <div style="font-size:17px;font-weight:700;color:#0F172A;margin-bottom:6px">Keluar Aplikasi?</div>
+          <div style="font-size:13px;color:#64748B;line-height:1.5;padding:0 0 8px">
             Anda akan diarahkan kembali ke halaman login.
+          </div>
+          <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
+            <button type="button" id="swal-cancel-btn" style="flex:1;padding:10px 0;border-radius:10px;border:none;font-size:14px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#475569;cursor:pointer;transition:all 0.15s ease">Batal</button>
+            <button type="button" id="swal-confirm-btn" style="flex:1;padding:10px 0;border-radius:10px;border:none;font-size:14px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;background:#EE1D52;color:#fff;cursor:pointer;transition:all 0.15s ease">Ya, Keluar</button>
           </div>
         </div>
       `,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#1E3A5F",
-      cancelButtonColor: "#e5e7eb",
-      confirmButtonText: "Ya, Keluar",
-      background: "#ffffff",
-      color: "#1f2937",
+      showConfirmButton: false,
+      showCancelButton: false,
+      background: "#FFFFFF",
+      color: "#0F172A",
+      didOpen: () => {
+        const confirmBtn = document.getElementById("swal-confirm-btn");
+        const cancelBtn = document.getElementById("swal-cancel-btn");
+        confirmBtn?.addEventListener("click", () => Swal.clickConfirm());
+        cancelBtn?.addEventListener("click", () => Swal.clickCancel());
+        confirmBtn?.addEventListener("mouseenter", () => { confirmBtn.style.background = "#C81946"; confirmBtn.style.transform = "scale(0.97)"; });
+        confirmBtn?.addEventListener("mouseleave", () => { confirmBtn.style.background = "#EE1D52"; confirmBtn.style.transform = "scale(1)"; });
+        cancelBtn?.addEventListener("mouseenter", () => { cancelBtn.style.background = "#E2E8F0"; cancelBtn.style.transform = "scale(0.97)"; });
+        cancelBtn?.addEventListener("mouseleave", () => { cancelBtn.style.background = "#F1F5F9"; cancelBtn.style.transform = "scale(1)"; });
+      },
     });
 
     if (result.isConfirmed) {
@@ -247,10 +287,13 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
           "devices",
           "keyword-management",
           "link-rotator",
+          "lead-products",
           "ai-setting",
           "tiktok",
           "tiktok-live-report",
+          "live-analytics",
           "leads-report",
+          "labels",
           "traffic-closing",
           "lead-analysis",
         ].includes(activeTab) ? (
@@ -285,6 +328,13 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
             {activeTab === "link-rotator" && (
               <div className="flex-1 overflow-y-auto h-full">
                 <LinkRotatorSection />
+              </div>
+            )}
+
+            {/* --- RENDER LEADS PRODUCT DI SINI --- */}
+            {activeTab === "lead-products" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <LeadProductSection />
               </div>
             )}
 
@@ -333,11 +383,13 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
 
             {activeTab === "tiktok-live-report" && (
               <div className="flex-1 overflow-y-auto h-full">
-                {user?.role_type === "tiktok_operator" ? (
-                  <TikTokLiveReportPage />
-                ) : (
-                  <TikTokAnalyticsDashboard onBack={() => setActiveTab("dashboard")} />
-                )}
+                <TikTokLiveReportPage />
+              </div>
+            )}
+
+            {activeTab === "live-analytics" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <TikTokAnalyticsDashboard onBack={() => navigate("/")} />
               </div>
             )}
 
@@ -346,14 +398,24 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
                 <LeadsReportPage />
               </div>
             )}
+            {activeTab === "labels" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <LabelsPage />
+              </div>
+            )}
             {activeTab === "traffic-closing" && (
               <div className="flex-1 overflow-y-auto h-full">
-                <TrafficClosingSection />
+                <TrafficClosingSection onBack={() => navigate("/")} />
               </div>
             )}
             {activeTab === "lead-analysis" && (
               <div className="flex-1 overflow-y-auto h-full">
                 <LeadAnalysisSection />
+              </div>
+            )}
+            {activeTab === "kategori-leads" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <KategoriLeadsPage />
               </div>
             )}
           </div>
@@ -362,7 +424,7 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
           <>
             {/* PANEL KIRI: Daftar Chat / Pesan */}
             <section
-              className={`${mobileView === "chat" ? "hidden" : "flex"} md:flex flex-col w-full md:w-[380px] lg:w-[420px] ${activeTab === "groups" ? "bg-white border-gray-200" : "bg-white border-gray-200"} z-20`}
+              className={`${mobileView === "chat" ? "hidden" : "flex"} md:flex flex-col w-full md:w-[340px] lg:w-[360px] ${activeTab === "groups" ? "bg-white border-gray-200" : "bg-white border-gray-200"} z-20`}
             >
               {/* Mobile Header Custom */}
               <div className="md:hidden flex items-center p-4 border-b border-gray-100 bg-white gap-4">

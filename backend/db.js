@@ -426,6 +426,24 @@ CREATE TABLE IF NOT EXISTS wa_rules (
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
+    `CREATE TABLE IF NOT EXISTS lead_products (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      template_text TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+    `CREATE TABLE IF NOT EXISTS lead_product_assignments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      session_id VARCHAR(50) NOT NULL,
+      chat_jid VARCHAR(100) NOT NULL,
+      product_id INT NOT NULL,
+      assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_assignment (session_id, chat_jid),
+      FOREIGN KEY (product_id) REFERENCES lead_products(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
   ];
 
   try {
@@ -690,6 +708,18 @@ CREATE TABLE IF NOT EXISTS wa_rules (
     } catch (err) {
       if (!err.message.includes('Duplicate column')) {
         console.warn("⚠️ Migration warning for source:", err.message);
+      }
+    }
+
+    // ⭐ Migrasi: Tambah kolom session_id ke lead_products (untuk filter perangkat)
+    try {
+      await db.promise().query(`
+        ALTER TABLE lead_products ADD COLUMN session_id VARCHAR(50) DEFAULT NULL AFTER template_text
+      `);
+      console.log("✅ Added session_id column to lead_products");
+    } catch (err) {
+      if (!err.message.includes('Duplicate column')) {
+        console.warn("⚠️ Migration warning for lead_products.session_id:", err.message);
       }
     }
 

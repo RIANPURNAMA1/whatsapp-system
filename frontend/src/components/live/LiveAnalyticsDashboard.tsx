@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Loader2, BarChart3, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef, createElement } from "react";
+import { useNavigate } from "react-router-dom";
+import { Loader2, BarChart3, Calendar, ChevronLeft, ChevronRight, FileText, Eye, Gem, Gift, Users, User } from "lucide-react";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -75,16 +76,21 @@ const ChartHeader: React.FC<{ title: string }> = ({ title }) => (
   </div>
 );
 
+const ICON_COMPONENTS = {
+  FileText, Eye, Gem, Gift, Users, User,
+};
+
 const cardMeta = [
-  { label: "Total Laporan", key: "reports", bg: FB.blueLight, iconBg: FB.blue, icon: "📊" },
-  { label: "Total Tayangan", key: "viewers", bg: "#EDE9FE", iconBg: "#8B5CF6", icon: "👁" },
-  { label: "Total Berlian", key: "diamonds", bg: "#FEF3C7", iconBg: FB.orange, icon: "💎" },
-  { label: "Total Hadiah", key: "gifts", bg: "#D1FAE5", iconBg: FB.green, icon: "🎁" },
-  { label: "Total Pengikut", key: "followers", bg: "#E0F2FE", iconBg: "#0EA5E9", icon: "👥" },
-  { label: "Leads TikTok", key: "leads", bg: "#FFE4E6", iconBg: FB.red, icon: "👤" },
+  { label: "Total Laporan", key: "reports", bg: FB.blueLight, iconBg: FB.blue, icon: "FileText" },
+  { label: "Total Tayangan", key: "viewers", bg: "#EDE9FE", iconBg: "#8B5CF6", icon: "Eye" },
+  { label: "Total Berlian", key: "diamonds", bg: "#FEF3C7", iconBg: FB.orange, icon: "Gem" },
+  { label: "Total Hadiah", key: "gifts", bg: "#D1FAE5", iconBg: FB.green, icon: "Gift" },
+  { label: "Total Pengikut", key: "followers", bg: "#E0F2FE", iconBg: "#0EA5E9", icon: "Users" },
+  { label: "Leads TikTok", key: "leads", bg: "#FFE4E6", iconBg: FB.red, icon: "User" },
 ];
 
 const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
+  const navigate = useNavigate();
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<Period>("all");
@@ -155,6 +161,7 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
       try {
         const ld = typeof r.leads_data === "string" ? JSON.parse(r.leads_data) : r.leads_data;
         if (!ld) return sum;
+        if (typeof ld.total_leads === "number") return sum + ld.total_leads;
         if (typeof ld === "number") return sum + ld;
         if (typeof ld.total === "number") return sum + ld.total;
         if (Array.isArray(ld)) return sum + ld.length;
@@ -162,6 +169,37 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
       } catch { return sum; }
     }, 0),
   [data]);
+
+  const platformLeads = useMemo(() => {
+    const agg: Record<string, number> = {};
+    data.forEach((r) => {
+      try {
+        const ld = typeof r.leads_data === "string" ? JSON.parse(r.leads_data) : r.leads_data;
+        if (ld?.keyword_platforms) {
+          Object.entries(ld.keyword_platforms).forEach(([p, c]) => {
+            const val = Number(c) || 0;
+            if (val > 0) agg[p] = (agg[p] || 0) + val;
+          });
+        }
+      } catch {}
+    });
+    return agg;
+  }, [data]);
+
+  const creatorLeads = useMemo(() => {
+    const agg: Record<string, number> = {};
+    data.forEach((r) => {
+      const name = r.creator_name || "Unknown";
+      try {
+        const ld = typeof r.leads_data === "string" ? JSON.parse(r.leads_data) : r.leads_data;
+        const total = ld?.total_leads ?? ld?.total ?? (Array.isArray(ld) ? ld.length : 0);
+        if (typeof total === "number") agg[name] = (agg[name] || 0) + total;
+      } catch {
+        agg[name] = (agg[name] || 0);
+      }
+    });
+    return Object.entries(agg).sort(([, a], [, b]) => b - a);
+  }, [data]);
 
   const chartData = useMemo(() =>
     data.map((r) => ({
@@ -187,7 +225,7 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
     [...data].reverse().map((r) => {
       let ld: any;
       try { ld = typeof r.leads_data === 'string' ? JSON.parse(r.leads_data) : r.leads_data; } catch {}
-      const leads = ld?.total ?? (Array.isArray(ld) ? ld.length : 0);
+      const leads = ld?.total_leads ?? ld?.total ?? (Array.isArray(ld) ? ld.length : 0);
       return {
         tayangan: parseInt(r.viewers) || 0,
         pengikut: parseInt(r.new_followers) || 0,
@@ -230,6 +268,13 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
             style={{ borderColor: "#CCD0D5", color: FB.gray }}>
             Kembali
           </button>
+        </div>
+
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1.5 text-xs mb-4" style={{ color: FB.gray }}>
+          <button onClick={() => navigate("/")} className="hover:underline font-medium" style={{ color: "#1877F2" }}>Dashboard</button>
+          <span>/</span>
+          <span className="font-semibold" style={{ color: "#050505" }}>Live Analytics</span>
         </div>
 
         {/* ─── Date Filter ──────────────────────────── */}
@@ -277,10 +322,10 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
                 <div key={i} className="bg-white rounded-lg border p-4" style={{ borderColor: FB.grayLight }}>
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center text-lg"
+                      className="w-9 h-9 rounded-lg flex items-center justify-center"
                       style={{ backgroundColor: card.bg, color: card.iconBg }}
                     >
-                      {card.icon}
+                      {createElement(ICON_COMPONENTS[card.icon as keyof typeof ICON_COMPONENTS] || FileText, { size: 16 })}
                     </div>
                     <div className="min-w-0">
                       <p className="text-lg font-bold leading-tight text-[#050505]">{card.value}</p>
@@ -290,6 +335,51 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
                 </div>
               ))}
             </div>
+
+            {/* ─── Per-Akun Leads ──────────────────── */}
+            {creatorLeads.length > 0 && (
+              <div className="bg-white rounded-lg border p-4" style={{ borderColor: FB.grayLight }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Users size={14} style={{ color: FB.gray }} />
+                  <span className="text-[13px] font-semibold text-[#050505]">Leads per Akun</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {creatorLeads.map(([name, total]) => (
+                    <div key={name}
+                      className="flex flex-col items-center gap-1 rounded-lg p-3"
+                      style={{ backgroundColor: FB.grayBg }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                        style={{ backgroundColor: FB.blue }}>
+                        {name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-xs font-medium text-center truncate w-full" style={{ color: "#050505" }}>{name}</span>
+                      <span className="text-lg font-bold" style={{ color: FB.blue }}>{total}</span>
+                      <span className="text-[10px]" style={{ color: FB.gray }}>leads</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ─── Platform Sources ─────────────────── */}
+            {Object.keys(platformLeads).length > 0 && (
+              <div className="bg-white rounded-lg border p-4" style={{ borderColor: FB.grayLight }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Users size={14} style={{ color: FB.gray }} />
+                  <span className="text-[13px] font-semibold text-[#050505]">Platform Sources</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(platformLeads).map(([platform, count]) => (
+                    <div key={platform}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium"
+                      style={{ backgroundColor: FB.grayBg }}>
+                      <span className="capitalize" style={{ color: "#050505" }}>{platform}</span>
+                      <span className="font-bold" style={{ color: FB.blue }}>{count} leads</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ─── Charts Row ───────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -379,6 +469,7 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
                           try {
                             const d = typeof r.leads_data === "string" ? JSON.parse(r.leads_data) : r.leads_data;
                             if (!d) return "-";
+                            if (typeof d.total_leads === "number") return d.total_leads;
                             if (typeof d.total === "number") return d.total;
                             if (Array.isArray(d)) return d.length;
                             return "-";

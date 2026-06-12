@@ -52,5 +52,5 @@ export async function deleteCategory(id) {
 export function matchKeywords(text, keywords) {
   if (!text || !keywords || !Array.isArray(keywords) || keywords.length === 0) return false;
   const lower = text.toLowerCase().trim();
-  return keywords.some(kw => lower === kw.toLowerCase().trim());
+  return keywords.every(kw => lower.includes(kw.toLowerCase().trim()));
 }

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
 import {
-  MessageSquare,
   CheckCircle,
   Smartphone,
-  Send,
   Loader2,
   Search,
   MailCheck,
@@ -14,20 +13,22 @@ import {
   Clock,
   Users,
   Timer,
+  Package,
+  MessageSquare,
+  Bot,
+  Sparkles,
 } from "lucide-react";
 import useStore from "../store/useStore";
 import { LeadsActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts";
 import LiveFeed from "./LiveChatFeed";
 import StatCard from "./StatCard";
 import AIAnalyticSection from "./AIAnalyticSection";
-import LabelSection from "./LabelSection";
 import SocialLeadsSection from "./SocialLeadsSection";
 import OverallLeadsCard from "./stats/OverallLeadsCard";
 import { BarChart3 } from "lucide-react";
 import ClosingStatCard from "./stats/ClosingStatCard";
 import TikTokAnalyticsDashboard from "./live/LiveAnalyticsDashboard";
-import LeadAnalysisSection from "./LeadAnalysisSection";
-import TrafficClosingSection from "./TrafficClosingSection";
+import AIAssistantModal from "./AIAssistantModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -45,6 +46,7 @@ interface StatDashboardProps {
 
 const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
   const { settings } = useSettings();
+  const navigate = useNavigate();
   const now = new Date();
   const todayStart = new Date(new Date(now).setHours(0, 0, 0, 0)).toISOString().slice(0, 16);
   const todayEnd = new Date(new Date(now).setHours(23, 59, 59, 999)).toISOString().slice(0, 16);
@@ -60,12 +62,10 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
   const [loadingSocial, setLoadingSocial] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deviceLeadsData, setDeviceLeadsData] = useState([]);
-  const [allLabels, setAllLabels] = useState<any[]>([]);
-  const [loadingLabels, setLoadingLabels] = useState(false);
-  const [labelDeviceFilter, setLabelDeviceFilter] = useState("all");
+  const [leadProducts, setLeadProducts] = useState<any[]>([]);
+
   const [showTikTokModal, setShowTikTokModal] = useState(false);
-  const [showLeadAnalysis, setShowLeadAnalysis] = useState(false);
-  const [showTrafficClosing, setShowTrafficClosing] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [data, setData] = useState<any>({
     stats: {
       pesanMasukAllTime: 0, pesanMasukToday: 0, pesanKeluar: 0,
@@ -148,63 +148,42 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
     }
   }, [activeFilter, appliedDates, selectedDevice]);
 
-  const fetchAllLabels = useCallback(async (sessionList: any[]) => {
-    setLoadingLabels(true);
+  const fetchLeadProducts = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
-      const baseApi = import.meta.env.VITE_API_URL.replace(/\/$/, "");
       const params = new URLSearchParams();
-      if (activeFilter !== "Custom") {
-        params.append("period", FILTER_MAP[activeFilter]);
-      } else {
-        params.append("startDate", appliedDates.start.replace("T", " ") + ":00");
-        params.append("endDate", appliedDates.end.replace("T", " ") + ":59");
+      const period = FILTER_MAP[activeFilter];
+      if (period === "Hari ini") params.append("date_filter", "hari_ini");
+      else if (period === "Kemarin") params.append("date_filter", "kemarin");
+      else if (period === "Minggu") params.append("date_filter", "minggu_ini");
+      else if (period === "Bulan") params.append("date_filter", "bulan_ini");
+      else if (period === "Custom" && appliedDates.start && appliedDates.end) {
+        params.append("date_filter", "custom");
+        params.append("start_date", appliedDates.start.slice(0, 10));
+        params.append("end_date", appliedDates.end.slice(0, 10));
       }
-      const res = await fetch(`${baseApi}/labels/all?${params}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/lead-products/stats?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success) { setAllLabels(json.data || []); setLoadingLabels(false); return; }
-      }
-      if (sessionList.length > 0) {
-        const allFetched: any[] = [];
-        await Promise.all(sessionList.map(async (session: any) => {
-          const r = await fetch(`${baseApi}/sessions/${session.id}/labels?${params}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const d = await r.json();
-          if (d.success) allFetched.push(...(d.data || []).map((l: any) => ({ ...l, sessionName: session.name, session_id: session.id })));
-        }));
-        setAllLabels(allFetched);
-      }
-    } catch (err) { console.error("Fetch labels error:", err); }
-    finally { setLoadingLabels(false); }
+      const json = await res.json();
+      if (json.success) setLeadProducts(json.data || []);
+    } catch {}
   }, [activeFilter, appliedDates]);
-
-  const totalClosingFromLabels = useMemo(() => {
-    return allLabels.filter(l => l.name.toLowerCase().includes("closing")).reduce((acc, curr) => acc + (parseInt(curr.chat_count) || 0), 0);
-  }, [allLabels]);
 
   useEffect(() => {
     (async () => {
-      await Promise.all([fetchDashboard(true), fetchOverallLeads()]);
+      await Promise.all([fetchDashboard(true), fetchOverallLeads(), fetchLeadProducts()]);
     })();
     if (activeFilter !== "Custom") {
       const intervalMs = settings.autoRefresh ? parseInt(settings.refreshInterval, 10) * 1000 : 0;
       if (intervalMs <= 0) return;
-      const interval = setInterval(() => { fetchDashboard(false); fetchOverallLeads(); }, intervalMs);
+      const interval = setInterval(() => { fetchDashboard(false); fetchOverallLeads(); fetchLeadProducts(); }, intervalMs);
       return () => clearInterval(interval);
     }
-  }, [fetchDashboard, fetchOverallLeads, activeFilter, appliedDates, selectedDevice, settings.autoRefresh, settings.refreshInterval]);
+  }, [fetchDashboard, fetchOverallLeads, fetchLeadProducts, activeFilter, appliedDates, selectedDevice, settings.autoRefresh, settings.refreshInterval]);
 
   const sessionIdsKey = useMemo(() => data.sessions.map((s: any) => s.id).join(","), [data.sessions]);
   const stableSessions = useMemo(() => data.sessions, [sessionIdsKey]);
-
-  useEffect(() => {
-    const sessions = data.sessions;
-    if (sessions.length > 0) fetchAllLabels(sessions);
-  }, [sessionIdsKey, fetchAllLabels]);
 
   const handleApplyCustomFilter = () => {
     setRefreshing(true);
@@ -218,8 +197,6 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
   ], [data.stats]);
 
   const statCards = useMemo(() => [
-    { label: "Pesan Masuk", value: data.stats.pesanMasukToday || 0, icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "Terkirim", value: data.stats.pesanKeluar || 0, icon: Send, color: "text-orange-600", bg: "bg-orange-50" },
     { label: "Leads Organik", value: data.stats.leadsOrganik || 0, icon: Leaf, color: "text-emerald-600", bg: "bg-emerald-50" },
     { label: "Leads Aktif", value: data.stats.leadAktif || 0, icon: Users, color: "text-indigo-600", bg: "bg-indigo-50" },
     { label: "Device Online", value: data.stats.deviceConnected || 0, icon: Smartphone, color: "text-violet-600", bg: "bg-violet-50" },
@@ -228,18 +205,10 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
       icon: CheckCircle, color: data.stats.deviceConnected > 0 ? "text-emerald-600" : "text-red-600",
       bg: data.stats.deviceConnected > 0 ? "bg-emerald-50" : "bg-red-50",
     },
-  ], [data.stats.pesanMasukToday, data.stats.pesanKeluar, data.stats.leadsOrganik, data.stats.leadAktif, data.stats.deviceConnected]);
+  ], [data.stats.leadsOrganik, data.stats.leadAktif, data.stats.deviceConnected]);
 
   if (showTikTokModal) {
     return <TikTokAnalyticsDashboard onBack={() => setShowTikTokModal(false)} />;
-  }
-
-  if (showLeadAnalysis) {
-    return <LeadAnalysisSection onBack={() => setShowLeadAnalysis(false)} />;
-  }
-
-  if (showTrafficClosing) {
-    return <TrafficClosingSection onBack={() => setShowTrafficClosing(false)} />;
   }
 
   if (loading && !data.stats.pesanMasukAllTime) {
@@ -275,24 +244,23 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
           {/* Row 2: Action buttons — responsive wrap */}
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setShowTikTokModal(true)}
-              className={`h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90 shrink-0 ${showTikTokModal ? 'ring-2 ring-offset-1' : ''}`}
-              style={{ backgroundColor: "#EE1D52", color: "#FFFFFF" }}>
+              className="h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shrink-0 border"
+              style={{ borderColor: "#CCD0D5", color: "#050505", backgroundColor: "#FFFFFF" }}>
               <BarChart3 className="w-3.5 h-3.5" />
               Live TikTok
             </button>
-            <button onClick={() => setShowLeadAnalysis(true)}
-              className="h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90 shrink-0"
-              style={{ backgroundColor: "#1877F2", color: "#FFFFFF" }}>
+            <button onClick={() => navigate("/analisis-leads")}
+              className="h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shrink-0 border"
+              style={{ borderColor: "#CCD0D5", color: "#050505", backgroundColor: "#FFFFFF" }}>
               <BarChart3 className="w-3.5 h-3.5" />
               Analisis Leads
             </button>
-            <button onClick={() => setShowTrafficClosing(true)}
-              className="h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all hover:opacity-90 shrink-0"
-              style={{ backgroundColor: "#F5A623", color: "#FFFFFF" }}>
+            <button onClick={() => navigate("/traffic-closing")}
+              className="h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shrink-0 border"
+              style={{ borderColor: "#CCD0D5", color: "#050505", backgroundColor: "#FFFFFF" }}>
               <Timer className="w-3.5 h-3.5" />
               Trafik & Penutupan
             </button>
-
             {/* Filter controls inline on desktop, wrap on mobile */}
             <div className="flex items-center gap-2 flex-wrap ml-auto">
               <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)}
@@ -339,8 +307,10 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
           </div>
         )}
 
+        <SocialLeadsSection isDarkMode={false} sessions={stableSessions} activeFilter={activeFilter} appliedDates={appliedDates} selectedDevice={selectedDevice} />
+
         {/* Stat Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           {statCards.map((card, i) => (
             <div key={i} className="bg-white rounded-lg border p-4" style={{ borderColor: "#E4E6EB" }}>
               <div className="flex items-center gap-3">
@@ -357,6 +327,34 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
             </div>
           ))}
         </div>
+
+        {/* Leads Product Section */}
+        {leadProducts.length > 0 && (
+          <div className="mb-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Package size={16} style={{ color: "#1877F2" }} />
+              <span className="text-[13px] font-bold" style={{ color: "#050505" }}>Leads Product</span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {leadProducts.map((p: any) => (
+                <div key={p.id} className="bg-white rounded-lg border p-4" style={{ borderColor: "#E4E6EB" }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package size={14} style={{ color: "#1877F2" }} />
+                    <span className="font-bold text-[14px] truncate" style={{ color: "#050505" }}>{p.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[11px]" style={{ color: "#65676B" }}>Leads:</span>
+                    <span className="font-semibold text-[13px]" style={{ color: "#1877F2" }}>{p.total_leads}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px]" style={{ color: "#8C939D" }}>
+                    <Smartphone size={11} />
+                    {p.session_name || "Semua Device"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -375,11 +373,19 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
               totalClosing={overallSummary.totalClosing} conversionRate={overallSummary.averageConversionRate} />
           </div>
         </div>
-
-        <LabelSection isDarkMode={false} loadingLabels={loadingLabels} allLabels={allLabels}
-          sessions={data.sessions} labelDeviceFilter={labelDeviceFilter} setLabelDeviceFilter={setLabelDeviceFilter} />
-        <SocialLeadsSection isDarkMode={false} sessions={stableSessions} />
       </div>
+
+      <AIAssistantModal open={showAIAssistant} onClose={() => setShowAIAssistant(false)} />
+
+      {/* Floating AI Assistant Button */}
+      <button
+        onClick={() => setShowAIAssistant(true)}
+        className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 hover:shadow-xl active:scale-95"
+        style={{ backgroundColor: "#1877F2" }}
+        title="Asisten AI"
+      >
+        <Bot className="w-6 h-6 text-white" />
+      </button>
     </div>
   );
 };

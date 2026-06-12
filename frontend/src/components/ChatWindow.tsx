@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   FileText,
   Image as ImageIcon,
+  File,
 } from "lucide-react";
 import useStore from "../store/useStore";
 import Avatar from "./Avatar";
@@ -22,11 +23,13 @@ import {
   formatDateSeparator,
   isDifferentDay,
   isGroupJid,
+  formatLastSeen,
 } from "../utils/helpers";
 import { messageApi, chatApi } from "../services/api";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { getSocket } from "../services/socket";
+import { FormattedMessage } from "./ui/FormattedMessage";
 
 interface ChatWindowProps {
   sessionId: string;
@@ -48,6 +51,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     resetUnread,
     addMessage,
     updateChat,
+    presences,
   } = useStore();
 
   const { settings } = useSettings();
@@ -57,105 +61,139 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [isNearBottom, setIsNearBottom] = useState(true);
+  const isNearBottomRef = useRef(true);
+  const userScrolledUpRef = useRef(false);
+  const prevMessagesLengthRef = useRef(0);
+  const isInitialLoadRef = useRef(true);
+  const scrollRAFRef = useRef<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewCaption, setPreviewCaption] = useState("");
+  const [previewType, setPreviewType] = useState<"image" | "video" | null>(null);
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior });
+  const scrollToBottom = useCallback((smooth = true) => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (scrollRAFRef.current) cancelAnimationFrame(scrollRAFRef.current);
+    scrollRAFRef.current = requestAnimationFrame(() => {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: smooth ? "smooth" : "instant",
+      });
       setShowScrollBtn(false);
-      setIsNearBottom(true);
-    }
+      isNearBottomRef.current = true;
+      userScrolledUpRef.current = false;
+    });
   }, []);
 
   const handleScroll = useCallback(() => {
-    const container = messagesContainerRef.current;
+    const container = containerRef.current;
     if (!container) return;
     const { scrollTop, scrollHeight, clientHeight } = container;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    setShowScrollBtn(distanceFromBottom > 300);
-    setIsNearBottom(distanceFromBottom < 50);
+    isNearBottomRef.current = distanceFromBottom < 80;
+    userScrolledUpRef.current = distanceFromBottom > 150;
+
+    if (scrollRAFRef.current) return;
+    scrollRAFRef.current = requestAnimationFrame(() => {
+      scrollRAFRef.current = null;
+      setShowScrollBtn(distanceFromBottom > 300);
+    });
 
     if (scrollTop < 50 && hasMoreMessages && !isLoadingMore && selectedChat) {
-      const loadMore = async () => {
-        setIsLoadingMore(true);
-        const prevHeight = scrollHeight;
-        await fetchMessages(sessionId, selectedChat.jid, true);
+      setIsLoadingMore(true);
+      const prevHeight = scrollHeight;
+      fetchMessages(sessionId, selectedChat.jid, true).then(() => {
         setIsLoadingMore(false);
         requestAnimationFrame(() => {
-          container.scrollTop = container.scrollHeight - prevHeight;
+          if (containerRef.current) {
+            containerRef.current.scrollTop = containerRef.current.scrollHeight - prevHeight;
+          }
         });
-      };
-      loadMore();
+      });
     }
   }, [hasMoreMessages, isLoadingMore, selectedChat, sessionId, fetchMessages]);
 
+  const handleUserScroll = useCallback(() => {
+    if (scrollRAFRef.current) {
+      cancelAnimationFrame(scrollRAFRef.current);
+      scrollRAFRef.current = null;
+    }
+    handleScroll();
+  }, [handleScroll]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", handleUserScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleUserScroll);
+  }, [handleUserScroll]);
+
   useEffect(() => {
     if (!sessionId || !selectedChat) return;
-
     const fetchAndScroll = async () => {
       try {
+        const prevHeight = containerRef.current?.scrollHeight || 0;
         await fetchMessages(sessionId, selectedChat.jid);
-        if (isNearBottom) {
-          setTimeout(() => scrollToBottom("smooth"), 100);
+        if (isNearBottomRef.current && containerRef.current) {
+          const newHeight = containerRef.current.scrollHeight;
+          if (newHeight > prevHeight) {
+            scrollToBottom(true);
+          }
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
     };
-
     fetchAndScroll();
-
     const pollMs = settings.autoRefresh ? 2000 : parseInt(settings.refreshInterval, 10) * 1000;
     const pollInterval = setInterval(fetchAndScroll, pollMs);
     return () => clearInterval(pollInterval);
-  }, [sessionId, selectedChat?.jid, fetchMessages, isNearBottom, settings.autoRefresh, settings.refreshInterval]);
+  }, [sessionId, selectedChat?.jid, fetchMessages, settings.autoRefresh, settings.refreshInterval, scrollToBottom]);
 
   useEffect(() => {
     if (selectedChat && sessionId) {
+      isInitialLoadRef.current = true;
+      isNearBottomRef.current = true;
+      userScrolledUpRef.current = false;
       fetchMessages(sessionId, selectedChat.jid).then(() => {
-        setTimeout(() => scrollToBottom(), 150);
+        requestAnimationFrame(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollTop = containerRef.current.scrollHeight;
+          }
+          isInitialLoadRef.current = false;
+        });
       });
       resetUnread(selectedChat.jid);
       chatApi.markRead(sessionId, selectedChat.jid).catch(() => {});
-      setIsNearBottom(true);
     }
-  }, [selectedChat?.jid, sessionId, fetchMessages, resetUnread, scrollToBottom]);
+  }, [selectedChat?.jid, sessionId, fetchMessages, resetUnread]);
 
   useEffect(() => {
     if (!sessionId || !selectedChat) return;
-
     const socket = getSocket();
-
     const handleNewMessage = (msg: any) => {
-      const msgJid = msg.chat_jid?.toLowerCase()?.trim();
-      const currentJid = selectedChat.jid?.toLowerCase()?.trim();
-
-      if (msgJid === currentJid) {
-        const isDuplicate = messages.some(m => m.message_id === msg.message_id);
-        if (!isDuplicate) {
-          addMessage(msg);
-          if (isNearBottom) {
-            setTimeout(() => scrollToBottom("smooth"), 100);
+      if (msg.chat_jid?.toLowerCase()?.trim() !== selectedChat.jid?.toLowerCase()?.trim()) return;
+      addMessage(msg);
+      if (isNearBottomRef.current) {
+        requestAnimationFrame(() => {
+          const el = containerRef.current;
+          if (el) {
+            el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
           }
-        }
+        });
       }
     };
-
     socket.on(`message:new:${sessionId}`, handleNewMessage);
-
     return () => {
       socket.off(`message:new:${sessionId}`, handleNewMessage);
     };
-  }, [sessionId, selectedChat?.jid, messages, addMessage, isNearBottom, scrollToBottom]);
+  }, [sessionId, selectedChat?.jid, addMessage]);
 
   const handleSend = async () => {
     if (!inputText.trim() || !selectedChat || isSending) return;
@@ -164,14 +202,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     setIsSending(true);
     setInputText("");
     setReplyTo(null);
-
     try {
-      const response = await messageApi.sendText(
-        sessionId,
-        chatJid,
-        text,
-        replyTo?.message_id,
-      );
+      const response = await messageApi.sendText(sessionId, chatJid, text, replyTo?.message_id);
       if (response.success) {
         const newMessage = {
           ...response.data,
@@ -187,7 +219,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           last_message_time: newMessage.timestamp,
           last_message_from: "me",
         });
-        setTimeout(() => scrollToBottom("smooth"), 100);
+        requestAnimationFrame(() => {
+          const el = containerRef.current;
+          if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+        });
       }
     } catch (err) {
       toast.error("Gagal mengirim pesan");
@@ -201,10 +236,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type.startsWith("image/")) {
+    if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
       const url = URL.createObjectURL(file);
       setPreviewFile(file);
       setPreviewUrl(url);
+      setPreviewType(file.type.startsWith("video/") ? "video" : "image");
     } else {
       handleSendMedia(file, "document", file.name);
     }
@@ -213,18 +249,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const handleSendMedia = async (file: File, type: string, caption: string) => {
     if (!selectedChat || !sessionId) return;
     setIsSending(true);
+
+    const tempId = `temp-${Date.now()}`;
+    addMessage({
+      message_id: tempId,
+      chat_jid: selectedChat.jid,
+      content: caption || file.name,
+      is_from_me: 1,
+      timestamp: new Date().toISOString(),
+      status: "pending",
+      message_type: type,
+      media_url: null,
+    } as any);
+
     try {
-      const response = await messageApi.sendMedia(
-        sessionId,
-        selectedChat.jid,
-        file,
-        type,
-        caption,
-      );
+      const response = await messageApi.sendMedia(sessionId, selectedChat.jid, file, type, caption);
       if (response.success) {
         toast.success("File dikirim");
         fetchMessages(sessionId, selectedChat.jid);
-        scrollToBottom("smooth");
+        scrollToBottom(true);
       }
     } catch (err) {
       toast.error("Gagal mengirim file");
@@ -237,8 +280,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     if (!previewFile || !selectedChat) return;
     const file = previewFile;
     const cap = previewCaption;
+    const type = file.type.startsWith("video/") ? "video" : "image";
     cancelPreview();
-    await handleSendMedia(file, "image", cap);
+    await handleSendMedia(file, type, cap);
   };
 
   const cancelPreview = () => {
@@ -246,6 +290,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     setPreviewCaption("");
+    setPreviewType(null);
   };
 
   if (!selectedChat) {
@@ -254,6 +299,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const rawDisplayName = getDisplayName(selectedChat);
   const displayName = rawDisplayName.includes('@') ? "Potential Lead" : rawDisplayName;
+  const presence = selectedChat ? presences[selectedChat.jid] : null;
+  const isOnline = presence?.presence === 'available' || presence?.presence === 'composing';
+  const isTyping = presence?.presence === 'composing';
 
   return (
     <div className="flex-1 flex flex-col h-full w-full min-w-0 relative overflow-hidden" style={{ backgroundColor: "#F0F2F5" }}>
@@ -282,9 +330,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             {displayName}
           </p>
           <div className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#31A24C" }} />
-            <p className="text-[10px] font-medium" style={{ color: "#65676B" }}>
-              Online
+            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: isOnline ? "#31A24C" : "#BCC0C4" }} />
+            <p className="text-[10px] font-medium truncate" style={{ color: "#65676B" }}>
+              {isTyping ? "Mengetik..." : isOnline ? "Online" : presence?.lastSeen ? `Terakhir dilihat ${formatLastSeen(presence.lastSeen)}` : "Offline"}
             </p>
           </div>
         </div>
@@ -301,38 +349,40 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* MESSAGES AREA */}
       <div
-        ref={messagesContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-3 py-3"
-        style={{ backgroundColor: "#F0F2F5" }}
+        ref={containerRef}
+        className="flex-1 overflow-y-auto px-3 py-3 overscroll-behavior-contain"
+        style={{ backgroundColor: "#F0F2F5", scrollBehavior: "smooth" }}
       >
         {isLoadingMessages && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="animate-spin w-7 h-7" style={{ color: "#1877F2" }} />
           </div>
         ) : (
-          messages.map((msg, index) => (
-            <React.Fragment key={msg.message_id || index}>
-              {(!messages[index - 1] ||
-                isDifferentDay(
-                  messages[index - 1].timestamp,
-                  msg.timestamp,
-                )) && (
-                <div className="flex justify-center my-3">
-                  <span className="text-[11px] px-3 py-1 rounded-full font-medium" style={{ backgroundColor: "#E4E6EB", color: "#65676B" }}>
-                    {formatDateSeparator(msg.timestamp)}
-                  </span>
-                </div>
-              )}
-              <MessageBubble
-                message={msg}
-                isGroup={isGroupJid(selectedChat.jid)}
-                onReply={() => setReplyTo(msg)}
-              />
-            </React.Fragment>
-          ))
+          <>
+            {isLoadingMore && (
+              <div className="flex justify-center py-3">
+                <Loader2 className="animate-spin w-4 h-4" style={{ color: "#1877F2" }} />
+              </div>
+            )}
+            {messages.map((msg, index) => (
+              <React.Fragment key={msg.message_id || index}>
+                {(!messages[index - 1] ||
+                  isDifferentDay(messages[index - 1].timestamp, msg.timestamp)) && (
+                  <div className="flex justify-center my-3">
+                    <span className="text-[11px] px-3 py-1 rounded-full font-medium" style={{ backgroundColor: "#E4E6EB", color: "#65676B" }}>
+                      {formatDateSeparator(msg.timestamp)}
+                    </span>
+                  </div>
+                )}
+                <MessageBubble
+                  message={msg}
+                  isGroup={isGroupJid(selectedChat.jid)}
+                  onReply={() => setReplyTo(msg)}
+                />
+              </React.Fragment>
+            ))}
+          </>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* SCROLL TO BOTTOM */}
@@ -385,7 +435,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept="image/*,.pdf,.doc,.docx"
             onChange={handleFileChange}
           />
 
@@ -434,10 +483,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <button onClick={cancelPreview} className="p-1 rounded-lg hover:bg-[#F2F3F5]" style={{ color: "#65676B" }}>
               <X className="w-5 h-5" />
             </button>
-            <span className="font-semibold text-[14px]" style={{ color: "#050505" }}>Preview Media</span>
+            <span className="font-semibold text-[14px]" style={{ color: "#050505" }}>Preview</span>
           </div>
           <div className="flex-1 flex items-center justify-center p-4 overflow-hidden" style={{ backgroundColor: "#F0F2F5" }}>
-            <img src={previewUrl} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg rounded-lg" />
+            {previewType === "video" ? (
+              <video src={previewUrl} controls className="max-w-full max-h-full rounded-lg shadow-lg" />
+            ) : (
+              <img src={previewUrl} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg rounded-lg" />
+            )}
           </div>
           <div className="p-3 flex items-center gap-2.5 border-t" style={{ borderColor: "#E4E6EB" }}>
             <input
@@ -493,16 +546,16 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
       )}
 
       <div
-        className={`group relative max-w-[75%] md:max-w-[65%] overflow-hidden ${
+        className={`group relative w-[75%] md:w-[65%] overflow-hidden ${
           isFromMe
             ? "rounded-2xl rounded-br-sm"
             : "rounded-2xl rounded-bl-sm"
         } ${
-          message.message_type === "image" ? "p-1" : "px-3.5 py-2"
+          message.message_type === "image" ? "p-1" : "px-4 py-2.5"
         }`}
         style={{
           backgroundColor: isFromMe ? "#1877F2" : "#FFFFFF",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
         }}
       >
         <button
@@ -521,7 +574,7 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
           <Reply className="w-2.5 h-2.5" />
         </button>
 
-        {message.message_type === "image" && (
+        {message.message_type === "image" && message.media_url && (
           <img
             src={getMediaUrl(message.media_url)}
             className="max-h-[260px] w-full object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
@@ -545,11 +598,11 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
         )}
 
         <div className="mt-0.5">
-          <p className="text-[14px] leading-[1.45] whitespace-pre-wrap break-words overflow-hidden" style={{ color: isFromMe ? "#FFFFFF" : "#050505", wordBreak: "break-word" }}>
-            {message.caption || message.content}
-          </p>
-          <div className="flex items-center justify-end gap-1 mt-0.5 h-3">
-            <span className={`text-[9px] font-medium ${isFromMe ? "text-white/70" : ""}`} style={{ color: isFromMe ? "rgba(255,255,255,0.7)" : "#8C939D" }}>
+          <div className="text-[14px] leading-[1.55] whitespace-pre-wrap break-words overflow-hidden" style={{ color: isFromMe ? "#FFFFFF" : "#050505", wordBreak: "break-word" }}>
+            <FormattedMessage text={message.caption || message.content} isFromMe={isFromMe} />
+          </div>
+          <div className="flex items-center justify-end gap-1 mt-1 h-3">
+            <span className="text-[10px] font-medium leading-none" style={{ color: isFromMe ? "rgba(255,255,255,0.65)" : "#8C939D" }}>
               {formatMessageTime(message.timestamp)}
             </span>
             {isFromMe && (

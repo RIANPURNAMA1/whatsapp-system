@@ -98,26 +98,19 @@ router.post("/confirm", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const {
-      extracted_text,
-      ocr_confidence,
-      title,
-      description,
-      viewers,
-      diamonds,
-      live_duration,
-      gift_givers,
-      new_followers,
-      comments_count,
-      leads_data,
-      report_date,
+      extracted_text = null,
+      ocr_confidence = null,
+      title = null,
+      description = null,
+      viewers = null,
+      diamonds = null,
+      live_duration = null,
+      gift_givers = null,
+      new_followers = null,
+      comments_count = null,
+      leads_data = null,
+      report_date = null,
     } = req.body;
-
-    if (!extracted_text) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required field: extracted_text",
-      });
-    }
 
     const insertQuery = `
       INSERT INTO tiktok_live_reports 
@@ -167,7 +160,7 @@ router.get("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const roleType = req.user.role_type?.toLowerCase().trim();
-    const isAdmin = roleType === "system" || roleType === "manager";
+    const isAdmin = roleType === "system" || roleType === "manager" || roleType === "tiktok_operator";
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
     const offset = (page - 1) * limit;
@@ -184,11 +177,11 @@ router.get("/", authenticateToken, async (req, res) => {
     }
 
     if (startDate) {
-      whereClause += " AND r.created_at >= ?";
+      whereClause += " AND COALESCE(r.report_date, r.created_at) >= ?";
       params.push(startDate);
     }
     if (endDate) {
-      whereClause += " AND r.created_at <= ?";
+      whereClause += " AND COALESCE(r.report_date, r.created_at) <= ?";
       params.push(endDate + " 23:59:59");
     }
 

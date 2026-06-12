@@ -9,3 +9,40 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* SweetAlert2 - System Theme */
+.swal-confirm-btn {
+  background: #EE1D52 !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 10px 28px !important;
+  border-radius: 10px !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  margin: 0 4px !important;
+}
+.swal-confirm-btn:hover {
+  background: #C81946 !important;
+  transform: scale(0.97) !important;
+}
+
+.swal-cancel-btn {
+  background: #F1F5F9 !important;
+  color: #475569 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 10px 28px !important;
+  border-radius: 10px !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  margin: 0 4px !important;
+}
+.swal-cancel-btn:hover {
+  background: #E2E8F0 !important;
+  transform: scale(0.97) !important;
+}

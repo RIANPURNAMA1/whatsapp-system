@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, createElement } from "react";
 import axios from "axios";
-import { X, Plus, Pencil, Trash2, Save, X as XIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Activity, BarChart3, User, DollarSign, MapPin, Phone, Mail, Home,
+  Users, Briefcase, GraduationCap, Heart, Clock, Calendar, Flame, Gem,
+  Tag, CheckCircle, AlertTriangle, Ban, RefreshCw, FileText, Target,
+  MessageSquare, ClipboardList, ShoppingCart, Star, PartyPopper, HelpCircle, ThumbsUp,
+  X, Plus, Pencil, Trash2, Save,
+} from "lucide-react";
 
 interface Category {
   id: number;
@@ -23,18 +30,44 @@ const COLORS = [
   "#0EA5E9", "#F59E0B", "#10B981", "#6366F1", "#EF4444",
 ];
 
-const ICONS = [
-  "🔴", "📊", "👤", "💰", "🎂", "📍", "📞", "✉️",
-  "🏠", "👨‍👩‍👧‍👦", "💼", "🎓", "❤️", "⏰", "📅", "🔥",
-  "💎", "🏷️", "✅", "⚠️", "🚫", "🔄", "📝", "🎯",
-  "💬", "🤝", "📋", "🛒", "⭐", "🎉",
+const ICON_LIST: { name: string; icon: LucideIcon }[] = [
+  { name: "Activity", icon: Activity },
+  { name: "BarChart3", icon: BarChart3 },
+  { name: "User", icon: User },
+  { name: "Users", icon: Users },
+  { name: "DollarSign", icon: DollarSign },
+  { name: "MapPin", icon: MapPin },
+  { name: "Phone", icon: Phone },
+  { name: "Mail", icon: Mail },
+  { name: "Home", icon: Home },
+  { name: "Briefcase", icon: Briefcase },
+  { name: "GraduationCap", icon: GraduationCap },
+  { name: "Heart", icon: Heart },
+  { name: "Clock", icon: Clock },
+  { name: "Calendar", icon: Calendar },
+  { name: "Flame", icon: Flame },
+  { name: "Gem", icon: Gem },
+  { name: "Tag", icon: Tag },
+  { name: "CheckCircle", icon: CheckCircle },
+  { name: "AlertTriangle", icon: AlertTriangle },
+  { name: "Ban", icon: Ban },
+  { name: "RefreshCw", icon: RefreshCw },
+  { name: "FileText", icon: FileText },
+  { name: "Target", icon: Target },
+  { name: "MessageSquare", icon: MessageSquare },
+  { name: "ClipboardList", icon: ClipboardList },
+  { name: "ShoppingCart", icon: ShoppingCart },
+  { name: "Star", icon: Star },
+  { name: "PartyPopper", icon: PartyPopper },
+  { name: "HelpCircle", icon: HelpCircle },
+  { name: "ThumbsUp", icon: ThumbsUp },
 ];
 
 const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", label: "", color: "#1877F2", icon: "📊", keywords: "" });
+  const [form, setForm] = useState({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
 
   const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
@@ -58,7 +91,7 @@ const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) =>
   }, [open]);
 
   const resetForm = () => {
-    setForm({ name: "", label: "", color: "#1877F2", icon: "📊", keywords: "" });
+    setForm({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
     setEditingId(null);
   };
 
@@ -155,15 +188,16 @@ const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) =>
               </div>
               <div>
                 <span className="text-sm text-[#65676B]">Icon:</span>
-                <div className="flex gap-1 flex-wrap mt-1 max-w-[200px]">
-                  {ICONS.map(icon => (
+                <div className="flex gap-1 flex-wrap mt-1 max-w-[260px]">
+                  {ICON_LIST.map(({ name, icon: Icon }) => (
                     <button
-                      key={icon}
-                      onClick={() => setForm({ ...form, icon })}
-                      className="w-7 h-7 flex items-center justify-center text-sm rounded-md border-2 transition-all hover:bg-[#F0F2F5]"
-                      style={{ borderColor: form.icon === icon ? "#1877F2" : "transparent" }}
+                      key={name}
+                      onClick={() => setForm({ ...form, icon: name })}
+                      className="w-7 h-7 flex items-center justify-center rounded-md border-2 transition-all hover:bg-[#F0F2F5]"
+                      style={{ borderColor: form.icon === name ? "#1877F2" : "transparent" }}
+                      title={name}
                     >
-                      {icon}
+                      <Icon size={14} />
                     </button>
                   ))}
                 </div>
@@ -206,8 +240,12 @@ const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) =>
             <div className="space-y-2">
               {categories.map(cat => (
                 <div key={cat.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border" style={{ borderColor: "#E4E6EB" }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0" style={{ backgroundColor: cat.color + "20" }}>
-                    {cat.icon || "📊"}
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: cat.color + "20", color: cat.color }}>
+                    {(() => {
+                      const found = ICON_LIST.find(i => i.name === cat.icon);
+                      if (found) return createElement(found.icon, { size: 16 });
+                      return <span className="text-sm">{cat.icon || "📊"}</span>;
+                    })()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-[#050505]">{cat.label}</p>

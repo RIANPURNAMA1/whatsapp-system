@@ -29,10 +29,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // ⭐ TIPS: Jika error 401, otomatis arahkan ke login
-    if (error.response?.status === 401) {
-       console.error("Sesi habis, silakan login ulang");
-       // window.location.href = '/login'; // Opsional: redirect otomatis
+    if (error.response?.status === 401 || error.response?.status === 403) {
+       localStorage.removeItem("token");
+       localStorage.removeItem("user");
+       window.location.href = "/";
     }
     const message = error.response?.data?.message || error.message || 'Terjadi kesalahan';
     console.error('API Error:', message);

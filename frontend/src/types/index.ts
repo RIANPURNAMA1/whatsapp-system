@@ -96,6 +96,14 @@ export interface SocketEvents {
 }
 
 
+export interface PresenceData {
+  jid: string;
+  chatJid: string;
+  presence: 'available' | 'unavailable' | 'composing' | 'recording';
+  lastSeen: number | null;
+  timestamp?: number;
+}
+
 export interface LinkRotator {
   id: string;
   name: string;

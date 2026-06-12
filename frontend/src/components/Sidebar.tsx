@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   MessageSquare,
   ShieldCheck,
@@ -16,6 +17,9 @@ import {
   Users,
   Smartphone,
   Video,
+  BarChart3,
+  Tag,
+  Package,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -55,8 +59,34 @@ const Sidebar: React.FC<SidebarProps> = ({
   const canManageMarketing = user?.role_type === "system" || user?.role_type === "manager";
   const isTikTokOperator = user?.role_type === "tiktok_operator";
 
+  const navigate = useNavigate();
+  const ROUTE_MAP: Record<string, string> = {
+    "dashboard": "/",
+    "leads-only": "/leads-baru",
+    "chats": "/chat-wa",
+    "all-messages": "/global-inbox",
+    "groups": "/grup",
+    "labels": "/labels",
+    "devices": "/perangkat",
+    "keyword-management": "/kata-kunci-pengikat",
+    "link-rotator": "/rotator-tautan",
+    "lead-products": "/leads-product",
+    "ai-setting": "/asisten-ai",
+    "leads-report": "/laporan-performa",
+    "tiktok-live-report": "/laporan-live",
+    "live-analytics": "/live-analytics",
+    "role-management": "/hak-akses",
+    "user-management": "/manajemen-anggota",
+    "settings": "/konfigurasi-sistem",
+  };
+
   const handleNavClick = (tab: string) => {
-    setActiveTab(tab);
+    const route = ROUTE_MAP[tab];
+    if (route) {
+      navigate(route);
+    } else {
+      setActiveTab(tab);
+    }
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
@@ -80,6 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           { id: "chats", title: "Chat WA", icon: <MessageSquare className="w-[18px] h-[18px]" /> },
           { id: "all-messages", title: "Global Inbox", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
           { id: "groups", title: "Grup", icon: <Users className="w-[18px] h-[18px]" /> },
+          { id: "labels", title: "Labels", icon: <Tag className="w-[18px] h-[18px]" /> },
           { id: "devices", title: "Perangkat", icon: <Smartphone className="w-[18px] h-[18px]" /> },
         ],
       },
@@ -91,9 +122,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               { id: "dashboard", title: "Dashboard", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
               { id: "keyword-management", title: "Kata Kunci Pengikat", icon: <KeyRound className="w-[18px] h-[18px]" /> },
               { id: "link-rotator", title: "Rotator Tautan", icon: <Link2 className="w-[18px] h-[18px]" /> },
+              { id: "lead-products", title: "Leads Product", icon: <Package className="w-[18px] h-[18px]" /> },
               { id: "ai-setting", title: "Asisten AI", icon: <Bot className="w-[18px] h-[18px]" /> },
               { id: "leads-report", title: "Laporan Performa", icon: <FileText className="w-[18px] h-[18px]" /> },
               { id: "tiktok-live-report", title: "Laporan Live", icon: <Video className="w-[18px] h-[18px]" /> },
+              { id: "live-analytics", title: "Live Analytics", icon: <BarChart3 className="w-[18px] h-[18px]" /> },
             ],
           }]
         : []),
@@ -122,11 +155,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         className={`
-          fixed md:relative z-50 flex flex-col h-screen bg-[#FFFFFF] border-r border-[#E4E6EB]
+          fixed md:relative z-50 flex flex-col h-dvh bg-[#FFFFFF] border-r border-[#E4E6EB]
           transition-all duration-200 ease-in-out select-none
           ${collapsed ? "w-[60px]" : "w-[240px]"}
           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}
+        style={{ height: '100dvh' }}
       >
         {/* Meta Style Collapse Trigger Button */}
         <button
@@ -211,8 +245,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </div>
 
-        {/* Footer Section / Action Area */}
-        <div className="p-2 border-t border-[#F0F2F5] bg-[#FFFFFF]">
+        {/* Footer Section / Action Area — Always visible on mobile */}
+        <div className="p-2 border-t border-[#F0F2F5] bg-[#FFFFFF] shrink-0 sticky bottom-0 md:static shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
           <button
             onClick={() => { onLogout(); setIsSidebarOpen(false); }}
             title={collapsed ? "Keluar Aplikasi" : undefined}
@@ -229,7 +263,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <span className="text-[13px] font-medium text-[#1E3A5F] truncate">
                   Keluar Aplikasi?
                 </span>
-                
               </div>
             )}
           </button>

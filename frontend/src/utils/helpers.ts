@@ -143,3 +143,17 @@ export function formatMessagePreview(type: string, content: string | null): stri
     default: return 'Pesan';
   }
 }
+
+export function formatLastSeen(timestamp: number | null): string {
+  if (!timestamp) return '';
+  const now = Date.now();
+  const diff = now - timestamp * 1000;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'baru saja';
+  if (minutes < 60) return `${minutes} menit lalu`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} hari lalu`;
+  return format(new Date(timestamp * 1000), 'dd/MM/yy');
+}

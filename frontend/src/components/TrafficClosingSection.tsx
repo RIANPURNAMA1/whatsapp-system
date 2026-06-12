@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
+import useStore from "../store/useStore";
 import {
   Clock, Calendar, RefreshCw, BarChart3, Users,
   MessageSquare, Timer, TrendingUp, Filter, Settings,
@@ -16,9 +18,11 @@ const PERIODS = ["Hari ini", "Kemarin", "Minggu", "Bulan", "Custom"];
 
 interface TrafficClosingProps {
   onBack?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack }) => {
+export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, onNavigate }) => {
+  const navigate = useNavigate();
   const [period, setPeriod] = useState("Hari ini");
   const [sessionId, setSessionId] = useState("all");
   const [startDate, setStartDate] = useState("");
@@ -226,6 +230,21 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
     }
   };
 
+  const storeSessions = useStore((s) => s.sessions);
+  const setActiveSession = useStore((s) => s.setActiveSession);
+  const selectChat = useStore((s) => s.selectChat);
+
+  const handleOpenChat = (chatJid: string, sessionId: string, contactName: string) => {
+    const session = storeSessions.find((s: any) => s.id === sessionId);
+    if (session) setActiveSession(session);
+    selectChat({
+      jid: chatJid,
+      display_name: contactName,
+      session_id: sessionId,
+    } as any);
+    if (onNavigate) onNavigate("chats");
+  };
+
   const getSessionName = (id: string) => sessions.find((s: any) => s.id === id)?.name || id;
 
   return (
@@ -302,6 +321,13 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
               )}
             </div>
           </div>
+        </div>
+
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1.5 text-xs mb-4" style={{ color: "#65676B" }}>
+          <button onClick={() => navigate("/")} className="hover:underline font-medium" style={{ color: "#1877F2" }}>Dashboard</button>
+          <span>/</span>
+          <span className="font-semibold" style={{ color: "#050505" }}>Trafik Closing</span>
         </div>
 
         {/* Summary Cards */}
@@ -492,12 +518,15 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack })
                     const bucket = getTimeBucket(d.durasiHari);
                     return (
                       <tr key={i} className="hover:bg-[#F2F3F5] border-b border-[#E4E6EB]">
-                        <td className="px-3 py-2">
+                        <td
+                          className="px-3 py-2 cursor-pointer"
+                          onClick={() => handleOpenChat(d.chat_jid, d.session_id, d.contactName)}
+                        >
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 bg-[#1877F2] rounded-full flex items-center justify-center text-white text-2xs font-bold shrink-0">
                               {d.contactName?.charAt(0)?.toUpperCase() || "?"}
                             </div>
-                            <p className="font-semibold text-[#050505] truncate max-w-[160px]">
+                            <p className="font-semibold text-[#050505] truncate max-w-[160px] hover:text-[#1877F2] transition-colors">
                               {d.contactName}
                             </p>
                           </div>

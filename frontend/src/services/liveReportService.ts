@@ -54,7 +54,7 @@ interface LeadItem {
 }
 
 interface ConfirmData {
-  extracted_text: string;
+  extracted_text?: string;
   ocr_confidence?: number;
   title?: string;
   description?: string;

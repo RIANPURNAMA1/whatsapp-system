@@ -1,7 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Trash2, Eye, Save, X, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, Trash2, Eye, Save, X, Loader, ChevronLeft, ChevronRight, CheckSquare, Square, Hash } from 'lucide-react';
 import toast from 'react-hot-toast';
 import tiktokLiveReportService from '../../../services/liveReportService';
+
+interface KeywordItem {
+  id: number;
+  platform: string;
+  keyword_text: string;
+  session_id: number;
+  session_name?: string;
+}
 
 interface LiveReport {
   id: number;
@@ -19,6 +27,8 @@ interface LiveReport {
   new_followers?: string;
   comments_count?: string;
   leads_data?: any;
+  report_date?: string;
+  creator_name?: string;
 }
 
 interface OcrResult {
@@ -41,6 +51,10 @@ function getLeadsTotal(data: any): number {
     const d = typeof data === 'string' ? JSON.parse(data) : data;
     if (!d) return 0;
     if (typeof d.total === 'number') return d.total;
+    if (typeof d.total_leads === 'number') return d.total_leads;
+    if (d.keyword_platforms) {
+      return Object.values(d.keyword_platforms).reduce((sum: number, v: any) => sum + (Number(v) || 0), 0);
+    }
     if (Array.isArray(d)) return d.length;
     return 0;
   } catch { return 0; }
@@ -50,9 +64,20 @@ function getLeadsPlatforms(data: any): Record<string, string> | null {
   try {
     const d = typeof data === 'string' ? JSON.parse(data) : data;
     if (d && d.platforms && typeof d.platforms === 'object') return d.platforms;
+    if (d && d.selected_platforms && typeof d.selected_platforms === 'object') return d.selected_platforms;
+    if (d && d.keyword_platforms && typeof d.keyword_platforms === 'object') return d.keyword_platforms;
     return null;
   } catch { return null; }
 }
+
+const PLATFORM_ICONS: Record<string, string> = {
+  tiktok: '#000000',
+  instagram: '#E4405F',
+  facebook: '#1877F2',
+  twitter: '#1DA1F2',
+  whatsapp: '#25D366',
+  telegram: '#0088CC',
+};
 
 function parseOcrText(text: string): ParsedData {
   const empty: ParsedData = {
@@ -128,8 +153,9 @@ const TikTokLiveReportPage: React.FC = () => {
   const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
   const [tiktokLeads, setTiktokLeads] = useState<any[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
-  const [totalLeadsEdit, setTotalLeadsEdit] = useState("0");
-  const [platformSources, setPlatformSources] = useState<Record<string, string>>({});
+  const [allKeywords, setAllKeywords] = useState<KeywordItem[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(new Set());
+  const [platformLeadCounts, setPlatformLeadCounts] = useState<Record<string, string>>({});
   const [parsedData, setParsedData] = useState<ParsedData>({
     tayangan: '',
     berlian: '',
@@ -146,6 +172,46 @@ const TikTokLiveReportPage: React.FC = () => {
   useEffect(() => {
     loadReports();
   }, [page]);
+
+  useEffect(() => {
+    fetchPlatformLeads();
+  }, [reportDate]);
+
+  const fetchPlatformLeads = async () => {
+    try {
+      setLoadingLeads(true);
+      const token = localStorage.getItem('token');
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+      const dateParam = reportDate
+        ? `?startDate=${reportDate}&endDate=${reportDate} 23:59:59`
+        : '';
+
+      const [keywordRes, leadRes] = await Promise.all([
+        fetch(`${apiBase}/keywords`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(r => r.json()),
+        fetch(`${apiBase}/social/platform-leads${dateParam}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(r => r.json()),
+      ]);
+
+      if (keywordRes.success) setAllKeywords(keywordRes.data);
+
+      if (leadRes.success && leadRes.platforms) {
+        const counts: Record<string, string> = {};
+        Object.entries(leadRes.platforms).forEach(([p, count]) => {
+          counts[p] = count.toString();
+        });
+        setPlatformLeadCounts(counts);
+        setSelectedPlatforms(new Set(Object.keys(leadRes.platforms)));
+      }
+    } catch (e) {
+      console.error('Error fetching platform leads:', e);
+    } finally {
+      setLoadingLeads(false);
+    }
+  };
 
   const loadReports = async () => {
     try {
@@ -204,22 +270,15 @@ const TikTokLiveReportPage: React.FC = () => {
 
         setLoadingLeads(true);
         try {
-          const leads = await tiktokLiveReportService.getAllLeads({
+          const leadsRes = await tiktokLiveReportService.getAllLeads({
             startDate: reportDate,
             endDate: `${reportDate} 23:59:59`,
           });
-          setTiktokLeads(leads);
-          setTotalLeadsEdit(leads.length.toString());
-          const groups: Record<string, number> = {};
-          leads.forEach((l: any) => {
-            const src = l.lead_source || 'Unknown';
-            groups[src] = (groups[src] || 0) + 1;
-          });
-          const platInputs: Record<string, string> = {};
-          Object.entries(groups).forEach(([k, v]) => { platInputs[k] = v.toString(); });
-          setPlatformSources(platInputs);
+          setTiktokLeads(leadsRes);
+
+          await fetchPlatformLeads();
         } catch (e) {
-          console.error('Error fetching TikTok leads:', e);
+          console.error('Error fetching leads data:', e);
         } finally {
           setLoadingLeads(false);
         }
@@ -236,11 +295,25 @@ const TikTokLiveReportPage: React.FC = () => {
     }
   };
 
+  const getTotalLeads = () => {
+    let total = 0;
+    selectedPlatforms.forEach(pId => {
+      total += parseInt(platformLeadCounts[pId] || '0');
+    });
+    return total;
+  };
+
   const handleConfirmSave = async () => {
     if (!ocrResult) return;
 
     try {
       setSaving(true);
+      const keywordPlatformData: Record<string, string> = {};
+      selectedPlatforms.forEach(pId => {
+        const keywords = allKeywords.filter(k => k.platform.toLowerCase().trim() === pId);
+        keywordPlatformData[pId] = platformLeadCounts[pId] || '0';
+      });
+
       await tiktokLiveReportService.confirmReport({
         extracted_text: ocrResult.extracted_text,
         ocr_confidence: ocrResult.confidence,
@@ -252,14 +325,21 @@ const TikTokLiveReportPage: React.FC = () => {
         gift_givers: parsedData.pemberi_hadiah,
         new_followers: parsedData.pengikut_baru,
         comments_count: parsedData.komentar,
-        leads_data: { total: parseInt(totalLeadsEdit) || 0, platforms: platformSources, date: reportDate, items: tiktokLeads },
+        leads_data: {
+          total_leads: getTotalLeads(),
+          keyword_platforms: keywordPlatformData,
+          date: reportDate,
+          items: tiktokLeads,
+        },
         report_date: reportDate,
       });
 
       toast.success('Laporan berhasil disimpan!');
       setOcrResult(null);
       setTiktokLeads([]);
-      setPlatformSources({});
+      setAllKeywords([]);
+      setSelectedPlatforms(new Set());
+      setPlatformLeadCounts({});
       setFile(null);
       setPreview(null);
       setTitle('');
@@ -422,40 +502,78 @@ const TikTokLiveReportPage: React.FC = () => {
                   ))}
                 </div>
 
-                {!loadingLeads && (
-                  <div className="border-t border-slate-200 pt-4 mt-2">
-                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Leads dari Live</h4>
-                    <div className="bg-rose-50 rounded-lg p-4 border border-rose-200 flex items-center justify-between">
-                      <p className="text-sm text-rose-700">Total Leads</p>
-                      <input type="number" min="0"
-                        value={totalLeadsEdit}
-                        onChange={(e) => setTotalLeadsEdit(e.target.value)}
-                        className="w-24 text-2xl font-bold text-rose-600 bg-transparent border-b-2 border-rose-300 text-right focus:outline-none focus:border-rose-600" />
+                <div className="border-t border-slate-200 pt-4 mt-2">
+                  <h4 className="text-sm font-semibold text-slate-900 mb-3">Platform Sources</h4>
+                  <p className="text-xs text-slate-500 mb-3">Pilih platform dan masukkan jumlah leads:</p>
+                  {Object.keys(platformLeadCounts).length === 0 ? (
+                    <div className="text-center py-4 border border-dashed border-slate-200 rounded-lg">
+                      <p className="text-xs text-slate-400">Belum ada keyword, tambahkan keyword terlebih dahulu di menu Keyword Management</p>
                     </div>
-                    {parseInt(totalLeadsEdit) > 0 && (
-                      <p className="text-xs text-slate-500 mt-2">
-                        {totalLeadsEdit} leads akan otomatis disertakan dalam laporan.
-                      </p>
-                    )}
-
-                    {Object.keys(platformSources).length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <h4 className="text-xs font-semibold text-slate-700 mb-2">Platform Sources</h4>
-                        <div className="space-y-1.5">
-                          {Object.entries(platformSources).map(([source, count]) => (
-                            <div key={source} className="flex items-center justify-between bg-slate-50 rounded px-3 py-1.5">
-                              <span className="text-xs text-slate-600 capitalize">{source}</span>
+                  ) : (
+                    <div className="space-y-2">
+                      {Object.entries(platformLeadCounts).map(([platform, count]) => {
+                        const isChecked = selectedPlatforms.has(platform);
+                        const platformColor = PLATFORM_ICONS[platform] || '#6B7280';
+                        return (
+                          <div key={platform}
+                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border transition-all ${
+                              isChecked
+                                ? 'bg-white border-slate-300 shadow-sm'
+                                : 'bg-slate-50 border-slate-200 opacity-60'
+                            }`}
+                          >
+                            <button
+                              onClick={() => {
+                                const next = new Set(selectedPlatforms);
+                                if (next.has(platform)) {
+                                  next.delete(platform);
+                                } else {
+                                  next.add(platform);
+                                }
+                                setSelectedPlatforms(next);
+                              }}
+                              className="flex-shrink-0"
+                            >
+                              {isChecked ? (
+                                <CheckSquare className="w-5 h-5 text-rose-600" />
+                              ) : (
+                                <Square className="w-5 h-5 text-slate-400" />
+                              )}
+                            </button>
+                            <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: platformColor + '20' }}>
+                              <Hash className="w-4 h-4" style={{ color: platformColor }} />
+                            </div>
+                            <span className="text-sm font-medium text-slate-700 flex-1 capitalize">{platform}</span>
+                            <div className="flex items-center gap-1.5">
                               <input type="number" min="0"
                                 value={count}
-                                onChange={(e) => setPlatformSources({ ...platformSources, [source]: e.target.value })}
-                                className="w-16 text-sm font-semibold text-slate-800 bg-transparent border-b border-slate-300 text-right focus:outline-none focus:border-blue-500" />
+                                onChange={(e) => {
+                                  setPlatformLeadCounts({
+                                    ...platformLeadCounts,
+                                    [platform]: e.target.value,
+                                  });
+                                }}
+                                className="w-16 text-sm font-semibold text-slate-800 bg-transparent border-b border-slate-300 text-right focus:outline-none focus:border-rose-500 py-0.5" />
+                              <span className="text-xs text-slate-400">leads</span>
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="mt-4 bg-rose-50 rounded-lg p-4 border border-rose-200">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-rose-700">Total Leads</p>
+                      <span className="text-2xl font-bold text-rose-600">{getTotalLeads()}</span>
+                    </div>
+                    {getTotalLeads() > 0 && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        {getTotalLeads()} leads akan disertakan dalam laporan.
+                      </p>
                     )}
                   </div>
-                )}
+                </div>
 
                 <button onClick={handleConfirmSave} disabled={saving}
                   className={`w-full mt-3 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all ${
@@ -464,7 +582,7 @@ const TikTokLiveReportPage: React.FC = () => {
                   {saving ? <><Loader className="w-5 h-5 animate-spin" /> Menyimpan...</> : <><Save className="w-5 h-5" /> Simpan Laporan</>}
                 </button>
 
-                <button onClick={() => { setOcrResult(null); setTiktokLeads([]); setPlatformSources({}); setFile(null); setPreview(null); setTitle(''); setDescription(''); setReportDate(todayStr); }}
+                <button onClick={() => { setOcrResult(null); setTiktokLeads([]); setAllKeywords([]); setSelectedPlatforms(new Set()); setPlatformLeadCounts({}); setFile(null); setPreview(null); setTitle(''); setDescription(''); setReportDate(todayStr); }}
                   className="w-full py-2 rounded-lg font-medium border border-slate-300 text-slate-600 hover:bg-slate-50 transition-all text-sm">
                   Batal & Upload Ulang
                 </button>
@@ -631,16 +749,18 @@ const TikTokLiveReportPage: React.FC = () => {
                 ) : null;
               })()}
 
-              <div>
-                <h3 className="text-sm font-semibold text-slate-700 mb-2">
-                  Teks Terekstrak (Akurasi: {Math.round(selectedReport.ocr_confidence * 100)}%)
-                </h3>
-                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                  <p className="text-slate-700 whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                    {selectedReport.extracted_text}
-                  </p>
+              {selectedReport.extracted_text && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                    Teks Terekstrak{selectedReport.ocr_confidence ? ` (Akurasi: ${Math.round(selectedReport.ocr_confidence * 100)}%)` : ''}
+                  </h3>
+                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <p className="text-slate-700 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                      {selectedReport.extracted_text}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm text-slate-600">
                 <p>Tanggal Laporan: {formatDate(selectedReport.report_date || selectedReport.created_at)}</p>

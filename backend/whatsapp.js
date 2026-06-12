@@ -204,6 +204,10 @@ export async function createSession(sessionId, io) {
                       "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
                       [sessionId, chat.jid, lId],
                     );
+                    const lbl = await queryOne("SELECT name FROM wa_labels WHERE wa_label_id = ? AND session_id = ?", [lId, sessionId]);
+                    if (lbl && lbl.name && lbl.name.toLowerCase().includes('closing')) {
+                      await saveClosingEvent(sessionId, chat.jid, new Date().toISOString(), 'label');
+                    }
                   }
                 }
               }
@@ -379,6 +383,10 @@ export async function createSession(sessionId, io) {
               "INSERT IGNORE INTO wa_chat_labels (session_id, chat_jid, wa_label_id) VALUES (?, ?, ?)",
               [sessionId, chatJid, labelId],
             );
+            const lbl = await queryOne("SELECT name FROM wa_labels WHERE wa_label_id = ? AND session_id = ?", [labelId, sessionId]);
+            if (lbl && lbl.name && lbl.name.toLowerCase().includes('closing')) {
+              await saveClosingEvent(sessionId, chatJid, new Date().toISOString(), 'label');
+            }
           }
         }
 
@@ -400,6 +408,18 @@ export async function createSession(sessionId, io) {
   sock.ev.on("contacts.update", async (updates) => {
     for (const update of updates) {
       await upsertContact(sessionId, update);
+    }
+  });
+
+  // ⭐ Event presence (online/offline/last seen)
+  sock.ev.on("presence.update", async ({ id, presences }) => {
+    for (const [jid, presence] of Object.entries(presences)) {
+      io.emit(`presence:update:${sessionId}`, {
+        jid,
+        chatJid: id,
+        presence: presence.lastKnownPresence,
+        lastSeen: presence.lastSeen || null,
+      });
     }
   });
 
@@ -482,44 +502,9 @@ export async function createSession(sessionId, io) {
         "documentMessage",
       ].includes(messageType);
 
-      if (messageType === "imageMessage" || messageType === "videoMessage") {
-        console.log(`⏭️ Media ditolak (tidak didownload): ${messageType}`);
+      if (isMedia || messageType === "audioMessage") {
+        console.log(`⏭️ Incoming media ditolak: ${messageType}`);
         continue;
-      }
-
-      if (isMedia) {
-        try {
-          console.log(`📩 Downloading media: ${messageType}...`);
-          const buffer = await downloadMediaMessage(
-            msg,
-            "buffer",
-            {},
-            {
-              logger: console,
-              reuploadRequest: sock.updateMediaMessage,
-            }
-          );
-
-          const uploadDir = path.join(process.cwd(), "public", "uploads");
-          if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-          }
-
-          let extension = "bin";
-          if (messageType === "imageMessage") extension = "jpg";
-          else if (messageType === "videoMessage") extension = "mp4";
-          else if (messageType === "documentMessage") {
-            const docMsg = msg.message.documentMessage;
-            extension = docMsg.fileName?.split(".").pop()?.toLowerCase() || "pdf";
-          }
-
-          const fileName = `${Date.now()}_${msg.key.id}.${extension}`;
-          const uploadPath = path.join(uploadDir, fileName);
-          fs.writeFileSync(uploadPath, buffer);
-          mediaUrl = `/uploads/${fileName}`;
-        } catch (err) {
-          console.error("❌ Gagal download media:", err.message);
-        }
       }
 
       const processed = await processMessage(sessionId, msg, sock);
@@ -599,13 +584,37 @@ export async function createSession(sessionId, io) {
             );
             const isClosing = closingKeywords.some(kw => {
               const parts = kw.keyword_text.toLowerCase().split('|').map(s => s.trim());
-              return parts.some(part => lower.trim() === part);
+              return parts.every(part => lower.includes(part));
             });
             if (isClosing) {
               await saveClosingEvent(sessionId, processed.chatJid, new Date().toISOString(), 'outgoing_messages');
             }
           } catch (err) {
             console.error("[ClosingKeyword] Error detecting in messages.upsert:", err.message);
+          }
+
+          // Auto-detect product assignment based on template text
+          try {
+            const products = await query(
+              "SELECT id, name, template_text FROM lead_products WHERE session_id IS NULL OR session_id = ?",
+              [sessionId]
+            );
+            const lower = caption.toLowerCase();
+            const matchedProduct = products.find(p => {
+              const tpl = (p.template_text || '').toLowerCase().trim();
+              return tpl.length > 0 && lower.includes(tpl);
+            });
+            if (matchedProduct) {
+              await query(
+                `INSERT INTO lead_product_assignments (session_id, chat_jid, product_id)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE product_id = VALUES(product_id)`,
+                [sessionId, processed.chatJid, matchedProduct.id]
+              );
+              console.log(`[LeadProduct] → Chat ${processed.chatJid} terdeteksi sebagai produk: ${matchedProduct.name} (dari messages.upsert)`);
+            }
+          } catch (err) {
+            console.error("[LeadProduct] Error detecting in messages.upsert:", err.message);
           }
         }
 
@@ -1132,7 +1141,7 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
       );
       const isClosing = closingKeywords.some(kw => {
         const parts = kw.keyword_text.toLowerCase().split('|').map(s => s.trim());
-        return parts.some(part => lower.trim() === part);
+        return parts.every(part => lower.includes(part));
       });
       if (isClosing) {
         await saveClosingEvent(sessionId, jid, new Date().toISOString(), 'outgoing_template');
@@ -1141,7 +1150,42 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
       console.error("[ClosingKeyword] Error detecting:", err.message);
     }
 
-    // Auto-detect lead kendala: usia / biaya
+    // Auto-detect lead kendala (dinamis dari DB)
+    try {
+      await detectKendalaFromText(sessionId, jid, text || '');
+    } catch (err) {
+      console.error("[Kendala] Error detecting in sendTextMessage:", err.message);
+    }
+
+    // Auto-detect product assignment based on template text
+    try {
+      const products = await query(
+        "SELECT id, name, template_text, session_id FROM lead_products WHERE session_id IS NULL OR session_id = ?",
+        [sessionId]
+      );
+      console.log(`[LeadProduct] Checking text: "${text}" lower: "${lower}" products: ${products.length} (session: ${sessionId})`);
+      const matchedProduct = products.find(p => {
+        const tpl = (p.template_text || '').toLowerCase().trim();
+        const match = tpl.length > 0 && lower.includes(tpl);
+        console.log(`[LeadProduct]  → "${p.name}": template="${tpl}" match=${match}`);
+        return match;
+      });
+      if (matchedProduct) {
+        await query(
+          `INSERT INTO lead_product_assignments (session_id, chat_jid, product_id)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE product_id = VALUES(product_id)`,
+          [sessionId, jid, matchedProduct.id]
+        );
+        console.log(`[LeadProduct] → Chat ${jid} terdeteksi sebagai produk: ${matchedProduct.name}`);
+      } else {
+        console.log(`[LeadProduct] → Tidak ada produk yang cocok dengan "${lower}"`);
+      }
+    } catch (err) {
+      console.error("[LeadProduct] Error detecting:", err.message, err.stack);
+    }
+
+    // Auto-detect lead kendala: usia / biaya (static fallback)
     if (lower.includes('usia')) {
       console.log(`[Kendala] → TERDETEKSI: usia`);
       await saveKendala(sessionId, jid, 'usia', 'Admin membalas terkait usia');
