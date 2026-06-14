@@ -7,7 +7,7 @@ import {
   Users, Briefcase, GraduationCap, Heart, Clock, Calendar, Flame, Gem,
   Tag, CheckCircle, AlertTriangle, Ban, RefreshCw, FileText, Target,
   MessageSquare, ClipboardList, ShoppingCart, Star, PartyPopper, HelpCircle, ThumbsUp,
-  Settings2,
+  Settings2, Plus, Pencil, Trash2, Save, X,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -88,6 +88,16 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
   const paginatedData = data.slice((page - 1) * pageSize, page * pageSize);
 
+  // Modal category management
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [localCategories, setLocalCategories] = useState<any[]>([]);
+  const [catLoading, setCatLoading] = useState(false);
+  const [editingCatId, setEditingCatId] = useState<number | null>(null);
+  const [catForm, setCatForm] = useState({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
+
+  // Category drill-down modal
+  const [drillDownCategory, setDrillDownCategory] = useState<any>(null);
+
   const fetchSessions = useCallback(async () => {
     try {
       const res = await axios.get(
@@ -150,19 +160,99 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    if (categories.length === 0) {
-      axios.get(`${import.meta.env.VITE_API_URL}/lead-categories`, {
+  const fetchLocalCategories = useCallback(async () => {
+    setCatLoading(true);
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/lead-categories`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      }).then(res => {
-        if (res.data.success) {
-          setCategories(res.data.data.map((c: any) => ({
-            key: c.name, label: c.label, color: c.color, icon: c.icon,
-          })));
-        }
-      }).catch(() => {});
-    }
+      });
+      if (res.data.success) {
+        setLocalCategories(res.data.data);
+        setCategories(res.data.data.map((c: any) => ({
+          key: c.name, label: c.label, color: c.color, icon: c.icon,
+        })));
+      }
+    } catch {} finally { setCatLoading(false); }
   }, []);
+
+  useEffect(() => {
+    if (categories.length === 0) fetchLocalCategories();
+  }, [fetchLocalCategories]);
+
+  const resetCatForm = () => {
+    setCatForm({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
+    setEditingCatId(null);
+  };
+
+  const openAddCategory = () => {
+    resetCatForm();
+    fetchLocalCategories();
+    setShowCategoryModal(true);
+  };
+
+  const handleSaveCategory = async () => {
+    if (!catForm.name || !catForm.label) return;
+    const payload = {
+      ...catForm,
+      keywords: catForm.keywords.split(",").map(k => k.trim()).filter(Boolean),
+    };
+    try {
+      if (editingCatId) {
+        await axios.put(`${import.meta.env.VITE_API_URL}/lead-categories/${editingCatId}`, payload, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+      } else {
+        await axios.post(`${import.meta.env.VITE_API_URL}/lead-categories`, payload, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+      }
+      resetCatForm();
+      fetchLocalCategories();
+    } catch {
+      console.error("Failed to save category");
+    }
+  };
+
+  const handleEditCategory = (cat: any) => {
+    setEditingCatId(cat.id);
+    const kw = typeof cat.keywords === "string" ? cat.keywords : (cat.keywords || []).join(", ");
+    setCatForm({ name: cat.name, label: cat.label, color: cat.color, icon: cat.icon, keywords: kw });
+  };
+
+  const handleDeleteCategory = async (id: number) => {
+    if (!confirm("Hapus kategori ini?")) return;
+    try {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/lead-categories/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      fetchLocalCategories();
+    } catch {
+      console.error("Failed to delete category");
+    }
+  };
+
+  const COLORS = [
+    "#1877F2", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899",
+    "#0EA5E9", "#F59E0B", "#10B981", "#6366F1", "#EF4444",
+  ];
+
+  const ICON_LIST: { name: string; icon: LucideIcon }[] = [
+    { name: "Activity", icon: Activity }, { name: "BarChart3", icon: BarChart3 },
+    { name: "User", icon: User }, { name: "Users", icon: Users },
+    { name: "DollarSign", icon: DollarSign }, { name: "MapPin", icon: MapPin },
+    { name: "Phone", icon: Phone }, { name: "Mail", icon: Mail },
+    { name: "Home", icon: Home }, { name: "Briefcase", icon: Briefcase },
+    { name: "GraduationCap", icon: GraduationCap }, { name: "Heart", icon: Heart },
+    { name: "Clock", icon: Clock }, { name: "Calendar", icon: Calendar },
+    { name: "Flame", icon: Flame }, { name: "Gem", icon: Gem },
+    { name: "Tag", icon: Tag }, { name: "CheckCircle", icon: CheckCircle },
+    { name: "AlertTriangle", icon: AlertTriangle }, { name: "Ban", icon: Ban },
+    { name: "RefreshCw", icon: RefreshCw }, { name: "FileText", icon: FileText },
+    { name: "Target", icon: Target }, { name: "MessageSquare", icon: MessageSquare },
+    { name: "ClipboardList", icon: ClipboardList }, { name: "ShoppingCart", icon: ShoppingCart },
+    { name: "Star", icon: Star }, { name: "PartyPopper", icon: PartyPopper },
+    { name: "HelpCircle", icon: HelpCircle }, { name: "ThumbsUp", icon: ThumbsUp },
+  ];
 
   const formatDate = (ts: string) => {
     if (!ts) return "-";
@@ -204,7 +294,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => navigate("/kategori-leads")}
+              onClick={openAddCategory}
               className="flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg border hover:bg-[#F2F3F5] transition-all"
               style={{ borderColor: "#CCD0D5", color: FB.gray }}
             >
@@ -261,19 +351,40 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
           <div className="space-y-4">
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {summaryCards.map((card, i) => (
-                <div key={i} className="bg-white rounded-lg border p-4" style={{ borderColor: FB.grayLight }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: card.bg, color: card.iconBg }}>
-                      <IconDisplay name={card.icon} size={18} />
+              {summaryCards.map((card, i) => {
+                const cat = categories[i - 1];
+                const total = summary.total || 1;
+                const pct = total > 0 ? Math.round((card.value / total) * 100) : 0;
+                return (
+                  <div key={i}
+                    onClick={() => {
+                      if (i === 0 || !cat) return;
+                      setDrillDownCategory({ ...cat, count: card.value, pct });
+                    }}
+                    className="bg-white rounded-lg border p-4 cursor-pointer transition-all hover:shadow-sm"
+                    style={{ borderColor: FB.grayLight }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: card.bg, color: card.iconBg }}>
+                        <IconDisplay name={card.icon} size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-lg font-bold leading-tight text-[#050505]">{card.value}</p>
+                        <p className="text-[11px] font-medium truncate" style={{ color: FB.gray }}>{card.label}</p>
+                      </div>
+                      {i > 0 && (
+                        <div className="text-right shrink-0">
+                          <p className="text-lg font-bold leading-tight" style={{ color: cat?.color || FB.blue }}>{pct}%</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-lg font-bold leading-tight text-[#050505]">{card.value}</p>
-                      <p className="text-[11px] font-medium truncate" style={{ color: FB.gray }}>{card.label}</p>
-                    </div>
+                    {i > 0 && (
+                      <div className="mt-2 h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: FB.grayBg }}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: cat?.color || FB.blue }} />
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Social Media Ringkasan */}
@@ -466,6 +577,198 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
         )}
       </div>
 
+      {/* Category Drill-Down Modal */}
+      {drillDownCategory && (() => {
+        const catKey = drillDownCategory.key;
+        const catCount = drillDownCategory.count;
+        const catPct = drillDownCategory.pct;
+
+        const deviceBreakdown = deviceData
+          .filter((d: any) => (d as any)[catKey] > 0)
+          .map(d => ({
+            name: d.name,
+            value: d[catKey],
+            pct: catCount > 0 ? Math.round((d[catKey] / catCount) * 100) : 0,
+          }));
+
+        const colors = ["#1877F2", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899", "#0EA5E9", "#10B981", "#6366F1"];
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-start justify-center pt-16" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <div className="bg-white rounded-xl border w-full max-w-lg mx-4" style={{ borderColor: "#E4E6EB" }}>
+              <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: "#E4E6EB" }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: drillDownCategory.color + "20", color: drillDownCategory.color }}>
+                    <IconDisplay name={drillDownCategory.icon} size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#050505]">{drillDownCategory.label}</h3>
+                    <p className="text-[11px]" style={{ color: "#65676B" }}>{catCount} dari {summary.total} leads ({catPct}%)</p>
+                  </div>
+                </div>
+                <button onClick={() => setDrillDownCategory(null)} className="p-1 rounded-lg hover:bg-[#F2F3F5]" style={{ color: "#65676B" }}>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-4">
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold" style={{ color: "#050505" }}>Total Leads</span>
+                    <span className="text-xs font-bold" style={{ color: drillDownCategory.color }}>{catCount} ({catPct}%)</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full overflow-hidden" style={{ backgroundColor: FB.grayBg }}>
+                    <div className="h-full rounded-full" style={{ width: `${catPct}%`, backgroundColor: drillDownCategory.color }} />
+                  </div>
+                </div>
+
+                <h4 className="text-xs font-semibold mb-3" style={{ color: "#050505" }}>Perangkat</h4>
+
+                {deviceBreakdown.length === 0 ? (
+                  <div className="text-center py-8 text-sm" style={{ color: "#65676B" }}>Tidak ada data perangkat</div>
+                ) : (
+                  <>
+                    <div className="space-y-2 mb-4">
+                      {deviceBreakdown.map((d, i) => (
+                        <div key={d.name} className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: colors[i % colors.length] }}>
+                            {d.name.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-xs font-medium truncate" style={{ color: "#050505" }}>{d.name}</span>
+                              <span className="text-xs font-semibold shrink-0 ml-2" style={{ color: colors[i % colors.length] }}>{d.value} ({d.pct}%)</span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: FB.grayBg }}>
+                              <div className="h-full rounded-full" style={{ width: `${d.pct}%`, backgroundColor: colors[i % colors.length] }} />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ height: Math.max(120, deviceBreakdown.length * 40) }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={deviceBreakdown} layout="vertical" margin={{ left: 0, right: 16, top: 8, bottom: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E4E6EB" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 10, fill: "#65676B" }} axisLine={false} tickLine={false} />
+                          <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#65676B" }} axisLine={false} tickLine={false} width={60} />
+                          <Tooltip contentStyle={{ border: "1px solid #E4E6EB", borderRadius: 8, fontSize: 12 }} />
+                          <Bar dataKey="value" fill={drillDownCategory.color} radius={[0, 4, 4, 0]} name="Leads" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Category Management Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-12" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="bg-white rounded-xl border w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto" style={{ borderColor: "#E4E6EB" }}>
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: "#E4E6EB" }}>
+              <h3 className="text-sm font-semibold text-[#050505]">
+                {editingCatId ? "Edit Kategori" : "Tambah Kategori Baru"}
+              </h3>
+              <button onClick={() => setShowCategoryModal(false)} className="p-1 rounded-lg hover:bg-[#F2F3F5]" style={{ color: "#65676B" }}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 border-b" style={{ borderColor: "#E4E6EB" }}>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <input placeholder="Nama (contoh: usia)"
+                  value={catForm.name}
+                  onChange={e => setCatForm({ ...catForm, name: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
+                  className="px-3 py-2 text-sm border rounded-lg bg-white outline-none"
+                  style={{ borderColor: "#E4E6EB" }} />
+                <input placeholder="Label (contoh: Usia)"
+                  value={catForm.label}
+                  onChange={e => setCatForm({ ...catForm, label: e.target.value })}
+                  className="px-3 py-2 text-sm border rounded-lg bg-white outline-none"
+                  style={{ borderColor: "#E4E6EB" }} />
+              </div>
+              <div className="flex items-center gap-4 mb-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium" style={{ color: "#65676B" }}>Warna:</span>
+                  <div className="flex gap-1">
+                    {COLORS.map(c => (
+                      <button key={c} onClick={() => setCatForm({ ...catForm, color: c })}
+                        className="w-6 h-6 rounded-full border-2 transition-all"
+                        style={{ backgroundColor: c, borderColor: catForm.color === c ? "#050505" : "transparent" }} />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium" style={{ color: "#65676B" }}>Icon:</span>
+                  <div className="flex gap-1 flex-wrap max-w-xs">
+                    {ICON_LIST.map(({ name, icon: Icon }) => (
+                      <button key={name} onClick={() => setCatForm({ ...catForm, icon: name })}
+                        className="w-7 h-7 flex items-center justify-center rounded-md border-2 transition-all hover:bg-[#F0F2F5]"
+                        style={{ borderColor: catForm.icon === name ? "#1877F2" : "transparent" }}
+                        title={name}>
+                        <Icon size={14} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="mb-3">
+                <label className="text-xs font-medium block mb-1" style={{ color: "#65676B" }}>Keywords (pisahkan dengan koma)</label>
+                <textarea placeholder="usia, umur, terlalu muda, terlalu tua"
+                  value={catForm.keywords}
+                  onChange={e => setCatForm({ ...catForm, keywords: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border rounded-lg bg-white outline-none resize-none"
+                  style={{ borderColor: "#E4E6EB" }} rows={2} />
+              </div>
+              <button onClick={handleSaveCategory}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-lg hover:brightness-110 transition-all"
+                style={{ backgroundColor: "#1877F2" }}>
+                <Save className="w-4 h-4" />
+                {editingCatId ? "Simpan" : "Tambah"}
+              </button>
+            </div>
+            <div className="p-4">
+              <h3 className="text-sm font-semibold text-[#050505] mb-3">Daftar Kategori ({localCategories.length})</h3>
+              {catLoading ? (
+                <div className="text-center py-8 text-sm" style={{ color: "#65676B" }}>Memuat...</div>
+              ) : localCategories.length === 0 ? (
+                <div className="text-center py-8 text-sm" style={{ color: "#65676B" }}>Belum ada kategori</div>
+              ) : (
+                <div className="space-y-2">
+                  {localCategories.map(cat => (
+                    <div key={cat.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border" style={{ borderColor: "#E4E6EB" }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: cat.color + "20", color: cat.color }}>
+                        {(() => {
+                          const found = ICON_LIST.find(i => i.name === cat.icon);
+                          if (found) return createElement(found.icon, { size: 16 });
+                          return <span className="text-sm">{cat.icon || "📊"}</span>;
+                        })()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[#050505]">{cat.label}</p>
+                        <p className="text-xs" style={{ color: "#65676B" }}>
+                          {cat.name}
+                          {cat.keywords && Array.isArray(cat.keywords) && cat.keywords.length > 0 && (
+                            <> &middot; Keywords: {cat.keywords.join(", ")}</>
+                          )}
+                        </p>
+                      </div>
+                      <button onClick={() => { handleEditCategory(cat); }} className="p-1.5 rounded-lg hover:bg-[#F2F3F5]" style={{ color: "#65676B" }} title="Edit">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteCategory(cat.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Hapus">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

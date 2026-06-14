@@ -27,7 +27,7 @@ import SocialLeadsSection from "./SocialLeadsSection";
 import OverallLeadsCard from "./stats/OverallLeadsCard";
 import { BarChart3 } from "lucide-react";
 import ClosingStatCard from "./stats/ClosingStatCard";
-import TikTokAnalyticsDashboard from "./live/LiveAnalyticsDashboard";
+
 import AIAssistantModal from "./AIAssistantModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,6 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
   const [deviceLeadsData, setDeviceLeadsData] = useState([]);
   const [leadProducts, setLeadProducts] = useState<any[]>([]);
 
-  const [showTikTokModal, setShowTikTokModal] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [data, setData] = useState<any>({
     stats: {
@@ -207,10 +206,6 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
     },
   ], [data.stats.leadsOrganik, data.stats.leadAktif, data.stats.deviceConnected]);
 
-  if (showTikTokModal) {
-    return <TikTokAnalyticsDashboard onBack={() => setShowTikTokModal(false)} />;
-  }
-
   if (loading && !data.stats.pesanMasukAllTime) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#F0F2F5" }}>
@@ -243,7 +238,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
 
           {/* Row 2: Action buttons — responsive wrap */}
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => setShowTikTokModal(true)}
+            <button onClick={() => navigate("/live-analytics")}
               className="h-9 px-3 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shrink-0 border"
               style={{ borderColor: "#CCD0D5", color: "#050505", backgroundColor: "#FFFFFF" }}>
               <BarChart3 className="w-3.5 h-3.5" />
