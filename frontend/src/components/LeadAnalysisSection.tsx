@@ -121,8 +121,8 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }
       );
+      setData(prev => prev.filter(d => !ids.includes(d.id)));
       setSelectedIds(new Set());
-      fetchData();
     } catch (err) {
       console.error("Gagal hapus data:", err);
       alert("Gagal menghapus data");
