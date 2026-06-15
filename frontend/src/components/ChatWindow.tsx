@@ -116,14 +116,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       setShowScrollBtn(distanceFromBottom > 300);
     });
 
-    if (scrollTop < 50 && hasMoreMessages && !isLoadingMore && selectedChat) {
+    if (scrollTop < 80 && hasMoreMessages && !isLoadingMore && selectedChat) {
       setIsLoadingMore(true);
       const prevHeight = scrollHeight;
       fetchMessages(sessionId, selectedChat.jid, true).then(() => {
         setIsLoadingMore(false);
         requestAnimationFrame(() => {
-          if (containerRef.current) {
-            containerRef.current.scrollTop = containerRef.current.scrollHeight - prevHeight;
+          const el = containerRef.current;
+          if (el) {
+            el.scrollTop = el.scrollHeight - prevHeight;
           }
         });
       });
@@ -149,14 +150,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     if (!sessionId || !selectedChat) return;
     const fetchAndScroll = async () => {
       try {
-        const prevHeight = containerRef.current?.scrollHeight || 0;
+        const container = containerRef.current;
+        const prevScrollTop = container?.scrollTop || 0;
+        const prevHeight = container?.scrollHeight || 0;
+        const wasNearBottom = isNearBottomRef.current;
         await fetchMessages(sessionId, selectedChat.jid);
-        if (isNearBottomRef.current && containerRef.current) {
-          const newHeight = containerRef.current.scrollHeight;
-          if (newHeight > prevHeight) {
-            scrollToBottom(true);
+        requestAnimationFrame(() => {
+          const el = containerRef.current;
+          if (!el) return;
+          if (wasNearBottom) {
+            if (el.scrollHeight > prevHeight) {
+              el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+            }
+          } else {
+            el.scrollTop = prevScrollTop;
           }
-        }
+        });
       } catch (err) {
         console.error("Polling error:", err);
       }
@@ -165,7 +174,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const pollMs = settings.autoRefresh ? 2000 : parseInt(settings.refreshInterval, 10) * 1000;
     const pollInterval = setInterval(fetchAndScroll, pollMs);
     return () => clearInterval(pollInterval);
-  }, [sessionId, selectedChat?.jid, fetchMessages, settings.autoRefresh, settings.refreshInterval, scrollToBottom]);
+  }, [sessionId, selectedChat?.jid, fetchMessages, settings.autoRefresh, settings.refreshInterval]);
 
   useEffect(() => {
     if (selectedChat && sessionId) {
@@ -190,15 +199,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const socket = getSocket();
     const handleNewMessage = (msg: any) => {
       if (msg.chat_jid?.toLowerCase()?.trim() !== selectedChat.jid?.toLowerCase()?.trim()) return;
+      const prevScrollTop = containerRef.current?.scrollTop || 0;
+      const prevHeight = containerRef.current?.scrollHeight || 0;
       addMessage(msg);
-      if (isNearBottomRef.current) {
-        requestAnimationFrame(() => {
-          const el = containerRef.current;
-          if (el) {
+      requestAnimationFrame(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        if (isNearBottomRef.current) {
+          if (el.scrollHeight > prevHeight) {
             el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
           }
-        });
-      }
+        } else {
+          el.scrollTop = prevScrollTop;
+        }
+      });
     };
     socket.on(`message:new:${sessionId}`, handleNewMessage);
     return () => {
@@ -373,7 +387,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       <div
         ref={containerRef}
         className="flex-1 overflow-y-auto px-3 py-3 overscroll-behavior-contain"
-        style={{ backgroundColor: "#F0F2F5", scrollBehavior: "smooth" }}
+        style={{ backgroundColor: "#F0F2F5" }}
       >
         {isLoadingMessages && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">

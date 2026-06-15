@@ -133,4 +133,21 @@ router.get("/leads/analysis", authenticateToken, async (req, res) => {
   }
 });
 
+router.delete("/leads/analysis", authenticateToken, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: "ids array is required" });
+    }
+
+    const placeholders = ids.map(() => "?").join(",");
+    await query(`DELETE FROM lead_analysis WHERE id IN (${placeholders})`, ids);
+
+    res.json({ success: true, message: `${ids.length} data berhasil dihapus` });
+  } catch (error) {
+    console.error("Error delete lead analysis:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
 export default router;

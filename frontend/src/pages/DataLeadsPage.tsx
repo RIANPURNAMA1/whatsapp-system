@@ -224,7 +224,7 @@ const DataLeadsPage: React.FC = () => {
           className="h-9 px-4 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB] disabled:opacity-50"
         >
           <RefreshCcw size={14} className={loading ? "animate-spin" : ""} />
-          Refresh
+          Refresh & Sync Kontak
         </button>
       </div>
 

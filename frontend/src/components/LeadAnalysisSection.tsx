@@ -89,6 +89,8 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
   const paginatedData = data.slice((page - 1) * pageSize, page * pageSize);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   // Navigate to chat
   const storeSessions = useStore((s) => s.sessions);
@@ -104,6 +106,46 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
       session_id: sessionId,
     } as any);
     if (onNavigate) onNavigate("chats");
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Hapus ${selectedIds.size} data analisis terpilih?`)) return;
+    setDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await axios.delete(
+        `${import.meta.env.VITE_API_URL}/leads/analysis`,
+        {
+          data: { ids },
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        }
+      );
+      setSelectedIds(new Set());
+      fetchData();
+    } catch (err) {
+      console.error("Gagal hapus data:", err);
+      alert("Gagal menghapus data");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === paginatedData.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(paginatedData.map(d => d.id)));
+    }
   };
 
   // Modal category management
@@ -177,6 +219,8 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
   }, [period, sessionId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => { setSelectedIds(new Set()); }, [data]);
 
   const fetchLocalCategories = useCallback(async () => {
     setCatLoading(true);
@@ -524,9 +568,33 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
                 </div>
               ) : (
                 <div className="overflow-x-auto">
+                  {selectedIds.size > 0 && (
+                    <div className="flex items-center gap-3 px-4 py-2 border-b" style={{ backgroundColor: FB.blueLight, borderColor: FB.grayLight }}>
+                      <span className="text-xs font-medium" style={{ color: FB.blue }}>
+                        {selectedIds.size} data terpilih
+                      </span>
+                      <button
+                        onClick={handleBulkDelete}
+                        disabled={deleting}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+                        style={{ backgroundColor: FB.red, color: FB.white }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {deleting ? "Menghapus..." : "Hapus"}
+                      </button>
+                    </div>
+                  )}
                   <table className="w-full text-sm border-collapse" style={{ borderColor: FB.grayLight }}>
                     <thead>
                       <tr>
+                        <th className="px-4 py-3 border text-left" style={{ color: FB.gray, borderColor: FB.grayLight, backgroundColor: FB.grayBg, width: 40 }}>
+                          <input
+                            type="checkbox"
+                            checked={paginatedData.length > 0 && selectedIds.size === paginatedData.length}
+                            onChange={toggleSelectAll}
+                            className="w-4 h-4 rounded cursor-pointer accent-[#1877F2]"
+                          />
+                        </th>
                         {["Kontak", "Device", "Kategori", "Chat Pertama", "Terdeteksi", "Keterangan"].map((h) => (
                           <th key={h} className="px-4 py-3 text-left font-semibold text-[11px] uppercase tracking-wide border" style={{ color: FB.gray, borderColor: FB.grayLight, backgroundColor: FB.grayBg }}>{h}</th>
                         ))}
@@ -538,6 +606,14 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
                         return (
                           <tr key={i} className="hover:bg-[#F5F6F8] transition-colors cursor-pointer"
                               onClick={() => handleOpenChat(d.chat_jid, d.session_id, d.contact_name)}>
+                            <td className="px-4 py-3 border" style={{ borderColor: FB.grayLight, width: 40 }} onClick={e => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.has(d.id)}
+                                onChange={() => toggleSelect(d.id)}
+                                className="w-4 h-4 rounded cursor-pointer accent-[#1877F2]"
+                              />
+                            </td>
                             <td className="px-4 py-3 border" style={{ borderColor: FB.grayLight }}>
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ backgroundColor: cat?.color || FB.blue }}>
