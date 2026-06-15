@@ -37,6 +37,8 @@ import LabelsPage from "./LabelsPage";
 import { TrafficClosingSection } from "../components/TrafficClosingSection";
 import { LeadAnalysisSection } from "../components/LeadAnalysisSection";
 import KategoriLeadsPage from "./KategoriLeadsPage";
+import DataLeadsPage from "./DataLeadsPage";
+import KontakPage from "./KontakPage";
 import type { GroupChat } from "../types/Group";
 
 interface UserData {
@@ -86,9 +88,11 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
     else if (path === "/grup") setActiveTab("groups");
     else if (path === "/labels") setActiveTab("labels");
     else if (path === "/perangkat") setActiveTab("devices");
+    else if (path === "/kontak") setActiveTab("contacts");
     else if (path === "/kata-kunci-pengikat") setActiveTab("keyword-management");
     else if (path === "/rotator-tautan") setActiveTab("link-rotator");
     else if (path === "/leads-product") setActiveTab("lead-products");
+    else if (path === "/data-leads") setActiveTab("data-leads");
     else if (path === "/asisten-ai") setActiveTab("ai-setting");
     else if (path === "/laporan-performa") setActiveTab("leads-report");
     else if (path === "/laporan-live") setActiveTab("tiktok-live-report");
@@ -294,8 +298,10 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
           "live-analytics",
           "leads-report",
           "labels",
+          "contacts",
           "traffic-closing",
           "lead-analysis",
+          "data-leads",
         ].includes(activeTab) ? (
           <div className="flex flex-1 flex-col overflow-hidden relative">
             <button
@@ -403,19 +409,29 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
                 <LabelsPage />
               </div>
             )}
+            {activeTab === "contacts" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <KontakPage />
+              </div>
+            )}
             {activeTab === "traffic-closing" && (
               <div className="flex-1 overflow-y-auto h-full">
-                <TrafficClosingSection onBack={() => navigate("/")} />
+                <TrafficClosingSection onBack={() => navigate("/")} onNavigate={(tab) => { setActiveTab(tab); navigate("/chat-wa"); setMobileView("chat"); }} />
               </div>
             )}
             {activeTab === "lead-analysis" && (
               <div className="flex-1 overflow-y-auto h-full">
-                <LeadAnalysisSection />
+                <LeadAnalysisSection onNavigate={(tab) => { setActiveTab(tab); navigate("/chat-wa"); setMobileView("chat"); }} />
               </div>
             )}
             {activeTab === "kategori-leads" && (
               <div className="flex-1 overflow-y-auto h-full">
                 <KategoriLeadsPage />
+              </div>
+            )}
+            {activeTab === "data-leads" && (
+              <div className="flex-1 overflow-y-auto h-full">
+                <DataLeadsPage />
               </div>
             )}
           </div>

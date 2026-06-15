@@ -85,6 +85,7 @@ export const GlobalInboxView: React.FC = () => {
         const chatData = {
           jid: msg.chat_jid,
           name: msg.display_name,
+          phone_number: msg.phone_number,
           profile_pic_url: msg.profile_pic_url,
           session_id: msg.session_id,
           unread_count: 0,

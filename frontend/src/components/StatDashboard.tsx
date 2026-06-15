@@ -23,7 +23,6 @@ import { LeadsActivityChart, DeviceBarChart, SLAChart } from "./DashboardCharts"
 import LiveFeed from "./LiveChatFeed";
 import StatCard from "./StatCard";
 import AIAnalyticSection from "./AIAnalyticSection";
-import SocialLeadsSection from "./SocialLeadsSection";
 import OverallLeadsCard from "./stats/OverallLeadsCard";
 import { BarChart3 } from "lucide-react";
 import ClosingStatCard from "./stats/ClosingStatCard";
@@ -301,8 +300,6 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
             </div>
           </div>
         )}
-
-        <SocialLeadsSection isDarkMode={false} sessions={stableSessions} activeFilter={activeFilter} appliedDates={appliedDates} selectedDevice={selectedDevice} />
 
         {/* Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">

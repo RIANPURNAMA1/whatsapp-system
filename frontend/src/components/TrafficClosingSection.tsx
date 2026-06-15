@@ -392,7 +392,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
             </h2>
           </div>
           {trendData.length > 0 ? (
-            <div className="h-[180px]">
+            <div className="h-[180px] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trendData} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E4E6EB" vertical={false} />
@@ -517,11 +517,9 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                     const session = sessions.find((s: any) => s.id === d.session_id);
                     const bucket = getTimeBucket(d.durasiHari);
                     return (
-                      <tr key={i} className="hover:bg-[#F2F3F5] border-b border-[#E4E6EB]">
-                        <td
-                          className="px-3 py-2 cursor-pointer"
-                          onClick={() => handleOpenChat(d.chat_jid, d.session_id, d.contactName)}
-                        >
+                      <tr key={i} className="hover:bg-[#F2F3F5] border-b border-[#E4E6EB] cursor-pointer"
+                          onClick={() => handleOpenChat(d.chat_jid, d.session_id, d.contactName)}>
+                        <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 bg-[#1877F2] rounded-full flex items-center justify-center text-white text-2xs font-bold shrink-0">
                               {d.contactName?.charAt(0)?.toUpperCase() || "?"}
@@ -620,11 +618,11 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                     </select>
                   </div>
                   <div className="flex-[2] min-w-[200px]">
-                    <label className="block text-xs text-[#65676B] mb-1">Kata Kunci <span className="text-[#65676B]">(pisahkan dengan | untuk beberapa syarat)</span></label>
+                    <label className="block text-xs text-[#65676B] mb-1">Kata Kunci <span className="text-[#65676B]">(pesan admin harus mengandung kata kunci ini)</span></label>
                     <input
                       value={newKwText}
                       onChange={e => setNewKwText(e.target.value)}
-                      placeholder="bantu proses dulu | konfirmasi dari bagiannya | mohon ditunggu"
+                      placeholder="Baik ka terimakasih atas konfirmasinya saya bantu proses dulu"
                       className="w-full bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
                     />
                   </div>

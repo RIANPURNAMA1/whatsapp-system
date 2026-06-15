@@ -1819,8 +1819,12 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
         m.timestamp AS updatedAt,
         m.session_id,
         COALESCE(MAX(ct.push_name), MAX(ct.name), 'Unknown') AS pushName,
+        MAX(ct.phone_number) AS phone_number,
         ${sourceCase} AS lead_source,
-        ${colorCase} AS source_color
+        ${colorCase} AS source_color,
+        status_data.status_labels AS status,
+        status_data.status_colors AS status_color,
+        status_data.status_icons AS status_icon
       FROM wa_messages m
       INNER JOIN (
         SELECT MAX(id) as max_id
@@ -1830,9 +1834,18 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
           AND session_id IN (${placeholders})
           ${dateFilter}
           ${keywordWhereClause}
-        GROUP BY chat_jid
+        GROUP BY chat_jid, session_id
       ) latest ON m.id = latest.max_id
-      LEFT JOIN wa_contacts ct ON ct.jid = m.chat_jid
+      LEFT JOIN wa_contacts ct ON ct.jid = m.chat_jid AND ct.session_id = m.session_id
+      LEFT JOIN (
+        SELECT la.session_id, la.chat_jid,
+               GROUP_CONCAT(DISTINCT lc.label SEPARATOR ', ') AS status_labels,
+               GROUP_CONCAT(DISTINCT lc.color SEPARATOR ', ') AS status_colors,
+               GROUP_CONCAT(DISTINCT lc.icon SEPARATOR ' ') AS status_icons
+        FROM lead_analysis la
+        JOIN lead_categories lc ON lc.name = la.category
+        GROUP BY la.session_id, la.chat_jid
+      ) status_data ON status_data.session_id = m.session_id AND status_data.chat_jid = m.chat_jid
       GROUP BY m.id
       ORDER BY m.timestamp DESC
       LIMIT 100
@@ -1846,7 +1859,35 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
       ...keywordFilterParams
     ];
 
-    const leads = await query(sql, finalParams);
+    let leads = await query(sql, finalParams);
+
+    // Fallback: cari phone_number dari wa_contacts berdasarkan push_name
+    // (override hasil JOIN by JID karena JID di wa_messages mungkin salah)
+    const nameLookups = leads
+      .filter(l => l.pushName && l.pushName !== 'Unknown')
+      .map(l => ({ session_id: l.session_id, push_name: l.pushName }));
+    if (nameLookups.length > 0) {
+      // Pakai WHERE + OR untuk batch lookup semua nama dalam 1 query
+      const conditions = nameLookups.map(() => `(session_id = ? AND push_name = ?)`).join(' OR ');
+      const params = nameLookups.flatMap(n => [n.session_id, n.push_name]);
+      const contacts = await query(
+        `SELECT session_id, push_name, phone_number FROM wa_contacts 
+         WHERE (${conditions}) AND phone_number IS NOT NULL AND phone_number != ''
+         ORDER BY phone_number LIKE '62%' DESC, LENGTH(phone_number) DESC`,
+        params
+      );
+      const contactMap = {};
+      for (const c of contacts) {
+        const key = c.session_id + ':' + c.push_name;
+        if (!contactMap[key]) contactMap[key] = c.phone_number;
+      }
+      for (const lead of leads) {
+        const key = lead.session_id + ':' + lead.pushName;
+        if (contactMap[key]) {
+          lead.phone_number = contactMap[key];
+        }
+      }
+    }
 
     res.json({
       success: true,
@@ -2073,9 +2114,28 @@ router.get("/social/media", authenticateToken, async (req, res) => {
         }
     });
 
+    // Ambil nama & status device dari wa_sessions
+    const sessionInfo = await query(
+      "SELECT id, name, status FROM wa_sessions WHERE id IN (?)",
+      [finalSessionIds]
+    );
+    const sessionMap = {};
+    for (const s of sessionInfo) {
+      sessionMap[s.id] = { name: s.name, status: s.status };
+    }
+
+    const deviceData = Object.values(stats).map(s => ({
+      ...s,
+      id: s.session_id,
+      name: sessionMap[s.session_id]?.name || s.session_id,
+      status: sessionMap[s.session_id]?.status || 'disconnected',
+      total: s.totalPesanMasuk || 0,
+      convRate: s.totalLeads > 0 ? Math.round((s.totalClosing / s.totalLeads) * 100) : 0,
+    }));
+
     res.json({
       success: true,
-      data: Object.values(stats),
+      data: deviceData,
       platforms: [...new Set(keywords.map((k) => k.platform.toLowerCase()))],
     });
 
@@ -2868,7 +2928,8 @@ router.get("/all-global-messages", async (req, res) => {
         s.name as session_name,
         COALESCE(ct.name, ct.push_name, ch.name, m.chat_jid) AS display_name,
         ch.unread_count,
-        ct.profile_pic_url
+        ct.profile_pic_url,
+        ct.phone_number
       FROM wa_messages m
       INNER JOIN (
         -- Mengambil ID pesan terakhir, abaikan Grup dan Saluran
@@ -2889,7 +2950,35 @@ router.get("/all-global-messages", async (req, res) => {
     `;
 
     const messages = await query(sql);
-    console.log("Total pesan global (tanpa saluran):", messages.length);
+
+    // Fix phone_number: cari ulang dari wa_contacts by display_name untuk SEMUA pesan
+    // Pilih nomor 62 (Indonesia) jika ada, karena JOIN by JID sering ambil nomor salah
+    const allNames = [...new Set(messages.filter(m => m.display_name && !m.display_name.includes('@')).map(m => m.session_id + ':' + m.display_name))];
+    if (allNames.length > 0) {
+      const orConditions = allNames.map(() => "(c.session_id = ? AND c.push_name = ?)");
+      const lookupParams = [];
+      for (const key of allNames) {
+        const [sid, name] = key.split(':');
+        lookupParams.push(sid, name);
+      }
+      const contacts = await query(
+        `SELECT c.session_id, c.push_name, c.phone_number FROM wa_contacts c
+         WHERE ${orConditions.join(" OR ")}
+         ORDER BY phone_number LIKE '62%' DESC, LENGTH(phone_number) DESC`,
+        lookupParams
+      );
+      const contactMap = {};
+      for (const c of contacts) {
+        const key = c.session_id + ':' + c.push_name;
+        if (!contactMap[key]) contactMap[key] = c.phone_number;
+      }
+      for (const m of messages) {
+        const key = m.session_id + ':' + m.display_name;
+        if (contactMap[key]) {
+          m.phone_number = contactMap[key];
+        }
+      }
+    }
 
     res.json({ success: true, data: messages });
   } catch (err) {
@@ -2928,6 +3017,7 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
         c.archived,
         c.muted,
         c.is_group,
+        ct.phone_number,
         COALESCE(ct.name, ct.push_name, c.name, c.jid) AS display_name,
         COALESCE(c.profile_pic_url, ct.profile_pic_url) AS profile_pic_url,
         CONCAT('[', 
@@ -2999,7 +3089,32 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
       };
     });
 
-    // 4. Hitung total data untuk pagination (agar angka 'Total' di UI benar)
+    // 4. Fix phone_number: cari ulang dari wa_contacts by push_name untuk SEMUA chat
+    const chatNames = [...new Set(parsedChats.filter(c => c.display_name && !c.display_name.includes('@')).map(c => c.display_name))];
+    if (chatNames.length > 0) {
+      const orConditions = chatNames.map(() => "(c.session_id = ? AND c.push_name = ?)");
+      const lookupParams = [];
+      for (const name of chatNames) {
+        lookupParams.push(sessionId, name);
+      }
+      const contacts = await query(
+        `SELECT c.push_name, c.phone_number FROM wa_contacts c
+         WHERE ${orConditions.join(" OR ")}
+         ORDER BY phone_number LIKE '62%' DESC, LENGTH(phone_number) DESC`,
+        lookupParams
+      );
+      const contactMap = {};
+      for (const c of contacts) {
+        if (!contactMap[c.push_name]) contactMap[c.push_name] = c.phone_number;
+      }
+      for (const chat of parsedChats) {
+        if (contactMap[chat.display_name]) {
+          chat.phone_number = contactMap[chat.display_name];
+        }
+      }
+    }
+
+    // 5. Hitung total data untuk pagination (agar angka 'Total' di UI benar)
     let countSql = `
       SELECT COUNT(DISTINCT c.jid) as total 
       FROM wa_chats c
@@ -3179,7 +3294,7 @@ router.get("/sessions/:sessionId/contacts", async (req, res) => {
   try {
     let sql = `
       SELECT * FROM wa_contacts 
-      WHERE session_id = ? AND is_group = 0 
+      WHERE session_id = ? AND is_group = 0 AND jid LIKE '%@s.whatsapp.net'
     `;
     const params = [sessionId];
 

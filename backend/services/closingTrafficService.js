@@ -33,10 +33,10 @@ export async function saveClosingEvent(sessionId, chatJid, closingTime, source) 
       VALUES (?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         contact_name = VALUES(contact_name),
-        first_chat_time = IF(VALUES(first_chat_time) < first_chat_time OR first_chat_time IS NULL, VALUES(first_chat_time), first_chat_time),
-        closing_time = IF(VALUES(closing_time) < closing_time, VALUES(closing_time), closing_time),
-        durasi_jam = TIMESTAMPDIFF(HOUR, first_chat_time, closing_time),
-        source = IF(VALUES(source) = 'label', VALUES(source), source)
+        first_chat_time = VALUES(first_chat_time),
+        closing_time = VALUES(closing_time),
+        durasi_jam = TIMESTAMPDIFF(HOUR, VALUES(first_chat_time), VALUES(closing_time)),
+        source = VALUES(source)
     `, [sessionId, chatJid, contactName, toMySQLDatetime(firstChatTime), toMySQLDatetime(closingTime), durasiJam, source]);
 
     console.log(`[ClosingTraffic] Saved: ${contactName} (${sessionId}) via ${source}`);

@@ -20,6 +20,7 @@ import {
   BarChart3,
   Tag,
   Package,
+  Database,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -68,9 +69,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     "groups": "/grup",
     "labels": "/labels",
     "devices": "/perangkat",
+    "contacts": "/kontak",
     "keyword-management": "/kata-kunci-pengikat",
     "link-rotator": "/rotator-tautan",
     "lead-products": "/leads-product",
+    "data-leads": "/data-leads",
     "ai-setting": "/asisten-ai",
     "leads-report": "/laporan-performa",
     "tiktok-live-report": "/laporan-live",
@@ -111,6 +114,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           { id: "all-messages", title: "Global Inbox", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
           { id: "groups", title: "Grup", icon: <Users className="w-[18px] h-[18px]" /> },
           { id: "labels", title: "Labels", icon: <Tag className="w-[18px] h-[18px]" /> },
+          { id: "contacts", title: "Kontak", icon: <Users className="w-[18px] h-[18px]" /> },
           { id: "devices", title: "Perangkat", icon: <Smartphone className="w-[18px] h-[18px]" /> },
         ],
       },
@@ -123,6 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               { id: "keyword-management", title: "Kata Kunci Pengikat", icon: <KeyRound className="w-[18px] h-[18px]" /> },
               { id: "link-rotator", title: "Rotator Tautan", icon: <Link2 className="w-[18px] h-[18px]" /> },
               { id: "lead-products", title: "Leads Product", icon: <Package className="w-[18px] h-[18px]" /> },
+              { id: "data-leads", title: "Data Leads", icon: <Database className="w-[18px] h-[18px]" /> },
               { id: "ai-setting", title: "Asisten AI", icon: <Bot className="w-[18px] h-[18px]" /> },
               { id: "leads-report", title: "Laporan Performa", icon: <FileText className="w-[18px] h-[18px]" /> },
               { id: "tiktok-live-report", title: "Laporan Live", icon: <Video className="w-[18px] h-[18px]" /> },

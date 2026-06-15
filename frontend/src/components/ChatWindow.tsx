@@ -14,6 +14,11 @@ import {
   FileText,
   Image as ImageIcon,
   File,
+  Phone,
+  Tag,
+  Clock,
+  MessageSquare,
+  Info,
 } from "lucide-react";
 import useStore from "../store/useStore";
 import Avatar from "./Avatar";
@@ -60,6 +65,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+
+  const getPhoneNumber = (jid: string) => {
+    if (!jid) return "-";
+    return jid.split('@')[0] || "-";
+  };
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -304,7 +315,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const isTyping = presence?.presence === 'composing';
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full min-w-0 relative overflow-hidden" style={{ backgroundColor: "#F0F2F5" }}>
+    <div className="flex-1 flex h-full w-full min-w-0 relative overflow-hidden">
+      {/* CHAT AREA */}
+      <div className="flex-1 flex flex-col min-w-0 relative overflow-hidden" style={{ backgroundColor: "#F0F2F5" }}>
       {/* HEADER */}
       <div className="flex-none h-[56px] bg-white px-3 flex items-center gap-2.5 border-b z-20" style={{ borderColor: "#E4E6EB" }}>
         <Button
@@ -329,6 +342,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <p className="font-semibold text-[14px] truncate" style={{ color: "#050505" }}>
             {displayName}
           </p>
+          <p className="text-[11px] truncate" style={{ color: "#8C939D" }}>
+            {selectedChat.phone_number ? `+${selectedChat.phone_number}` : `+${getPhoneNumber(selectedChat.jid)}`}
+          </p>
           <div className="flex items-center gap-1">
             <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: isOnline ? "#31A24C" : "#BCC0C4" }} />
             <p className="text-[10px] font-medium truncate" style={{ color: "#65676B" }}>
@@ -341,8 +357,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" style={{ color: "#65676B" }}>
             <Search className="w-[18px] h-[18px]" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" style={{ color: "#65676B" }}>
-            <MoreVertical className="w-[18px] h-[18px]" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 rounded-lg"
+            style={{ color: "#65676B" }}
+            onClick={() => setShowInfo(!showInfo)}
+          >
+            <Info className="w-[18px] h-[18px]" />
           </Button>
         </div>
       </div>
@@ -510,6 +532,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         </div>
       )}
+      </div>
+
+      {/* CONTACT INFO PANEL */}
+      {showInfo && selectedChat && (
+        <ContactInfoPanel
+          chat={selectedChat}
+          displayName={displayName}
+          phoneNumber={selectedChat.phone_number || getPhoneNumber(selectedChat.jid)}
+          isOnline={isOnline}
+          isTyping={isTyping}
+          presence={presence}
+          onClose={() => setShowInfo(false)}
+        />
+      )}
     </div>
   );
 };
@@ -622,6 +658,127 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ---- Contact Info Panel ----
+const ContactInfoPanel = ({ chat, displayName, phoneNumber, isOnline, isTyping, presence, onClose }: any) => {
+  const formatDate = (ts: string | null) => {
+    if (!ts) return "-";
+    return new Date(ts).toLocaleDateString("id-ID", {
+      day: "numeric", month: "long", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  };
+
+  return (
+    <div className="w-80 flex-shrink-0 border-l bg-white overflow-y-auto flex flex-col" style={{ borderColor: "#E4E6EB" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 h-[56px] border-b shrink-0" style={{ borderColor: "#E4E6EB" }}>
+        <h3 className="text-[13px] font-semibold" style={{ color: "#050505" }}>Info Kontak</h3>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg hover:bg-[#F2F3F5] transition-colors"
+          style={{ color: "#65676B" }}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Profile Section */}
+      <div className="flex flex-col items-center py-6 px-4 border-b" style={{ borderColor: "#E4E6EB" }}>
+        <Avatar
+          name={displayName}
+          imageUrl={chat.profile_pic_url}
+          size="xl"
+          isGroup={isGroupJid(chat.jid)}
+          className="w-[72px] h-[72px] mb-3"
+        />
+        <h2 className="text-[15px] font-bold text-center leading-tight" style={{ color: "#050505" }}>
+          {displayName}
+        </h2>
+        <div className="flex items-center gap-1.5 mt-1">
+          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: isOnline ? "#31A24C" : "#BCC0C4" }} />
+          <span className="text-[11px] font-medium" style={{ color: "#65676B" }}>
+            {isTyping ? "Mengetik..." : isOnline ? "Online" : presence?.lastSeen ? `Terakhir dilihat ${formatLastSeen(presence.lastSeen)}` : "Offline"}
+          </span>
+        </div>
+      </div>
+
+      {/* Detail Info */}
+      <div className="px-4 py-3 space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#65676B" }}>
+          Detail Kontak
+        </p>
+
+        {/* Phone */}
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ backgroundColor: "#F0F2F5" }}>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#E7F3FF" }}>
+            <Phone className="w-4 h-4" style={{ color: "#1877F2" }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium" style={{ color: "#65676B" }}>Nomor Telepon</p>
+            <p className="text-[13px] font-semibold truncate" style={{ color: "#050505" }}>+{phoneNumber}</p>
+          </div>
+        </div>
+
+        {/* JID */}
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ backgroundColor: "#F0F2F5" }}>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#FFF0E0" }}>
+            <Tag className="w-4 h-4" style={{ color: "#F5A623" }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium" style={{ color: "#65676B" }}>ID Chat</p>
+            <p className="text-[13px] font-semibold truncate" style={{ color: "#050505" }}>{chat.jid}</p>
+          </div>
+        </div>
+
+        {/* First seen / Created */}
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ backgroundColor: "#F0F2F5" }}>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#E8F5E9" }}>
+            <Clock className="w-4 h-4" style={{ color: "#31A24C" }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium" style={{ color: "#65676B" }}>Pertama Dilihat</p>
+            <p className="text-[13px] font-semibold truncate" style={{ color: "#050505" }}>{formatDate(chat.created_at)}</p>
+          </div>
+        </div>
+
+        {/* Terakhir Chat */}
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ backgroundColor: "#F0F2F5" }}>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#F3E8FF" }}>
+            <MessageSquare className="w-4 h-4" style={{ color: "#8B5CF6" }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium" style={{ color: "#65676B" }}>Terakhir Chat</p>
+            <p className="text-[13px] font-semibold truncate" style={{ color: "#050505" }}>{chat.last_message_time ? formatDate(chat.last_message_time) : "-"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Labels */}
+      {chat.labels && chat.labels.length > 0 && (
+        <div className="px-4 py-3 border-t" style={{ borderColor: "#E4E6EB" }}>
+          <p className="text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#65676B" }}>
+            Label ({chat.labels.length})
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {chat.labels.map((label: any) => (
+              <span
+                key={label.id}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium"
+                style={{
+                  backgroundColor: (label.color || "#1877F2") + "18",
+                  color: label.color || "#1877F2",
+                }}
+              >
+                {label.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, createElement } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import useStore from "../store/useStore";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity, BarChart3, User, DollarSign, MapPin, Phone, Mail, Home,
@@ -69,9 +70,10 @@ const ChartHeader: React.FC<{ title: string; count?: number }> = ({ title, count
 
 interface LeadAnalysisProps {
   onBack?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => {
+export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNavigate }) => {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>("all");
   const [sessionId, setSessionId] = useState("all");
@@ -87,6 +89,22 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
   const paginatedData = data.slice((page - 1) * pageSize, page * pageSize);
+
+  // Navigate to chat
+  const storeSessions = useStore((s) => s.sessions);
+  const setActiveSession = useStore((s) => s.setActiveSession);
+  const selectChat = useStore((s) => s.selectChat);
+
+  const handleOpenChat = (chatJid: string, sessionId: string, contactName: string) => {
+    const session = storeSessions.find((s: any) => s.id === sessionId);
+    if (session) setActiveSession(session);
+    selectChat({
+      jid: chatJid,
+      display_name: contactName,
+      session_id: sessionId,
+    } as any);
+    if (onNavigate) onNavigate("chats");
+  };
 
   // Modal category management
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -518,7 +536,8 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack }) => 
                       {paginatedData.map((d: any, i: number) => {
                         const cat = categories.find(c => c.key === d.category);
                         return (
-                          <tr key={i} className="hover:bg-[#F5F6F8] transition-colors">
+                          <tr key={i} className="hover:bg-[#F5F6F8] transition-colors cursor-pointer"
+                              onClick={() => handleOpenChat(d.chat_jid, d.session_id, d.contact_name)}>
                             <td className="px-4 py-3 border" style={{ borderColor: FB.grayLight }}>
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ backgroundColor: cat?.color || FB.blue }}>

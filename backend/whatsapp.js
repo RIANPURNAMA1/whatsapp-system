@@ -531,19 +531,6 @@ export async function createSession(sessionId, io) {
         await saveMessage(sessionId, processed);
         await updateChat(sessionId, processed);
 
-        if (!msg.key.fromMe && processed.content) {
-          const lowerContent = processed.content.toLowerCase();
-          if (
-            (lowerContent.includes('nama') && lowerContent.includes('rekening') && lowerContent.includes('pengirim')) ||
-            (lowerContent.includes('total') && lowerContent.includes('transfer') && lowerContent.includes('rp')) ||
-            (lowerContent.includes('bank') && lowerContent.includes('transfer') && lowerContent.includes('total')) ||
-            (lowerContent.includes('nama') && lowerContent.includes('rekening') && lowerContent.includes('pembayaran'))
-          ) {
-            const ts = processed.timestamp || new Date().toISOString();
-            await saveClosingEvent(sessionId, processed.chatJid, ts, 'incoming_confirmation');
-          }
-        }
-
         const payload = {
           ...processed,
           message_id: processed.messageId,
@@ -575,25 +562,35 @@ export async function createSession(sessionId, io) {
           if (cat) {
             console.log(`[Kendala] Cek pesan admin ke ${processed.chatJid}: "${caption.slice(0, 80)}" → ${cat}`);
           }
-          // Auto-detect closing keywords untuk admin messages
+        }
+
+        // Auto-detect closing keywords untuk ALL private messages (fromMe bisa false di multi-device)
+        if (caption && !msg.key.remoteJid?.endsWith("@g.us") && !msg.key.remoteJid?.endsWith("@newsletter")) {
           try {
-            const lower = caption.toLowerCase();
+            const lower = caption.toLowerCase().trim();
             const closingKeywords = await query(
               "SELECT keyword_text FROM closing_keywords WHERE session_id = ?",
               [sessionId]
             );
+            console.log(`[ClosingKeyword] Cek pesan: "${caption.slice(0, 80)}" | keyword count: ${closingKeywords.length} | session: ${sessionId}`);
             const isClosing = closingKeywords.some(kw => {
-              const parts = kw.keyword_text.toLowerCase().split('|').map(s => s.trim());
-              return parts.every(part => lower.includes(part));
+              const kwLower = kw.keyword_text.toLowerCase().trim();
+              console.log(`[ClosingKeyword]  → "${caption.slice(0, 50)}" ${lower.includes(kwLower) ? '✓' : '✗'} "${kwLower}"`);
+              return lower.includes(kwLower);
             });
             if (isClosing) {
+              console.log(`[ClosingKeyword] ✓ TERDETEKSI closing: "${caption.slice(0, 80)}"`);
               await saveClosingEvent(sessionId, processed.chatJid, new Date().toISOString(), 'outgoing_messages');
+            } else {
+              console.log(`[ClosingKeyword] ✗ TIDAK cocok: "${caption.slice(0, 80)}"`);
             }
           } catch (err) {
             console.error("[ClosingKeyword] Error detecting in messages.upsert:", err.message);
           }
+        }
 
-          // Auto-detect product assignment based on template text
+        // Auto-detect product assignment based on template text
+        if (msg.key.fromMe && caption) {
           try {
             const products = await query(
               "SELECT id, name, template_text FROM lead_products WHERE session_id IS NULL OR session_id = ?",
@@ -1140,10 +1137,10 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
         [sessionId]
       );
       const isClosing = closingKeywords.some(kw => {
-        const parts = kw.keyword_text.toLowerCase().split('|').map(s => s.trim());
-        return parts.every(part => lower.includes(part));
+        return lower.trim().includes(kw.keyword_text.toLowerCase().trim());
       });
       if (isClosing) {
+        console.log(`[ClosingKeyword] ✓ TERDETEKSI closing dari panel: "${text.slice(0, 80)}"`);
         await saveClosingEvent(sessionId, jid, new Date().toISOString(), 'outgoing_template');
       }
     } catch (err) {
@@ -1402,7 +1399,6 @@ function formatJid(phone) {
 
   let number = phone.replace(/[^0-9]/g, "");
   if (number.startsWith("0")) number = "62" + number.substring(1);
-  if (!number.startsWith("62")) number = "62" + number;
 
   return `${number}@s.whatsapp.net`;
 }

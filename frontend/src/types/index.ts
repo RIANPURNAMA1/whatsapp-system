@@ -21,6 +21,7 @@ export interface Chat {
   jid: string;
   name: string | null;
   display_name: string | null;
+  phone_number?: string | null;
   is_group: number;
   unread_count: number;
   last_message: string | null;
