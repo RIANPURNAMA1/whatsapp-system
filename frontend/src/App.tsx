@@ -103,7 +103,7 @@ function AppContent() {
       if (s.desktopNotification && "Notification" in window && Notification.permission === "granted") {
         new Notification("Satu Pintu", {
           body: "Ada pesan masuk baru",
-          icon: "/vite.svg",
+          icon: "/logo.svg",
         });
       }
     });

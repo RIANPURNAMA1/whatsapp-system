@@ -66,7 +66,7 @@ export function useSocket(sessionId: string | null) {
       if (settings.desktopNotification && "Notification" in window && Notification.permission === "granted") {
         new Notification("Pesan Baru", {
           body: message.content || "Media",
-          icon: "/favicon.ico",
+          icon: "/logo.svg",
         });
       }
 
