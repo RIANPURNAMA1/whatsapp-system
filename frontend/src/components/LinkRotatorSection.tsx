@@ -330,7 +330,7 @@ export const LinkRotatorSection: React.FC = () => {
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
           <div className="bg-white rounded-lg border p-4" style={{ borderColor: "#E4E6EB" }}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
@@ -381,9 +381,9 @@ export const LinkRotatorSection: React.FC = () => {
               <Calendar className="w-5 h-5" style={{ color: "#F5A623" }} />
             </div>
             <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <p className="text-xl font-bold" style={{ color: "#050505" }}>{totalPeriodClicks}</p>
-                <div className="flex gap-1 rounded-lg p-0.5" style={{ backgroundColor: "#F0F2F5" }}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <p className="text-xl font-bold" style={{ color: "#050505" }}>{totalPeriodClicks}</p>
+                  <div className="flex flex-wrap gap-1 rounded-lg p-0.5" style={{ backgroundColor: "#F0F2F5" }}>
                   {[
                     { value: "today", label: "Hari Ini" },
                     { value: "yesterday", label: "Kemarin" },
@@ -449,8 +449,8 @@ export const LinkRotatorSection: React.FC = () => {
                             {item.type === 'direct' ? 'Direct' : 'Lander'}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[12px] font-medium mt-0.5" style={{ color: "#1877F2" }}>
-                          <span className="font-mono opacity-70">{displayLink}</span>
+                        <div className="flex items-center gap-1.5 text-[12px] font-medium mt-0.5 max-w-full" style={{ color: "#1877F2" }}>
+                          <span className="font-mono opacity-70 truncate min-w-0">{displayLink}</span>
                           <button className="hover:opacity-100 active:scale-90 transition-transform" onClick={() => {
                             navigator.clipboard.writeText(displayLink);
                             setCopiedId(item.id);
@@ -462,15 +462,14 @@ export const LinkRotatorSection: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="text-center">
+                    <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-auto">
+                      <div className="text-left md:text-center">
                         <p className="font-black text-xl" style={{ color: "#050505" }}>{periodClicks[item.id] ?? item.clicks}</p>
                         <p className="text-[9px] font-semibold uppercase" style={{ color: "#65676B" }}>
-                          Klik {period === "today" ? "Hari Ini" : period === "yesterday" ? "Kemarin" : period === "week" ? "Minggu Ini" : "Bulan Ini"}
+                          {period === "today" ? "Hari Ini" : period === "yesterday" ? "Kemarin" : period === "week" ? "Minggu Ini" : "Bulan Ini"}
                         </p>
                       </div>
-                      <div className="h-8 w-px" style={{ backgroundColor: "#E4E6EB" }} />
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-1">
                         <button onClick={() => openDetail(item)} className="p-1.5 rounded-lg hover:bg-[#F2F3F5]" style={{ color: "#8C939D" }} title="Detail">
                           <Eye size={16} />
                         </button>
@@ -523,22 +522,22 @@ export const LinkRotatorSection: React.FC = () => {
             </div>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 col-span-2 md:col-span-1">
-                <label className="text-[12px] font-semibold" style={{ color: "#050505" }}>Nama Product</label>
-                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Contoh: Promo Kaos" required
-                  className="h-10 text-[12px] border-0 rounded-lg" style={{ backgroundColor: "#F0F2F5" }} />
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-[12px] font-semibold" style={{ color: "#050505" }}>Nama Product</label>
+                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Contoh: Promo Kaos" required
+                    className="h-10 text-[12px] border-0 rounded-lg" style={{ backgroundColor: "#F0F2F5" }} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[12px] font-semibold" style={{ color: "#050505" }}>Short URL (/r/)</label>
+                  <Input value={formData.shortCode} onChange={(e) => setFormData({ ...formData, shortCode: e.target.value })}
+                    placeholder="custom-slug" required
+                    className="h-10 text-[12px] border-0 rounded-lg" style={{ backgroundColor: "#F0F2F5" }} />
+                </div>
               </div>
-              <div className="space-y-1.5 col-span-2 md:col-span-1">
-                <label className="text-[12px] font-semibold" style={{ color: "#050505" }}>Short URL (/r/)</label>
-                <Input value={formData.shortCode} onChange={(e) => setFormData({ ...formData, shortCode: e.target.value })}
-                  placeholder="custom-slug" required
-                  className="h-10 text-[12px] border-0 rounded-lg" style={{ backgroundColor: "#F0F2F5" }} />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[12px] font-semibold" style={{ color: "#050505" }}>Tipe Redirect</label>
                 <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
@@ -601,7 +600,7 @@ export const LinkRotatorSection: React.FC = () => {
             {formData.type === "lander" && (
               <div className="space-y-3 p-3 rounded-lg" style={{ backgroundColor: "#E7F3FF" }}>
                 <p className="text-[13px] font-bold" style={{ color: "#1877F2" }}>Pengaturan Tombol Lander</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(["button1", "button2"] as const).map((btn, i) => {
                     const cfg = landerConfig[btn];
                     return (
@@ -609,7 +608,7 @@ export const LinkRotatorSection: React.FC = () => {
                         <p className="text-[11px] font-bold" style={{ color: "#1877F2" }}>Tombol {i + 1}</p>
                         <Input value={cfg.label} onChange={(e) => updateLanderBtn(btn, "label", e.target.value)}
                           placeholder="Label" className="h-8 text-[11px] border-0 rounded-md" style={{ backgroundColor: "#F0F2F5" }} />
-                        <div className="grid grid-cols-2 gap-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           <div>
                             <label className="text-[9px] font-semibold" style={{ color: "#65676B" }}>Source</label>
                             <Input value={cfg.source} onChange={(e) => updateLanderBtn(btn, "source", e.target.value)}
