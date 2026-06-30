@@ -1216,11 +1216,6 @@ export async function sendTextMessage(sessionId, to, text, quotedMsgId = null) {
       console.log(`[Kendala] → TERDETEKSI: matching_job`);
       await saveKendala(sessionId, jid, 'matching_job', 'Admin membalas syarat matching job');
     }
-    // Auto-detect: bad (tidak aktif)
-    if (lower === 'bad' || lower.startsWith('bad\n') || lower.startsWith('bad ') || lower.includes('ada yang bisa saya bantu hari ini')) {
-      console.log(`[Kendala] → TERDETEKSI: bad`);
-      await saveKendala(sessionId, jid, 'bad', 'Admin menandai sebagai BAD/Tidak Aktif');
-    }
   }
 
   return sent;

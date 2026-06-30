@@ -65,7 +65,7 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
       <div className="bg-white rounded-lg border border-[#E4E6EB] p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Table className="text-[#1877F2]" size={20} />
+            <Table className="text-[#0866FF]" size={20} />
             <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
               Rekap Laporan Leads
             </h2>
@@ -74,7 +74,7 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
             <select
               value={selectedSessionId}
               onChange={(e) => onSessionChange(e.target.value)}
-              className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-2.5 text-sm text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+              className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-2.5 text-sm text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
             >
               <option value="all">Semua Device</option>
               {activeSessions
@@ -91,7 +91,7 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
               className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 isLoadingReport
                   ? "bg-[#E4E6EB] text-[#65676B] cursor-not-allowed"
-                  : "bg-[#1877F2] text-white hover:bg-[#166FE5]"
+                  : "bg-[#0866FF] text-white hover:bg-[#166FE5]"
               }`}
             >
               {isLoadingReport ? (
@@ -112,7 +112,7 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
               onClick={() => applyPreset(key)}
               className={`h-8 px-3 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                 datePreset === key
-                  ? "bg-[#1877F2] text-white shadow-sm"
+                  ? "bg-[#0866FF] text-white shadow-sm"
                   : "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]"
               }`}
             >
@@ -124,7 +124,7 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
             onClick={() => applyPreset("custom")}
             className={`h-8 px-3 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
               datePreset === "custom"
-                ? "bg-[#1877F2] text-white shadow-sm"
+                ? "bg-[#0866FF] text-white shadow-sm"
                 : "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]"
             }`}
           >
@@ -174,12 +174,12 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
                     <td className="px-4 py-3 font-semibold">{session.sessionName}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
-                        session.sessionStatus === "connected" ? "bg-[#E7F3FF] text-[#1877F2]" : "bg-[#FFEBEE] text-red-500"
+                        session.sessionStatus === "connected" ? "bg-[#E7F3FF] text-[#0866FF]" : "bg-[#FFEBEE] text-red-500"
                       }`}>
                         {session.sessionStatus === "connected" ? "Terhubung" : "Putus"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-bold text-[#1877F2]">{session.totalLeads || 0}</td>
+                    <td className="px-4 py-3 font-bold text-[#0866FF]">{session.totalLeads || 0}</td>
                     <td className="px-4 py-3">{session.totalOrganik || 0}</td>
                     <td className="px-4 py-3 font-bold text-[#31A24C]">{session.totalClosing || 0}</td>
                     <td className="px-4 py-3">
@@ -192,7 +192,7 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
                         {Object.entries(session)
                           .filter(([key]) => key.startsWith("leads_") && session[key] > 0)
                           .map(([key, count]: [string, any]) => (
-                            <span key={key} className="px-2 py-1 bg-[#E7F3FF] text-[#1877F2] rounded text-xs">
+                            <span key={key} className="px-2 py-1 bg-[#E7F3FF] text-[#0866FF] rounded text-xs">
                               {key.replace("leads_", "").charAt(0).toUpperCase() + key.replace("leads_", "").slice(1)}: {count}
                             </span>
                           ))}
@@ -204,7 +204,7 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
                   <tr className="bg-[#F0F2F5] font-bold">
                     <td className="px-4 py-3">TOTAL</td>
                     <td className="px-4 py-3">-</td>
-                    <td className="px-4 py-3 text-[#1877F2]">{reportData.stats.grandTotalLeads || 0}</td>
+                    <td className="px-4 py-3 text-[#0866FF]">{reportData.stats.grandTotalLeads || 0}</td>
                     <td className="px-4 py-3">{reportData.stats.grandTotalOrganik || 0}</td>
                     <td className="px-4 py-3 text-[#31A24C]">{reportData.stats.grandTotalClosing || 0}</td>
                     <td className="px-4 py-3">{reportData.stats.convRate || 0}%</td>
@@ -215,16 +215,16 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
             </table>
 
             {reportData.stats?.tiktokLeads && reportData.stats.tiktokLeads[0] && reportData.stats.tiktokLeads[0].total > 0 && (
-              <div className="mt-6 p-4 bg-[#E7F3FF] rounded-lg border border-[#1877F2]">
-                <h3 className="text-sm font-bold text-[#1877F2] mb-3">TikTok Leads</h3>
+              <div className="mt-6 p-4 bg-[#E7F3FF] rounded-lg border border-[#0866FF]">
+                <h3 className="text-sm font-bold text-[#0866FF] mb-3">TikTok Leads</h3>
                 <div className="grid grid-cols-4 gap-4">
                   <div className="bg-white p-3 rounded-lg text-center">
                     <p className="text-xs text-[#65676B]">Total</p>
-                    <p className="text-lg font-bold text-[#1877F2]">{reportData.stats.tiktokLeads[0].total}</p>
+                    <p className="text-lg font-bold text-[#0866FF]">{reportData.stats.tiktokLeads[0].total}</p>
                   </div>
                   <div className="bg-white p-3 rounded-lg text-center">
                     <p className="text-xs text-[#65676B]">Baru</p>
-                    <p className="text-lg font-bold text-[#1877F2]">{reportData.stats.tiktokLeads[0].new_count || 0}</p>
+                    <p className="text-lg font-bold text-[#0866FF]">{reportData.stats.tiktokLeads[0].new_count || 0}</p>
                   </div>
                   <div className="bg-white p-3 rounded-lg text-center">
                     <p className="text-xs text-[#65676B]">Dihubungi</p>

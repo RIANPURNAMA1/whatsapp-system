@@ -21,7 +21,7 @@ interface Category {
 }
 
 const COLORS = [
-  "#1877F2", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899",
+  "#0866FF", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899",
   "#0EA5E9", "#F59E0B", "#10B981", "#6366F1", "#EF4444",
 ];
 
@@ -48,7 +48,7 @@ const KategoriLeadsPage: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
+  const [form, setForm] = useState({ name: "", label: "", color: "#0866FF", icon: "BarChart3", keywords: "" });
 
   const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
@@ -70,7 +70,7 @@ const KategoriLeadsPage: React.FC = () => {
   useEffect(() => { fetchCategories(); }, []);
 
   const resetForm = () => {
-    setForm({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
+    setForm({ name: "", label: "", color: "#0866FF", icon: "BarChart3", keywords: "" });
     setEditingId(null);
   };
 
@@ -134,9 +134,9 @@ const KategoriLeadsPage: React.FC = () => {
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-xs mb-4" style={{ color: "#65676B" }}>
-          <button onClick={() => navigate("/")} className="hover:underline font-medium" style={{ color: "#1877F2" }}>Dashboard</button>
+          <button onClick={() => navigate("/")} className="hover:underline font-medium" style={{ color: "#0866FF" }}>Dashboard</button>
           <span>/</span>
-          <button onClick={() => navigate("/analisis-leads")} className="hover:underline font-medium" style={{ color: "#1877F2" }}>Analisis Leads</button>
+          <button onClick={() => navigate("/analisis-leads")} className="hover:underline font-medium" style={{ color: "#0866FF" }}>Analisis Leads</button>
           <span>/</span>
           <span className="font-semibold" style={{ color: "#050505" }}>Kategori Leads</span>
         </div>
@@ -187,7 +187,7 @@ const KategoriLeadsPage: React.FC = () => {
                   {ICON_LIST.map(({ name, icon: Icon }) => (
                     <button key={name} onClick={() => setForm({ ...form, icon: name })}
                       className="w-7 h-7 flex items-center justify-center rounded-md border-2 transition-all hover:bg-[#F0F2F5]"
-                      style={{ borderColor: form.icon === name ? "#1877F2" : "transparent" }}
+                      style={{ borderColor: form.icon === name ? "#0866FF" : "transparent" }}
                       title={name}>
                       <Icon size={14} />
                     </button>
@@ -209,7 +209,7 @@ const KategoriLeadsPage: React.FC = () => {
             <button
               onClick={handleSave}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-lg hover:brightness-110 transition-all"
-              style={{ backgroundColor: "#1877F2" }}
+              style={{ backgroundColor: "#0866FF" }}
             >
               <Save className="w-4 h-4" />
               {editingId ? "Simpan" : "Tambah"}

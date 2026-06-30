@@ -97,10 +97,10 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
     <div className="mb-10 mt-6 overflow-hidden bg-white border border-[#E4E6EB] rounded-lg">
       <div className="p-4 border-b border-[#E4E6EB] bg-[#F0F2F5] flex justify-between items-center">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#050505]">
-          <div className="w-2 h-2 bg-[#1877F2] rounded-full" />
+          <div className="w-2 h-2 bg-[#0866FF] rounded-full" />
           <span>Perangkat Terkonfigurasi</span>
         </div>
-        <button onClick={onRefresh} className="text-[#65676B] hover:text-[#1877F2] transition-colors">
+        <button onClick={onRefresh} className="text-[#65676B] hover:text-[#0866FF] transition-colors">
           <RefreshCw size={14} />
         </button>
       </div>
@@ -139,7 +139,7 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                 <tr key={sId} className="hover:bg-[#F2F3F5] transition-colors">
                   <td className="p-4">
                     <div className="flex flex-col">
-                      <span className="text-[#1877F2] font-semibold flex items-center gap-2">
+                      <span className="text-[#0866FF] font-semibold flex items-center gap-2">
                         <Smartphone size={14} className="text-[#65676B]" />
                         {getSessionName(sId)}
                       </span>
@@ -153,12 +153,12 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                       onClick={() => handleToggleAi(sId, isActive as boolean)}
                       disabled={loadingStatus === sId}
                       className={`relative inline-flex h-5 w-10 items-center rounded-full transition-all ${
-                        isActive ? "bg-[#1877F2]" : "bg-[#E4E6EB]"
+                        isActive ? "bg-[#0866FF]" : "bg-[#E4E6EB]"
                       }`}
                     >
                       <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isActive ? "translate-x-6" : "translate-x-1"}`} />
                     </button>
-                    <div className={`text-[9px] mt-1 font-bold uppercase ${isActive ? "text-[#1877F2]" : "text-[#65676B]"}`}>
+                    <div className={`text-[9px] mt-1 font-bold uppercase ${isActive ? "text-[#0866FF]" : "text-[#65676B]"}`}>
                       {isActive ? "AI ON" : "AI OFF"}
                     </div>
                   </td>
@@ -169,12 +169,12 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                       onClick={() => handleToggleRules(sId, isRulesActive as boolean)}
                       disabled={loadingRules === sId}
                       className={`relative inline-flex h-5 w-10 items-center rounded-full transition-all ${
-                        isRulesActive ? "bg-[#1877F2]" : "bg-[#E4E6EB]"
+                        isRulesActive ? "bg-[#0866FF]" : "bg-[#E4E6EB]"
                       }`}
                     >
                       <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isRulesActive ? "translate-x-6" : "translate-x-1"}`} />
                     </button>
-                    <div className={`text-[9px] mt-1 font-bold uppercase ${isRulesActive ? "text-[#1877F2]" : "text-[#65676B]"}`}>
+                    <div className={`text-[9px] mt-1 font-bold uppercase ${isRulesActive ? "text-[#0866FF]" : "text-[#65676B]"}`}>
                       {isRulesActive ? "Rules ON" : "Rules OFF"}
                     </div>
                   </td>
@@ -195,9 +195,9 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
                     <div className="flex flex-col items-center gap-1">
                       <Calendar 
                         size={16} 
-                        className={isSchedule ? "text-[#1877F2]" : "text-[#E4E6EB]"} 
+                        className={isSchedule ? "text-[#0866FF]" : "text-[#E4E6EB]"} 
                       />
-                      <span className={`text-[9px] font-bold uppercase ${isSchedule ? "text-[#1877F2]" : "text-[#65676B]"}`}>
+                      <span className={`text-[9px] font-bold uppercase ${isSchedule ? "text-[#0866FF]" : "text-[#65676B]"}`}>
                         {isSchedule ? cfg.schedule_start_time?.substring(0,5) + "-" + cfg.schedule_end_time?.substring(0,5) : "OFF"}
                       </span>
                     </div>
@@ -207,8 +207,8 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
 
                   <td className="p-4">
                     <div className="flex items-center gap-2 max-w-[150px]">
-                      <BookOpen size={12} className="text-[#1877F2] shrink-0" />
-                      <p className={`truncate text-[11px] ${getKbContent(cfg).includes('[PDF') ? 'text-[#1877F2]' : 'text-[#65676B]'}`}>
+                      <BookOpen size={12} className="text-[#0866FF] shrink-0" />
+                      <p className={`truncate text-[11px] ${getKbContent(cfg).includes('[PDF') ? 'text-[#0866FF]' : 'text-[#65676B]'}`}>
                         {getKbContent(cfg)}
                       </p>
                     </div>
@@ -227,8 +227,8 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
 
                   <td className="p-4">
                     <div className="flex justify-center gap-2">
-                      <button onClick={() => onEdit(cfg)} className="p-2 bg-[#E7F3FF] hover:bg-[#D0E6FF] text-[#1877F2] rounded-lg transition-all"><Edit3 size={14} /></button>
-                      <button onClick={() => onCopy(sId)} className="p-2 bg-[#E7F3FF] hover:bg-[#D0E6FF] text-[#1877F2] rounded-lg transition-all"><Copy size={14} /></button>
+                      <button onClick={() => onEdit(cfg)} className="p-2 bg-[#E7F3FF] hover:bg-[#D0E6FF] text-[#0866FF] rounded-lg transition-all"><Edit3 size={14} /></button>
+                      <button onClick={() => onCopy(sId)} className="p-2 bg-[#E7F3FF] hover:bg-[#D0E6FF] text-[#0866FF] rounded-lg transition-all"><Copy size={14} /></button>
                       <button onClick={() => onDelete(cfg)} className="p-2 bg-[#F0F2F5] hover:bg-[#FFEBEE] text-[#65676B] hover:text-red-500 rounded-lg transition-all"><Trash2 size={14} /></button>
                     </div>
                   </td>

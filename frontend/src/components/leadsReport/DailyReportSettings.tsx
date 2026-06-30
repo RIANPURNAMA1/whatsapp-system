@@ -45,7 +45,7 @@ export const DailyReportSettings: React.FC<DailyReportSettingsProps> = ({
       <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Bell className="text-[#1877F2]" size={20} />
+            <Bell className="text-[#0866FF]" size={20} />
             <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
               Kirim Otomatis
             </h2>
@@ -53,7 +53,7 @@ export const DailyReportSettings: React.FC<DailyReportSettingsProps> = ({
           <button
             onClick={() => onUpdate({ ...settings, isEnabled: !settings.isEnabled })}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ${
-              settings.isEnabled ? "bg-[#1877F2]" : "bg-[#E4E6EB]"
+              settings.isEnabled ? "bg-[#0866FF]" : "bg-[#E4E6EB]"
             }`}
           >
             <span
@@ -77,7 +77,7 @@ export const DailyReportSettings: React.FC<DailyReportSettingsProps> = ({
       {/* Schedule Time */}
       <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
         <div className="flex items-center gap-3 mb-4">
-          <Clock className="text-[#1877F2]" size={20} />
+          <Clock className="text-[#0866FF]" size={20} />
           <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
             Jam Kirim Laporan
           </h2>
@@ -87,7 +87,7 @@ export const DailyReportSettings: React.FC<DailyReportSettingsProps> = ({
             type="time"
             value={settings.reportTime}
             onChange={(e) => onUpdate({ ...settings, reportTime: e.target.value })}
-            className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-3 text-lg font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+            className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-3 text-lg font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
           />
           <p className="text-xs text-[#65676B]">
             Laporan akan dikirim pada jam ini setiap hari aktif
@@ -98,7 +98,7 @@ export const DailyReportSettings: React.FC<DailyReportSettingsProps> = ({
       {/* Active Days */}
       <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
         <div className="flex items-center gap-3 mb-4">
-          <Calendar className="text-[#1877F2]" size={20} />
+          <Calendar className="text-[#0866FF]" size={20} />
           <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
             Hari Aktif
           </h2>
@@ -115,7 +115,7 @@ export const DailyReportSettings: React.FC<DailyReportSettingsProps> = ({
                 onClick={() => toggleDay(day.id)}
                 className={`w-12 h-12 rounded-lg text-xs font-bold transition-all ${
                   isSelected
-                    ? "bg-[#1877F2] text-white"
+                    ? "bg-[#0866FF] text-white"
                     : "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]"
                 }`}
               >
@@ -129,7 +129,7 @@ export const DailyReportSettings: React.FC<DailyReportSettingsProps> = ({
       {/* Queue Delay Setting */}
       <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
         <div className="flex items-center gap-3 mb-4">
-          <RefreshCw className="text-[#1877F2]" size={20} />
+          <RefreshCw className="text-[#0866FF]" size={20} />
           <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
             Delay Antar Device
           </h2>
@@ -142,7 +142,7 @@ export const DailyReportSettings: React.FC<DailyReportSettingsProps> = ({
             step="500"
             value={settings.queueDelay}
             onChange={(e) => onUpdate({ ...settings, queueDelay: parseInt(e.target.value) || 3000 })}
-            className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-3 text-lg font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2] w-32"
+            className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-3 text-lg font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF] w-32"
           />
           <div>
             <p className="text-xs text-[#65676B]">Jeda antar device (milidetik)</p>
@@ -158,7 +158,7 @@ export const DailyReportSettings: React.FC<DailyReportSettingsProps> = ({
         className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${
           isLoading
             ? "bg-[#E4E6EB] text-[#65676B] cursor-not-allowed"
-            : "bg-[#1877F2] text-white hover:bg-[#166FE5]"
+            : "bg-[#0866FF] text-white hover:bg-[#166FE5]"
         }`}
       >
         {isLoading ? (

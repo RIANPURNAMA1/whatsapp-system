@@ -226,7 +226,7 @@ export const LeadsReportPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-[#050505] flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#1877F2] rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-[#0866FF] rounded-lg flex items-center justify-center">
                   <BarChart3 className="w-5 h-5 text-white" />
                 </div>
                 Laporan Leads
@@ -240,7 +240,7 @@ export const LeadsReportPage: React.FC = () => {
                 <select
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
-                  className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-2.5 text-sm text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                  className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-4 py-2.5 text-sm text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                 >
                   <option value="all">Semua Device</option>
                   {activeSessions
@@ -257,7 +257,7 @@ export const LeadsReportPage: React.FC = () => {
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                     isSending || dailySettings.targetGroups.length === 0
                       ? "bg-[#E4E6EB] text-[#65676B] cursor-not-allowed"
-                      : "bg-[#1877F2] text-white hover:bg-[#166FE5]"
+                      : "bg-[#0866FF] text-white hover:bg-[#166FE5]"
                   }`}
                 >
                   {isSending ? (
@@ -280,7 +280,7 @@ export const LeadsReportPage: React.FC = () => {
               onClick={() => setActivePeriod(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-all ${
                 activePeriod === tab.id
-                  ? "bg-[#1877F2] text-white shadow-sm"
+                  ? "bg-[#0866FF] text-white shadow-sm"
                   : "text-[#65676B] hover:bg-[#F0F2F5]"
               }`}
             >

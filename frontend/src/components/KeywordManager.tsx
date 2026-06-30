@@ -57,7 +57,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
   const platformColors: Record<string, string> = {
     tiktok: "#E74C3C",
     instagram: "#E1306C",
-    facebook: "#1877F2",
+    facebook: "#0866FF",
     twitter: "#1DA1F2",
     whatsapp: "#25D366",
     telegram: "#0088CC",
@@ -277,7 +277,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <KeyRound className="w-5 h-5" style={{ color: "#1877F2" }} />
+                <KeyRound className="w-5 h-5" style={{ color: "#0866FF" }} />
               </div>
               <div>
                 <h1 className="text-xl font-bold" style={{ color: "#050505" }}>Keyword Management</h1>
@@ -286,11 +286,11 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={() => setIsFormOpen(true)} className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#1877F2" }}>
+              <Button onClick={() => setIsFormOpen(true)} className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#0866FF" }}>
                 <Plus className="w-4 h-4" />
                 Tambah Keyword
               </Button>
-              <Button onClick={() => setIsOrganikFormOpen(true)} className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#1877F2" }}>
+              <Button onClick={() => setIsOrganikFormOpen(true)} className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#0866FF" }}>
                 <Leaf className="w-4 h-4" />
                 Keyword Organik
               </Button>
@@ -304,8 +304,8 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
               return (
                 <div className="mb-4 p-3 rounded-lg flex items-center justify-between" style={{ backgroundColor: "#E7F3FF" }}>
                   <div className="flex items-center gap-2">
-                    <Leaf className="w-4 h-4" style={{ color: "#1877F2" }} />
-                    <span className="text-[13px]" style={{ color: "#1877F2" }}>Belum ada keyword organik. Klik tombol Keyword Organik untuk menambah.</span>
+                    <Leaf className="w-4 h-4" style={{ color: "#0866FF" }} />
+                    <span className="text-[13px]" style={{ color: "#0866FF" }}>Belum ada keyword organik. Klik tombol Keyword Organik untuk menambah.</span>
                   </div>
                 </div>
               );
@@ -313,9 +313,9 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
             return (
               <div className="mb-4 p-4 rounded-lg border" style={{ backgroundColor: "#FFFFFF", borderColor: "#E4E6EB" }}>
                 <div className="flex items-center gap-2 mb-3">
-                  <Leaf className="w-4 h-4" style={{ color: "#1877F2" }} />
+                  <Leaf className="w-4 h-4" style={{ color: "#0866FF" }} />
                   <h3 className="text-[14px] font-bold" style={{ color: "#050505" }}>Keyword Organik</h3>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#E7F3FF", color: "#1877F2" }}>{organikKeywords.length}</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#E7F3FF", color: "#0866FF" }}>{organikKeywords.length}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {organikKeywords.map((item: any) => (
@@ -355,8 +355,8 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                   onClick={() => setSelectedPlatform(p)}
                   className="h-[30px] px-3 rounded-md text-[11px] font-medium transition-all border"
                   style={{
-                    backgroundColor: selectedPlatform === p ? "#1877F2" : "#FFFFFF",
-                    borderColor: selectedPlatform === p ? "#1877F2" : "#E4E6EB",
+                    backgroundColor: selectedPlatform === p ? "#0866FF" : "#FFFFFF",
+                    borderColor: selectedPlatform === p ? "#0866FF" : "#E4E6EB",
                     color: selectedPlatform === p ? "#FFFFFF" : "#65676B",
                   }}
                 >
@@ -376,7 +376,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                 <p className="text-2xl font-bold" style={{ color: "#050505" }}>{keywords.length}</p>
               </div>
               <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <Tag className="w-5 h-5" style={{ color: "#1877F2" }} />
+                <Tag className="w-5 h-5" style={{ color: "#0866FF" }} />
               </div>
             </div>
           </div>
@@ -387,7 +387,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                 <p className="text-2xl font-bold" style={{ color: "#050505" }}>{sessions.length}</p>
               </div>
               <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <Smartphone className="w-5 h-5" style={{ color: "#1877F2" }} />
+                <Smartphone className="w-5 h-5" style={{ color: "#0866FF" }} />
               </div>
             </div>
           </div>
@@ -398,7 +398,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                 <p className="text-2xl font-bold" style={{ color: "#050505" }}>{filteredKeywords.length}</p>
               </div>
               <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <Target className="w-5 h-5" style={{ color: "#1877F2" }} />
+                <Target className="w-5 h-5" style={{ color: "#0866FF" }} />
               </div>
             </div>
           </div>
@@ -407,7 +407,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
         {/* KEYWORD LIST */}
         {fetching ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <div className="w-8 h-8 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#1877F2" }} />
+            <div className="w-8 h-8 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#0866FF" }} />
             <p className="text-[13px]" style={{ color: "#65676B" }}>Memuat data...</p>
           </div>
         ) : filteredKeywords.length === 0 ? (
@@ -425,7 +425,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
               }
             </p>
             {!searchQuery && selectedPlatform === "all" && (
-              <Button onClick={() => setIsFormOpen(true)} className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#1877F2" }}>
+              <Button onClick={() => setIsFormOpen(true)} className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#0866FF" }}>
                 <Plus className="w-4 h-4" />
                 Tambah Keyword Pertama
               </Button>
@@ -449,7 +449,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: "#1877F2" }} />
+                      <MessageSquare className="w-3.5 h-3.5 shrink-0" style={{ color: "#0866FF" }} />
                       <p className="text-[13px] font-medium" style={{ color: "#050505" }}>"{k.keyword_text}"</p>
                     </div>
                   </div>
@@ -475,7 +475,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
           <DialogHeader>
             <div className="flex items-center gap-2.5 mb-1">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <Plus className="w-4 h-4" style={{ color: "#1877F2" }} />
+                <Plus className="w-4 h-4" style={{ color: "#0866FF" }} />
               </div>
               <DialogTitle className="text-[16px] font-bold" style={{ color: "#050505" }}>Tambah Keyword Baru</DialogTitle>
             </div>
@@ -526,7 +526,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
               <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="flex-1 h-9 text-[12px] rounded-lg border" style={{ borderColor: "#CCD0D5", color: "#65676B" }}>
                 Batal
               </Button>
-              <Button type="submit" disabled={loading} className="flex-1 h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#1877F2" }}>
+              <Button type="submit" disabled={loading} className="flex-1 h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#0866FF" }}>
                 {loading ? <RefreshCcw className="animate-spin mx-auto" size={16} /> : "Simpan Keyword"}
               </Button>
             </DialogFooter>
@@ -540,7 +540,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
           <DialogHeader>
             <div className="flex items-center gap-2.5 mb-1">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <Edit className="w-4 h-4" style={{ color: "#1877F2" }} />
+                <Edit className="w-4 h-4" style={{ color: "#0866FF" }} />
               </div>
               <DialogTitle className="text-[16px] font-bold" style={{ color: "#050505" }}>Edit Keyword</DialogTitle>
             </div>
@@ -575,7 +575,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                 className="flex-1 h-9 text-[12px] rounded-lg border" style={{ borderColor: "#CCD0D5", color: "#65676B" }}>
                 Batal
               </Button>
-              <Button type="submit" disabled={loading} className="flex-1 h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#1877F2" }}>
+              <Button type="submit" disabled={loading} className="flex-1 h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#0866FF" }}>
                 {loading ? <RefreshCcw className="animate-spin mx-auto" size={16} /> : "Perbarui"}
               </Button>
             </DialogFooter>
@@ -589,7 +589,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
           <DialogHeader>
             <div className="flex items-center gap-2.5 mb-1">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <Leaf className="w-4 h-4" style={{ color: "#1877F2" }} />
+                <Leaf className="w-4 h-4" style={{ color: "#0866FF" }} />
               </div>
               <DialogTitle className="text-[16px] font-bold" style={{ color: "#050505" }}>Tambah Keyword Organik</DialogTitle>
             </div>
@@ -605,7 +605,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
             <div className="flex items-center gap-2.5">
               <input type="checkbox" id="isActive" checked={newOrganik.is_active}
                 onChange={(e) => setNewOrganik({ ...newOrganik, is_active: e.target.checked })}
-                className="w-4 h-4 rounded" style={{ accentColor: "#1877F2" }} />
+                className="w-4 h-4 rounded" style={{ accentColor: "#0866FF" }} />
               <label htmlFor="isActive" className="text-[12px] font-medium" style={{ color: "#050505" }}>Aktif</label>
             </div>
 
@@ -614,7 +614,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                 className="flex-1 h-9 text-[12px] rounded-lg border" style={{ borderColor: "#CCD0D5", color: "#65676B" }}>
                 Batal
               </Button>
-              <Button type="submit" disabled={loading} className="flex-1 h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#1877F2" }}>
+              <Button type="submit" disabled={loading} className="flex-1 h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#0866FF" }}>
                 {loading ? <RefreshCcw className="animate-spin mx-auto" size={16} /> : "Simpan"}
               </Button>
             </DialogFooter>
@@ -628,7 +628,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
           <DialogHeader>
             <div className="flex items-center gap-2.5 mb-1">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <Edit className="w-4 h-4" style={{ color: "#1877F2" }} />
+                <Edit className="w-4 h-4" style={{ color: "#0866FF" }} />
               </div>
               <DialogTitle className="text-[16px] font-bold" style={{ color: "#050505" }}>Edit Keyword Organik</DialogTitle>
             </div>
@@ -644,7 +644,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
             <div className="flex items-center gap-2.5">
               <input type="checkbox" id="editIsActive" checked={editOrganik?.is_active || false}
                 onChange={(e) => setEditOrganik({ ...editOrganik, is_active: e.target.checked })}
-                className="w-4 h-4 rounded" style={{ accentColor: "#1877F2" }} />
+                className="w-4 h-4 rounded" style={{ accentColor: "#0866FF" }} />
               <label htmlFor="editIsActive" className="text-[12px] font-medium" style={{ color: "#050505" }}>Aktif</label>
             </div>
 
@@ -653,7 +653,7 @@ export const KeywordManager: React.FC<{ isDarkMode?: boolean }> = () => {
                 className="flex-1 h-9 text-[12px] rounded-lg border" style={{ borderColor: "#CCD0D5", color: "#65676B" }}>
                 Batal
               </Button>
-              <Button type="submit" disabled={loading} className="flex-1 h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#1877F2" }}>
+              <Button type="submit" disabled={loading} className="flex-1 h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#0866FF" }}>
                 {loading ? <RefreshCcw className="animate-spin mx-auto" size={16} /> : "Perbarui"}
               </Button>
             </DialogFooter>

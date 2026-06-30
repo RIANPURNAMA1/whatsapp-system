@@ -1,7 +1,7 @@
 import express from "express";
 import { query } from "../db.js";
 import { authenticateToken } from "../auth.js";
-import { getLeadAnalysis, computeBadLeads } from "../services/leadAnalysisService.js";
+import { getLeadAnalysis } from "../services/leadAnalysisService.js";
 import { getAllCategories } from "../services/leadCategoryService.js";
 
 const router = express.Router();
@@ -29,8 +29,6 @@ router.get("/leads/analysis", authenticateToken, async (req, res) => {
     }
 
     const targetId = (sessionId && sessionId !== "all" && allowedIds.includes(sessionId)) ? sessionId : null;
-
-    await computeBadLeads(targetId);
 
     const [leadResult, categories, extraDeviceData] = await Promise.all([
       getLeadAnalysis(targetId, period || "Minggu"),

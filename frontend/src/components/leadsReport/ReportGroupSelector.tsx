@@ -18,12 +18,12 @@ export const ReportGroupSelector: React.FC<ReportGroupSelectorProps> = ({
     <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <Users className="text-[#1877F2]" size={20} />
+          <Users className="text-[#0866FF]" size={20} />
           <h2 className="text-sm font-bold text-[#050505] uppercase tracking-wider">
             Pilih Grup Tujuan
           </h2>
         </div>
-        <span className="text-xs font-semibold bg-[#E7F3FF] text-[#1877F2] px-3 py-1 rounded-full">
+        <span className="text-xs font-semibold bg-[#E7F3FF] text-[#0866FF] px-3 py-1 rounded-full">
           {targetGroups.length} dipilih
         </span>
       </div>
@@ -49,7 +49,7 @@ export const ReportGroupSelector: React.FC<ReportGroupSelectorProps> = ({
                 key={group.jid}
                 className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-all ${
                   isSelected
-                    ? "bg-[#E7F3FF] border-[#1877F2]"
+                    ? "bg-[#E7F3FF] border-[#0866FF]"
                     : "bg-[#F0F2F5] border-[#E4E6EB] hover:border-[#CCD0D5]"
                 }`}
               >
@@ -57,7 +57,7 @@ export const ReportGroupSelector: React.FC<ReportGroupSelectorProps> = ({
                   type="checkbox"
                   checked={isSelected}
                   onChange={() => onToggleGroup(group.jid)}
-                  className="w-5 h-5 rounded border-[#CCD0D5] text-[#1877F2] focus:ring-[#1877F2]"
+                  className="w-5 h-5 rounded border-[#CCD0D5] text-[#0866FF] focus:ring-[#0866FF]"
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-[#050505] truncate">

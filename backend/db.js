@@ -727,7 +727,6 @@ CREATE TABLE IF NOT EXISTS wa_rules (
     const defaultCategories = [
       ['usia', 'Usia', '#1877F2', '🔴', JSON.stringify(['usia'])],
       ['biaya', 'Biaya', '#F5A623', '🟡', JSON.stringify(['biaya', 'bisa persiapkan terlebih dahulu'])],
-      ['bad', 'BAD (Tidak Aktif)', '#E74C3C', '⚫', JSON.stringify(['ada yang bisa saya bantu hari ini'])],
       ['bertato', 'Bertato', '#8B5CF6', '🔵', JSON.stringify(['tidak diperbolehkan bertato', 'ketentuan tidak diperbolehkan bertato'])],
       ['tidak_memenuhi_syarat', 'Tidak Memenuhi Syarat', '#EC4899', '🔴', JSON.stringify(['belum memenuhi persyaratannya', 'belum memenuhi syarat'])],
       ['belum_ada_data', 'Belum Ada Data', '#0EA5E9', '🔵', JSON.stringify(['boleh di bantu untuk di isi terlebih dahulu', 'bantu di isi terlebih dahulu'])],

@@ -19,7 +19,7 @@ export const SessionSelector: React.FC<Props> = ({ sessions, selectedId, onSelec
   <div className="bg-white p-5 rounded-lg border border-[#E4E6EB] mb-6">
     <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
       <label className="text-xs font-bold text-[#050505] uppercase tracking-wider">Pilih Perangkat Aktif</label>
-      <button onClick={onRefresh} className="text-[#65676B] hover:text-[#1877F2] transition-colors">
+      <button onClick={onRefresh} className="text-[#65676B] hover:text-[#0866FF] transition-colors">
         <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
       </button>
     </div>
@@ -31,7 +31,7 @@ export const SessionSelector: React.FC<Props> = ({ sessions, selectedId, onSelec
             onClick={() => onSelect(s.id)}
             className={`px-4 py-2.5 rounded-lg border text-sm transition-all flex items-center gap-2 font-medium ${
               selectedId === s.id 
-                ? "border-[#1877F2] bg-[#E7F3FF] text-[#1877F2]" 
+                ? "border-[#0866FF] bg-[#E7F3FF] text-[#0866FF]" 
                 : "border-[#E4E6EB] bg-white text-[#65676B] hover:bg-[#F2F3F5] hover:border-[#E4E6EB]"
             }`}
           >

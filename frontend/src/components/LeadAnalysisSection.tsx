@@ -30,8 +30,8 @@ import {
 import { Smartphone, TrendingUp, UserCheck } from "lucide-react";
 
 const FB = {
-  blue: "#1877F2",
-  blueLight: "#E7F3FF",
+  blue: "#0866FF",
+  blueLight: "#DEEBFF",
   green: "#31A24C",
   orange: "#F5A623",
   red: "#E74C3C",
@@ -153,7 +153,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
   const [localCategories, setLocalCategories] = useState<any[]>([]);
   const [catLoading, setCatLoading] = useState(false);
   const [editingCatId, setEditingCatId] = useState<number | null>(null);
-  const [catForm, setCatForm] = useState({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
+  const [catForm, setCatForm] = useState({ name: "", label: "", color: "#0866FF", icon: "BarChart3", keywords: "" });
 
   // Category drill-down modal
   const [drillDownCategory, setDrillDownCategory] = useState<any>(null);
@@ -242,7 +242,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
   }, [fetchLocalCategories]);
 
   const resetCatForm = () => {
-    setCatForm({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
+    setCatForm({ name: "", label: "", color: "#0866FF", icon: "BarChart3", keywords: "" });
     setEditingCatId(null);
   };
 
@@ -282,19 +282,29 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
   };
 
   const handleDeleteCategory = async (id: number) => {
-    if (!confirm("Hapus kategori ini?")) return;
+    if (!confirm("Hapus kategori ini? Data analisis terkait juga akan dihapus.")) return;
     try {
+      const cat = localCategories.find(c => c.id === id);
       await axios.delete(`${import.meta.env.VITE_API_URL}/lead-categories/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       fetchLocalCategories();
+      if (cat) {
+        setData(prev => prev.filter(d => d.category !== cat.key));
+        setSummary((prev: any) => {
+          const next = { ...prev };
+          next[cat.key] = 0;
+          next.total = (prev.total || 0) - (prev[cat.key] || 0);
+          return next;
+        });
+      }
     } catch {
       console.error("Failed to delete category");
     }
   };
 
   const COLORS = [
-    "#1877F2", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899",
+    "#0866FF", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899",
     "#0EA5E9", "#F59E0B", "#10B981", "#6366F1", "#EF4444",
   ];
 
@@ -592,7 +602,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
                             type="checkbox"
                             checked={paginatedData.length > 0 && selectedIds.size === paginatedData.length}
                             onChange={toggleSelectAll}
-                            className="w-4 h-4 rounded cursor-pointer accent-[#1877F2]"
+                            className="w-4 h-4 rounded cursor-pointer accent-[#0866FF]"
                           />
                         </th>
                         {["Kontak", "Device", "Kategori", "Chat Pertama", "Terdeteksi", "Keterangan"].map((h) => (
@@ -611,7 +621,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
                                 type="checkbox"
                                 checked={selectedIds.has(d.id)}
                                 onChange={() => toggleSelect(d.id)}
-                                className="w-4 h-4 rounded cursor-pointer accent-[#1877F2]"
+                                className="w-4 h-4 rounded cursor-pointer accent-[#0866FF]"
                               />
                             </td>
                             <td className="px-4 py-3 border" style={{ borderColor: FB.grayLight }}>
@@ -686,7 +696,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
             pct: catCount > 0 ? Math.round((d[catKey] / catCount) * 100) : 0,
           }));
 
-        const colors = ["#1877F2", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899", "#0EA5E9", "#10B981", "#6366F1"];
+        const colors = ["#0866FF", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899", "#0EA5E9", "#10B981", "#6366F1"];
 
         return (
           <div className="fixed inset-0 z-50 flex items-start justify-center pt-16" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
@@ -801,7 +811,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
                     {ICON_LIST.map(({ name, icon: Icon }) => (
                       <button key={name} onClick={() => setCatForm({ ...catForm, icon: name })}
                         className="w-7 h-7 flex items-center justify-center rounded-md border-2 transition-all hover:bg-[#F0F2F5]"
-                        style={{ borderColor: catForm.icon === name ? "#1877F2" : "transparent" }}
+                        style={{ borderColor: catForm.icon === name ? "#0866FF" : "transparent" }}
                         title={name}>
                         <Icon size={14} />
                       </button>
@@ -819,7 +829,7 @@ export const LeadAnalysisSection: React.FC<LeadAnalysisProps> = ({ onBack, onNav
               </div>
               <button onClick={handleSaveCategory}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-lg hover:brightness-110 transition-all"
-                style={{ backgroundColor: "#1877F2" }}>
+                style={{ backgroundColor: "#0866FF" }}>
                 <Save className="w-4 h-4" />
                 {editingCatId ? "Simpan" : "Tambah"}
               </button>

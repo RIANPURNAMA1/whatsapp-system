@@ -26,7 +26,7 @@ interface Props {
 }
 
 const COLORS = [
-  "#1877F2", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899",
+  "#0866FF", "#F5A623", "#E74C3C", "#8B5CF6", "#EC4899",
   "#0EA5E9", "#F59E0B", "#10B981", "#6366F1", "#EF4444",
 ];
 
@@ -67,7 +67,7 @@ const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) =>
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
+  const [form, setForm] = useState({ name: "", label: "", color: "#0866FF", icon: "BarChart3", keywords: "" });
 
   const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
@@ -91,7 +91,7 @@ const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) =>
   }, [open]);
 
   const resetForm = () => {
-    setForm({ name: "", label: "", color: "#1877F2", icon: "BarChart3", keywords: "" });
+    setForm({ name: "", label: "", color: "#0866FF", icon: "BarChart3", keywords: "" });
     setEditingId(null);
   };
 
@@ -194,7 +194,7 @@ const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) =>
                       key={name}
                       onClick={() => setForm({ ...form, icon: name })}
                       className="w-7 h-7 flex items-center justify-center rounded-md border-2 transition-all hover:bg-[#F0F2F5]"
-                      style={{ borderColor: form.icon === name ? "#1877F2" : "transparent" }}
+                      style={{ borderColor: form.icon === name ? "#0866FF" : "transparent" }}
                       title={name}
                     >
                       <Icon size={14} />
@@ -218,7 +218,7 @@ const CategoryManagementModal: React.FC<Props> = ({ open, onClose, onSaved }) =>
               <button
                 onClick={handleSave}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-lg hover:brightness-110 transition-all"
-                style={{ backgroundColor: "#1877F2" }}
+                style={{ backgroundColor: "#0866FF" }}
               >
                 <Save className="w-4 h-4" />
                 {editingId ? "Simpan" : "Tambah"}

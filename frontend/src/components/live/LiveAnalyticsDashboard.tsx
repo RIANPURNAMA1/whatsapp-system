@@ -53,7 +53,7 @@ function getDateRange(period: Period): { startDate?: string; endDate?: string } 
 }
 
 const FB = {
-  blue: "#1877F2",
+  blue: "#0866FF",
   blueLight: "#E7F3FF",
   green: "#31A24C",
   orange: "#F5A623",
@@ -272,7 +272,7 @@ const TikTokAnalyticsDashboard: React.FC<Props> = ({ onBack }) => {
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-xs mb-4" style={{ color: FB.gray }}>
-          <button onClick={() => navigate("/")} className="hover:underline font-medium" style={{ color: "#1877F2" }}>Dashboard</button>
+          <button onClick={() => navigate("/")} className="hover:underline font-medium" style={{ color: "#0866FF" }}>Dashboard</button>
           <span>/</span>
           <span className="font-semibold" style={{ color: "#050505" }}>Live Analytics</span>
         </div>

@@ -124,7 +124,7 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
         <div className="px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-              <MessageSquare size={18} style={{ color: "#1877F2" }} />
+              <MessageSquare size={18} style={{ color: "#0866FF" }} />
             </div>
             <div>
               <h2 className="text-[15px] font-bold" style={{ color: "#050505" }}>
@@ -159,7 +159,7 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
             onClick={() => setShowFilters(!showFilters)}
             className="p-2 rounded-lg transition-all"
             style={{
-              backgroundColor: showFilters ? "#1877F2" : "#F0F2F5",
+              backgroundColor: showFilters ? "#0866FF" : "#F0F2F5",
               color: showFilters ? "#FFFFFF" : "#65676B",
             }}
           >
@@ -228,7 +228,7 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
               <Button
                 onClick={() => { handleApplyFilter(); setShowFilters(false); }}
                 className="flex-1 text-white rounded-lg text-xs font-semibold border-0"
-                style={{ backgroundColor: "#1877F2" }}
+                style={{ backgroundColor: "#0866FF" }}
               >
                 Terapkan Filter
               </Button>
@@ -250,7 +250,7 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
-            <Loader2 className="animate-spin" size={22} style={{ color: "#1877F2" }} />
+            <Loader2 className="animate-spin" size={22} style={{ color: "#0866FF" }} />
             <p className="text-[11px] font-semibold uppercase" style={{ color: "#65676B" }}>Sinkronisasi Leads...</p>
           </div>
         ) : filteredLeads.length === 0 ? (
@@ -292,7 +292,7 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
                       <h3 className="text-[14px] font-semibold truncate leading-tight" style={{ color: "#050505" }}>
                         {lead.pushName || lead.remoteJid.split("@")[0]}
                       </h3>
-                      <span className="text-[11px] flex-shrink-0 ml-2" style={{ color: isSelected ? "#1877F2" : "#65676B" }}>
+                      <span className="text-[11px] flex-shrink-0 ml-2" style={{ color: isSelected ? "#0866FF" : "#65676B" }}>
                         {formatTime(lead.updatedAt)}
                       </span>
                     </div>
@@ -311,7 +311,7 @@ const LeadsChatList: React.FC<LeadsChatListProps> = ({
                         {lead.content}
                       </p>
                       <div className="opacity-0 group-hover:opacity-100 transition-all">
-                        <MessageSquare size={13} style={{ color: "#1877F2" }} />
+                        <MessageSquare size={13} style={{ color: "#0866FF" }} />
                       </div>
                     </div>
                   </div>

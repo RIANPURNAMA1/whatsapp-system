@@ -8,7 +8,7 @@ interface FormattedMessageProps {
 export const FormattedMessage: React.FC<FormattedMessageProps> = ({ text, isFromMe }) => {
   if (!text) return null;
 
-  const linkColor = isFromMe ? "#FFFFFF" : "#1877F2";
+  const linkColor = isFromMe ? "#FFFFFF" : "#0866FF";
   const codeBg = isFromMe ? "rgba(255,255,255,0.12)" : "#F0F2F5";
 
   const tokens: React.ReactNode[] = [];

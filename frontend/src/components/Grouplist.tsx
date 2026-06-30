@@ -118,7 +118,7 @@ const GroupList: React.FC<GroupListProps> = ({
       <div className="px-3 h-[52px] flex items-center justify-between border-b shrink-0" style={{ borderColor: "#E4E6EB" }}>
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-            <Users className="w-4 h-4" style={{ color: "#1877F2" }} />
+            <Users className="w-4 h-4" style={{ color: "#0866FF" }} />
           </div>
           <div>
             <p className="text-[14px] font-bold leading-tight" style={{ color: "#050505" }}>
@@ -136,7 +136,7 @@ const GroupList: React.FC<GroupListProps> = ({
           style={{ color: "#65676B" }}
           title="Perbarui daftar grup"
         >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} style={{ color: isRefreshing ? "#1877F2" : undefined }} />
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} style={{ color: isRefreshing ? "#0866FF" : undefined }} />
         </button>
       </div>
 
@@ -168,7 +168,7 @@ const GroupList: React.FC<GroupListProps> = ({
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-40 gap-3">
-            <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#1877F2" }} />
+            <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#0866FF" }} />
             <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#65676B" }}>
               Memuat Grup...
             </span>
@@ -229,7 +229,7 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
       onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = "transparent"; }}
     >
       {isSelected && (
-        <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm" style={{ backgroundColor: "#1877F2" }} />
+        <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm" style={{ backgroundColor: "#0866FF" }} />
       )}
 
       {/* Avatar grup */}
@@ -253,7 +253,7 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
         </div>
 
         {group.unread_count > 0 && (
-          <div className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1" style={{ backgroundColor: "#1877F2" }}>
+          <div className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1" style={{ backgroundColor: "#0866FF" }}>
             <span className="text-[10px] text-white font-bold">
               {group.unread_count > 99 ? "99+" : group.unread_count}
             </span>
@@ -273,7 +273,7 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
           <span
             className="text-[11px] flex-shrink-0 ml-1"
             style={{
-              color: group.unread_count > 0 ? "#1877F2" : "#65676B",
+              color: group.unread_count > 0 ? "#0866FF" : "#65676B",
               fontWeight: group.unread_count > 0 ? 600 : 400,
             }}
           >
@@ -283,7 +283,7 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
 
         <div className="flex items-center gap-1.5">
           {(group.participant_count ?? 0) > 0 && (
-            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0" style={{ backgroundColor: "#E7F3FF", color: "#1877F2" }}>
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0" style={{ backgroundColor: "#E7F3FF", color: "#0866FF" }}>
               <Users className="w-2.5 h-2.5" />
               {group.participant_count}
             </span>

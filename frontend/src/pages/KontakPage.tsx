@@ -84,7 +84,7 @@ const KontakPage: React.FC = () => {
       <div className="bg-white border-b border-[#E4E6EB] px-4 sm:px-6 py-4">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-[#E7F3FF]">
-            <Users size={18} className="text-[#1877F2]" />
+            <Users size={18} className="text-[#0866FF]" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-[#050505]">Kontak</h1>
@@ -105,7 +105,7 @@ const KontakPage: React.FC = () => {
               placeholder="Cari nama atau nomor..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-lg text-xs border border-[#CCD0D5] bg-[#F0F2F5] outline-none text-[#050505] focus:ring-2 focus:ring-[#1877F2] focus:bg-white transition-all"
+              className="w-full h-9 pl-9 pr-3 rounded-lg text-xs border border-[#CCD0D5] bg-[#F0F2F5] outline-none text-[#050505] focus:ring-2 focus:ring-[#0866FF] focus:bg-white transition-all"
             />
           </div>
 
@@ -142,7 +142,7 @@ const KontakPage: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="animate-spin w-7 h-7 text-[#1877F2]" />
+            <Loader2 className="animate-spin w-7 h-7 text-[#0866FF]" />
             <p className="text-xs text-[#65676B] mt-3">Memuat kontak...</p>
           </div>
         ) : error ? (
@@ -154,7 +154,7 @@ const KontakPage: React.FC = () => {
             <p className="text-xs text-[#8C939D] mt-1 max-w-xs text-center">{error}</p>
             <button
               onClick={fetchContacts}
-              className="mt-4 h-8 px-4 rounded-lg text-xs font-semibold bg-[#1877F2] text-white hover:bg-[#166FE5] transition-colors"
+              className="mt-4 h-8 px-4 rounded-lg text-xs font-semibold bg-[#0866FF] text-white hover:bg-[#166FE5] transition-colors"
             >
               Coba Lagi
             </button>
@@ -256,7 +256,7 @@ const KontakPage: React.FC = () => {
                         </td>
                         <td className="px-4 py-3 text-center">
                           {contact.is_business === 1 ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-[#E7F3FF] text-[#1877F2]">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-[#E7F3FF] text-[#0866FF]">
                               Business
                             </span>
                           ) : (
@@ -296,7 +296,7 @@ const KontakPage: React.FC = () => {
                         className="w-7 h-7 text-xs font-medium rounded-lg transition-all"
                         style={
                           p === page
-                            ? { backgroundColor: "#1877F2", color: "#fff" }
+                            ? { backgroundColor: "#0866FF", color: "#fff" }
                             : { color: "#65676B" }
                         }
                       >

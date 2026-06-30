@@ -49,7 +49,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
           {/* Human-First Mode */}
           <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
             <div className="flex items-center gap-3 mb-4">
-              <Clock className="text-[#1877F2]" size={20} />
+              <Clock className="text-[#0866FF]" size={20} />
               <label className="text-sm font-bold text-[#050505] uppercase tracking-wider">
                 Human-First Mode
               </label>
@@ -58,7 +58,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
             <div className="bg-[#F0F2F5] p-4 rounded-lg border border-[#E4E6EB]">
               <div className="flex justify-between mb-3">
                 <span className="text-xs text-[#65676B]">Tunggu Manusia Selama:</span>
-                <span className="text-[#1877F2] font-bold text-sm">
+                <span className="text-[#0866FF] font-bold text-sm">
                   {formData.human_wait_time || 0} Menit
                 </span>
               </div>
@@ -69,7 +69,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                 step="1"
                 value={formData.human_wait_time || 0}
                 onChange={(e) => onChange("human_wait_time", parseInt(e.target.value))}
-                className="w-full accent-[#1877F2] cursor-pointer"
+                className="w-full accent-[#0866FF] cursor-pointer"
               />
               <p className="text-[10px] text-[#65676B] mt-2 italic">
                 *AI akan menunggu X menit sebelum merespon chat baru.
@@ -98,7 +98,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                     max="60"
                     value={formData.min_delay || 5}
                     onChange={(e) => onChange("min_delay", Math.max(1, Number(e.target.value)))}
-                    className="w-full bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-center font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                    className="w-full bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-center font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                   />
                   <span className="text-[10px] text-[#65676B]">sec</span>
                 </div>
@@ -114,7 +114,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                     max="120"
                     value={formData.max_delay || 15}
                     onChange={(e) => onChange("max_delay", Math.max(1, Number(e.target.value)))}
-                    className="w-full bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-center font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                    className="w-full bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-center font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                   />
                   <span className="text-[10px] text-[#65676B]">sec</span>
                 </div>
@@ -140,7 +140,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                   type="button"
                   onClick={() => onChange("auto_read", formData.auto_read ? 0 : 1)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ${
-                    formData.auto_read ? "bg-[#1877F2]" : "bg-[#E4E6EB]"
+                    formData.auto_read ? "bg-[#0866FF]" : "bg-[#E4E6EB]"
                   }`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.auto_read ? "translate-x-6" : "translate-x-1"}`} />
@@ -161,7 +161,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                           onClick={() => onChange("auto_read_delay", sec)}
                           className={`px-2 py-1 text-[10px] rounded font-medium transition-all ${
                             formData.auto_read_delay === sec
-                              ? "bg-[#1877F2] text-white"
+                              ? "bg-[#0866FF] text-white"
                               : "bg-white border border-[#E4E6EB] text-[#65676B] hover:bg-[#F2F3F5]"
                           }`}
                         >
@@ -177,13 +177,13 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                       max="300"
                       value={formData.auto_read_delay || 0}
                       onChange={(e) => onChange("auto_read_delay", Math.max(0, Math.min(300, parseInt(e.target.value) || 0)))}
-                      className="flex-1 bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-center font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                      className="flex-1 bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-center font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                     />
                     <span className="text-sm text-[#65676B]">detik</span>
                   </div>
                 </div>
 
-                <div className="bg-[#E7F3FF] p-3 rounded-lg border border-[#1877F2]">
+                <div className="bg-[#E7F3FF] p-3 rounded-lg border border-[#0866FF]">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs text-[#65676B]">Delay Setelah Read:</label>
                     <div className="flex gap-1">
@@ -194,7 +194,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                           onClick={() => onChange("after_read_delay", sec)}
                           className={`px-2 py-1 text-[10px] rounded font-medium transition-all ${
                             formData.after_read_delay === sec
-                              ? "bg-[#1877F2] text-white"
+                              ? "bg-[#0866FF] text-white"
                               : "bg-white border border-[#E4E6EB] text-[#65676B] hover:bg-[#F2F3F5]"
                           }`}
                         >
@@ -210,11 +210,11 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                       max="60"
                       value={formData.after_read_delay || 3}
                       onChange={(e) => onChange("after_read_delay", Math.max(0, Math.min(60, parseInt(e.target.value) || 0)))}
-                      className="flex-1 bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-center font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                      className="flex-1 bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-center font-bold text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                     />
                     <span className="text-sm text-[#65676B]">detik</span>
                   </div>
-                  <p className="text-[10px] text-[#1877F2] mt-2 italic">
+                  <p className="text-[10px] text-[#0866FF] mt-2 italic">
                     Tunggu sebelum typing & balas
                   </p>
                 </div>
@@ -229,7 +229,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
           {/* Jadwal Aktif */}
           <div className="bg-white p-5 rounded-lg border border-[#E4E6EB]">
             <div className="flex items-center gap-3 mb-4">
-              <Calendar className="text-[#1877F2]" size={20} />
+              <Calendar className="text-[#0866FF]" size={20} />
               <label className="text-sm font-bold text-[#050505] uppercase tracking-wider">
                 Jadwal Aktif AI
               </label>
@@ -238,7 +238,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                   type="button"
                   onClick={() => onChange("schedule_enabled", formData.schedule_enabled ? 0 : 1)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ${
-                    formData.schedule_enabled ? "bg-[#1877F2]" : "bg-[#E4E6EB]"
+                    formData.schedule_enabled ? "bg-[#0866FF]" : "bg-[#E4E6EB]"
                   }`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.schedule_enabled ? "translate-x-6" : "translate-x-1"}`} />
@@ -248,8 +248,8 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
             
             {formData.schedule_enabled ? (
               <div className="space-y-4">
-                <div className="bg-[#E7F3FF] p-3 rounded-lg border border-[#1877F2]">
-                  <p className="text-[10px] text-[#1877F2] mb-2 font-medium">Jam Aktif:</p>
+                <div className="bg-[#E7F3FF] p-3 rounded-lg border border-[#0866FF]">
+                  <p className="text-[10px] text-[#0866FF] mb-2 font-medium">Jam Aktif:</p>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <Sun className="text-[#F5A623]" size={14} />
@@ -257,24 +257,24 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                         type="time"
                         value={formData.schedule_start_time || "08:00"}
                         onChange={(e) => onChange("schedule_start_time", e.target.value)}
-                        className="bg-white border border-[#CCD0D5] rounded-lg px-2 py-1.5 text-xs font-medium text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                        className="bg-white border border-[#CCD0D5] rounded-lg px-2 py-1.5 text-xs font-medium text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                       />
                     </div>
                     <span className="text-[#65676B] text-xs">-</span>
                     <div className="flex items-center gap-2">
-                      <Moon className="text-[#1877F2]" size={14} />
+                      <Moon className="text-[#0866FF]" size={14} />
                       <input
                         type="time"
                         value={formData.schedule_end_time || "17:00"}
                         onChange={(e) => onChange("schedule_end_time", e.target.value)}
-                        className="bg-white border border-[#CCD0D5] rounded-lg px-2 py-1.5 text-xs font-medium text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                        className="bg-white border border-[#CCD0D5] rounded-lg px-2 py-1.5 text-xs font-medium text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                       />
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-[10px] text-[#1877F2] mb-2 font-medium">Hari Aktif:</p>
+                  <p className="text-[10px] text-[#0866FF] mb-2 font-medium">Hari Aktif:</p>
                   <div className="flex gap-1.5 flex-wrap">
                     {DAYS.map((day) => {
                       const isSelected = formData.schedule_days
@@ -288,7 +288,7 @@ export const AntiBanSection: React.FC<Props> = ({ formData, onChange }) => {
                           onClick={() => toggleDay(day.id)}
                           className={`w-8 h-8 rounded-full text-[10px] font-bold transition-all ${
                             isSelected
-                              ? "bg-[#1877F2] text-white"
+                              ? "bg-[#0866FF] text-white"
                               : "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]"
                           }`}
                         >

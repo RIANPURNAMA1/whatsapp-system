@@ -69,7 +69,7 @@ const LabelsPage: React.FC = () => {
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-5">
         <div className="mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-[#1877F2]">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-[#0866FF]">
               <Tag className="w-5 h-5 text-white" />
             </div>
             <div>

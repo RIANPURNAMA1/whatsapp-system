@@ -100,8 +100,8 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
   };
 
   const bucketColors: Record<string, string> = {
-    "0-24 jam": "bg-[#1591DC] text-[#1877F2]",
-    "1-3 hari": "bg-[#E7F3FF] text-[#1877F2]",
+    "0-24 jam": "bg-[#1591DC] text-[#0866FF]",
+    "1-3 hari": "bg-[#E7F3FF] text-[#0866FF]",
     "3-7 hari": "bg-[#FFF8E7] text-[#F5A623]",
     "1-2 minggu": "bg-[#FFF8E7] text-[#F5A623]",
     "> 2 minggu": "bg-[#FFEBEE] text-red-500",
@@ -255,7 +255,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h1 className="text-lg font-bold text-[#050505] flex items-center gap-2">
-                <div className="w-7 h-7 bg-[#1877F2] rounded-lg flex items-center justify-center">
+                <div className="w-7 h-7 bg-[#0866FF] rounded-lg flex items-center justify-center">
                   <Timer className="w-4 h-4 text-white" />
                 </div>
                 Trafik Closing
@@ -274,7 +274,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
-                className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-3 py-2 text-xs text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-3 py-2 text-xs text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
               >
                 {PERIODS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -284,20 +284,20 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-3 py-2 text-xs text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                    className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-3 py-2 text-xs text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                   />
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-3 py-2 text-xs text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                    className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-3 py-2 text-xs text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                   />
                 </>
               )}
               <select
                 value={sessionId}
                 onChange={(e) => setSessionId(e.target.value)}
-                className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-3 py-2 text-xs text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                className="bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-3 py-2 text-xs text-[#050505] focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
               >
                 <option value="all">Semua Device</option>
                 {sessions.filter((s: any) => s.status === "connected").map((s: any) => (
@@ -307,7 +307,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
               <button
                 onClick={fetchData}
                 disabled={isLoading || (period === "Custom" && (!startDate || !endDate))}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all bg-[#1877F2] text-white hover:bg-[#166FE5] disabled:bg-[#E4E6EB] disabled:text-[#65676B] disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all bg-[#0866FF] text-white hover:bg-[#166FE5] disabled:bg-[#E4E6EB] disabled:text-[#65676B] disabled:cursor-not-allowed"
               >
                 {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Filter className="w-3.5 h-3.5" />}
                 {isLoading ? "Memuat..." : "Tampilkan"}
@@ -325,7 +325,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-xs mb-4" style={{ color: "#65676B" }}>
-          <button onClick={() => navigate("/")} className="hover:underline font-medium" style={{ color: "#1877F2" }}>Dashboard</button>
+          <button onClick={() => navigate("/")} className="hover:underline font-medium" style={{ color: "#0866FF" }}>Dashboard</button>
           <span>/</span>
           <span className="font-semibold" style={{ color: "#050505" }}>Trafik Closing</span>
         </div>
@@ -335,7 +335,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
           <div className="bg-white p-4 rounded-lg border border-[#E4E6EB]">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-7 h-7 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
-                <Users className="w-3.5 h-3.5 text-[#1877F2]" />
+                <Users className="w-3.5 h-3.5 text-[#0866FF]" />
               </div>
               <p className="text-xs text-[#65676B]">Total Closing</p>
             </div>
@@ -345,7 +345,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
           <div className="bg-white p-4 rounded-lg border border-[#E4E6EB]">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-7 h-7 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
-                <Clock className="w-3.5 h-3.5 text-[#1877F2]" />
+                <Clock className="w-3.5 h-3.5 text-[#0866FF]" />
               </div>
               <p className="text-xs text-[#65676B]">Rata-rata Waktu Closing</p>
             </div>
@@ -357,7 +357,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
           <div className="bg-white p-4 rounded-lg border border-[#E4E6EB]">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-7 h-7 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-3.5 h-3.5 text-[#1877F2]" />
+                <TrendingUp className="w-3.5 h-3.5 text-[#0866FF]" />
               </div>
               <p className="text-xs text-[#65676B]">Tercepat</p>
             </div>
@@ -371,7 +371,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
           <div className="bg-white p-4 rounded-lg border border-[#E4E6EB]">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-7 h-7 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-3.5 h-3.5 text-[#1877F2]" />
+                <BarChart3 className="w-3.5 h-3.5 text-[#0866FF]" />
               </div>
               <p className="text-xs text-[#65676B]">Terlama</p>
             </div>
@@ -386,7 +386,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
         {/* Trend Line Chart */}
         <div className="bg-white p-4 rounded-lg border border-[#E4E6EB] mb-4">
           <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-[#1877F2]" />
+            <TrendingUp className="w-4 h-4 text-[#0866FF]" />
             <h2 className="text-xs font-bold text-[#050505] uppercase tracking-wider">
               Tren Closing Per Hari
             </h2>
@@ -406,10 +406,10 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                     type="monotone"
                     dataKey="closing"
                     name="Closing"
-                    stroke="#1877F2"
+                    stroke="#0866FF"
                     strokeWidth={2}
-                    dot={{ r: 4, fill: "#1877F2", strokeWidth: 0 }}
-                    activeDot={{ r: 6, fill: "#1877F2" }}
+                    dot={{ r: 4, fill: "#0866FF", strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: "#0866FF" }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -425,7 +425,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
         {summary.totalDevice && summary.totalDevice.length > 0 && (
           <div className="bg-white p-4 rounded-lg border border-[#E4E6EB] mb-4">
             <div className="flex items-center gap-2 mb-3">
-              <MessageSquare className="w-4 h-4 text-[#1877F2]" />
+              <MessageSquare className="w-4 h-4 text-[#0866FF]" />
               <h2 className="text-xs font-bold text-[#050505] uppercase tracking-wider">
                 Per Device
               </h2>
@@ -445,7 +445,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
         {/* Distribution Bucket */}
         <div className="bg-white p-4 rounded-lg border border-[#E4E6EB] mb-4">
           <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="w-4 h-4 text-[#1877F2]" />
+            <BarChart3 className="w-4 h-4 text-[#0866FF]" />
             <h2 className="text-xs font-bold text-[#050505] uppercase tracking-wider">
               Distribusi Waktu Closing
             </h2>
@@ -463,7 +463,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                   </div>
                   <div className="w-full bg-[#E4E6EB] rounded-full h-2">
                     <div
-                      className={`h-2 rounded-full transition-all ${count > 0 ? bucketColors[b]?.split(' ')[0] || 'bg-[#1877F2]' : ''}`}
+                      className={`h-2 rounded-full transition-all ${count > 0 ? bucketColors[b]?.split(' ')[0] || 'bg-[#0866FF]' : ''}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -477,11 +477,11 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
         <div className="bg-white rounded-lg border border-[#E4E6EB] overflow-hidden">
           <div className="px-4 py-3 border-b border-[#E4E6EB] bg-[#F0F2F5]">
             <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-[#1877F2]" />
+              <BarChart3 className="w-4 h-4 text-[#0866FF]" />
               <h2 className="text-xs font-bold text-[#050505] uppercase tracking-wider">
                 Detail Trafik Closing
               </h2>
-              <span className="text-xs font-semibold bg-[#E7F3FF] text-[#1877F2] px-2.5 py-0.5 rounded-full ml-auto">
+              <span className="text-xs font-semibold bg-[#E7F3FF] text-[#0866FF] px-2.5 py-0.5 rounded-full ml-auto">
                 {data.length} data
               </span>
             </div>
@@ -521,10 +521,10 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                           onClick={() => handleOpenChat(d.chat_jid, d.session_id, d.contactName)}>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-[#1877F2] rounded-full flex items-center justify-center text-white text-2xs font-bold shrink-0">
+                            <div className="w-6 h-6 bg-[#0866FF] rounded-full flex items-center justify-center text-white text-2xs font-bold shrink-0">
                               {d.contactName?.charAt(0)?.toUpperCase() || "?"}
                             </div>
-                            <p className="font-semibold text-[#050505] truncate max-w-[160px] hover:text-[#1877F2] transition-colors">
+                            <p className="font-semibold text-[#050505] truncate max-w-[160px] hover:text-[#0866FF] transition-colors">
                               {d.contactName}
                             </p>
                           </div>
@@ -569,7 +569,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                     key={p}
                     onClick={() => setPage(p)}
                     className="w-7 h-7 text-xs font-medium rounded-lg transition-all"
-                    style={p === page ? { backgroundColor: "#1877F2", color: "#fff" } : { color: "#65676B" }}
+                    style={p === page ? { backgroundColor: "#0866FF", color: "#fff" } : { color: "#65676B" }}
                   >{p}</button>
                 ))}
                 <button
@@ -589,7 +589,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto mx-4">
             <div className="sticky top-0 bg-white border-b border-[#E4E6EB] px-6 py-4 flex items-center justify-between z-10">
               <div className="flex items-center gap-3">
-                <KeyRound className="w-5 h-5 text-[#1877F2]" />
+                <KeyRound className="w-5 h-5 text-[#0866FF]" />
                 <h2 className="text-lg font-bold text-[#050505]">Atur Kata Kunci Closing</h2>
               </div>
               <button
@@ -609,7 +609,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                     <select
                       value={newKwSession}
                       onChange={e => setNewKwSession(e.target.value)}
-                      className="w-full bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                      className="w-full bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                     >
                       <option value="">Pilih device...</option>
                       {sessions.filter((s: any) => s.status === "connected").map((s: any) => (
@@ -623,12 +623,12 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                       value={newKwText}
                       onChange={e => setNewKwText(e.target.value)}
                       placeholder="Baik ka terimakasih atas konfirmasinya saya bantu proses dulu"
-                      className="w-full bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                      className="w-full bg-white border border-[#CCD0D5] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                     />
                   </div>
                   <button
                     onClick={handleAddKeyword}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-[#1877F2] text-white hover:bg-[#166FE5]"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-[#0866FF] text-white hover:bg-[#166FE5]"
                   >
                     <Plus className="w-4 h-4" /> Tambah
                   </button>
@@ -655,7 +655,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                             <select
                               value={editKwSession}
                               onChange={e => setEditKwSession(e.target.value)}
-                              className="w-full bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                              className="w-full bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                             >
                               {sessions.filter((s: any) => s.status === "connected").map((s: any) => (
                                 <option key={s.id} value={s.id}>{s.name}</option>
@@ -666,10 +666,10 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                             <input
                               value={editKwText}
                               onChange={e => setEditKwText(e.target.value)}
-                              className="w-full bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1877F2]"
+                              className="w-full bg-[#F0F2F5] border border-[#CCD0D5] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0866FF]"
                             />
                           </div>
-                          <button onClick={handleUpdateKeyword} className="p-1.5 rounded bg-[#1877F2] text-white hover:bg-[#166FE5]">
+                          <button onClick={handleUpdateKeyword} className="p-1.5 rounded bg-[#0866FF] text-white hover:bg-[#166FE5]">
                             <Save className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => setEditKwId(null)} className="p-1.5 rounded bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]">
@@ -678,7 +678,7 @@ export const TrafficClosingSection: React.FC<TrafficClosingProps> = ({ onBack, o
                         </>
                       ) : (
                         <>
-                          <Smartphone className="w-4 h-4 text-[#1877F2] shrink-0" />
+                          <Smartphone className="w-4 h-4 text-[#0866FF] shrink-0" />
                           <div className="flex-1 min-w-0">
                             <span className="text-sm font-semibold text-[#050505]">{getSessionName(kw.session_id)}</span>
                             <span className="text-xs text-[#65676B] ml-2 break-words">{kw.keyword_text}</span>

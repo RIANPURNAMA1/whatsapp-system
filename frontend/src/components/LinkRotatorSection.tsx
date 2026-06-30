@@ -303,7 +303,7 @@ export const LinkRotatorSection: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-              <LinkIcon className="w-5 h-5" style={{ color: "#1877F2" }} />
+              <LinkIcon className="w-5 h-5" style={{ color: "#0866FF" }} />
             </div>
             <div>
               <h1 className="text-xl font-bold" style={{ color: "#050505" }}>Link Rotator</h1>
@@ -322,7 +322,7 @@ export const LinkRotatorSection: React.FC = () => {
               />
             </div>
             <Button onClick={() => { resetForm(); setIsFormOpen(true); }}
-              className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#1877F2" }}>
+              className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#0866FF" }}>
               <Plus className="w-4 h-4" />
               Tambah Link
             </Button>
@@ -334,7 +334,7 @@ export const LinkRotatorSection: React.FC = () => {
           <div className="bg-white rounded-lg border p-4" style={{ borderColor: "#E4E6EB" }}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <LinkIcon className="w-5 h-5" style={{ color: "#1877F2" }} />
+                <LinkIcon className="w-5 h-5" style={{ color: "#0866FF" }} />
               </div>
               <div>
                 <p className="text-xl font-bold" style={{ color: "#050505" }}>{safeRotators.length}</p>
@@ -345,7 +345,7 @@ export const LinkRotatorSection: React.FC = () => {
           <div className="bg-white rounded-lg border p-4" style={{ borderColor: "#E4E6EB" }}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <MousePointerClick className="w-5 h-5" style={{ color: "#1877F2" }} />
+                <MousePointerClick className="w-5 h-5" style={{ color: "#0866FF" }} />
               </div>
               <div>
                 <p className="text-xl font-bold" style={{ color: "#050505" }}>{totalClicks}</p>
@@ -362,7 +362,7 @@ export const LinkRotatorSection: React.FC = () => {
               <div key={key} className="bg-white rounded-lg border p-4" style={{ borderColor: "#E4E6EB" }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                    <MousePointerClick className="w-5 h-5" style={{ color: "#1877F2" }} />
+                    <MousePointerClick className="w-5 h-5" style={{ color: "#0866FF" }} />
                   </div>
                   <div>
                     <p className="text-xl font-bold" style={{ color: "#050505" }}>{count}</p>
@@ -394,7 +394,7 @@ export const LinkRotatorSection: React.FC = () => {
                       className="px-3 py-1 rounded-md text-[11px] font-medium transition-colors"
                       style={{
                         backgroundColor: period === p.value ? "#FFFFFF" : "transparent",
-                        color: period === p.value ? "#1877F2" : "#65676B",
+                        color: period === p.value ? "#0866FF" : "#65676B",
                         boxShadow: period === p.value ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
                       }}>
                       {p.label}
@@ -410,7 +410,7 @@ export const LinkRotatorSection: React.FC = () => {
         {/* LIST */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="w-8 h-8 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#1877F2" }} />
+            <div className="w-8 h-8 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#0866FF" }} />
             <p className="text-[13px]" style={{ color: "#65676B" }}>Memuat data...</p>
           </div>
         ) : filteredData.length === 0 ? (
@@ -421,7 +421,7 @@ export const LinkRotatorSection: React.FC = () => {
             <h3 className="text-[16px] font-bold mb-1" style={{ color: "#050505" }}>Belum ada link rotator</h3>
             <p className="text-[13px] mb-4" style={{ color: "#65676B" }}>Tambahkan link rotator baru untuk memulai</p>
             <Button onClick={() => { resetForm(); setIsFormOpen(true); }}
-              className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#1877F2" }}>
+              className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#0866FF" }}>
               <Plus className="w-4 h-4" /> Tambah Link
             </Button>
           </div>
@@ -436,7 +436,7 @@ export const LinkRotatorSection: React.FC = () => {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#E7F3FF" }}>
-                        <MousePointerClick size={18} style={{ color: "#1877F2" }} />
+                        <MousePointerClick size={18} style={{ color: "#0866FF" }} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -444,12 +444,12 @@ export const LinkRotatorSection: React.FC = () => {
                           <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md"
                             style={{
                               backgroundColor: item.type === 'direct' ? '#E7F3FF' : '#E7F3FF',
-                              color: item.type === 'direct' ? '#1877F2' : '#31A24C',
+                              color: item.type === 'direct' ? '#0866FF' : '#31A24C',
                             }}>
                             {item.type === 'direct' ? 'Direct' : 'Lander'}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[12px] font-medium mt-0.5 max-w-full" style={{ color: "#1877F2" }}>
+                        <div className="flex items-center gap-1.5 text-[12px] font-medium mt-0.5 max-w-full" style={{ color: "#0866FF" }}>
                           <span className="font-mono opacity-70 truncate min-w-0">{displayLink}</span>
                           <button className="hover:opacity-100 active:scale-90 transition-transform" onClick={() => {
                             navigator.clipboard.writeText(displayLink);
@@ -494,7 +494,7 @@ export const LinkRotatorSection: React.FC = () => {
                             <span className="truncate" style={{ color: "#65676B" }}>{label}</span>
                             <span className="font-bold" style={{ color: "#050505" }}>{count}</span>
                             <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#E4E6EB" }}>
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: "#1877F2" }} />
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: "#0866FF" }} />
                             </div>
                           </div>
                         );
@@ -514,7 +514,7 @@ export const LinkRotatorSection: React.FC = () => {
           <DialogHeader>
             <div className="flex items-center gap-2.5 mb-1">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <LinkIcon className="w-4 h-4" style={{ color: "#1877F2" }} />
+                <LinkIcon className="w-4 h-4" style={{ color: "#0866FF" }} />
               </div>
               <DialogTitle className="text-[16px] font-bold" style={{ color: "#050505" }}>
                 {editingId ? "Edit Link Rotator" : "Tambah Link Rotator"}
@@ -583,7 +583,7 @@ export const LinkRotatorSection: React.FC = () => {
                 </div>
               ))}
               {formData.targetType === "rotator" && (
-                <button type="button" onClick={addWaField} className="flex items-center gap-1.5 text-[12px] font-semibold hover:underline" style={{ color: "#1877F2" }}>
+                <button type="button" onClick={addWaField} className="flex items-center gap-1.5 text-[12px] font-semibold hover:underline" style={{ color: "#0866FF" }}>
                   <Plus size={14} /> Tambah Nomor Baru
                 </button>
               )}
@@ -599,13 +599,13 @@ export const LinkRotatorSection: React.FC = () => {
 
             {formData.type === "lander" && (
               <div className="space-y-3 p-3 rounded-lg" style={{ backgroundColor: "#E7F3FF" }}>
-                <p className="text-[13px] font-bold" style={{ color: "#1877F2" }}>Pengaturan Tombol Lander</p>
+                <p className="text-[13px] font-bold" style={{ color: "#0866FF" }}>Pengaturan Tombol Lander</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(["button1", "button2"] as const).map((btn, i) => {
                     const cfg = landerConfig[btn];
                     return (
                       <div key={btn} className="space-y-1.5 p-3 rounded-lg bg-white">
-                        <p className="text-[11px] font-bold" style={{ color: "#1877F2" }}>Tombol {i + 1}</p>
+                        <p className="text-[11px] font-bold" style={{ color: "#0866FF" }}>Tombol {i + 1}</p>
                         <Input value={cfg.label} onChange={(e) => updateLanderBtn(btn, "label", e.target.value)}
                           placeholder="Label" className="h-8 text-[11px] border-0 rounded-md" style={{ backgroundColor: "#F0F2F5" }} />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -633,7 +633,7 @@ export const LinkRotatorSection: React.FC = () => {
                 Batal
               </Button>
               <Button type="submit" disabled={submitting}
-                className="h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#1877F2" }}>
+                className="h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#0866FF" }}>
                 {submitting ? "Memproses..." : editingId ? "Update" : "Buat Link"}
               </Button>
             </DialogFooter>
@@ -649,7 +649,7 @@ export const LinkRotatorSection: React.FC = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-[16px] font-bold" style={{ color: "#050505" }}>{viewingDetail.name}</h2>
-                  <p className="text-[12px] font-mono font-medium" style={{ color: "#1877F2" }}>/r/{viewingDetail.short_code}</p>
+                  <p className="text-[12px] font-mono font-medium" style={{ color: "#0866FF" }}>/r/{viewingDetail.short_code}</p>
                 </div>
                 <button onClick={() => setViewingDetail(null)} className="p-1.5 rounded-lg hover:bg-[#F2F3F5]" style={{ color: "#65676B" }}>
                   <X size={20} />
@@ -661,7 +661,7 @@ export const LinkRotatorSection: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-4 rounded-lg" style={{ backgroundColor: "#F0F2F5" }}>
                   <p className="text-[9px] font-bold uppercase" style={{ color: "#65676B" }}>Total Klik</p>
-                  <p className="text-2xl font-bold" style={{ color: "#1877F2" }}>{clickLogsTotal}</p>
+                  <p className="text-2xl font-bold" style={{ color: "#0866FF" }}>{clickLogsTotal}</p>
                 </div>
                 <div className="p-4 rounded-lg" style={{ backgroundColor: "#F0F2F5" }}>
                   <p className="text-[9px] font-bold uppercase" style={{ color: "#65676B" }}>Periode</p>
@@ -686,7 +686,7 @@ export const LinkRotatorSection: React.FC = () => {
                             <span style={{ color: "#65676B" }}>{count} ({pct}%)</span>
                           </div>
                           <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#E4E6EB" }}>
-                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: "#1877F2" }} />
+                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: "#0866FF" }} />
                           </div>
                         </div>
                       );
@@ -704,7 +704,7 @@ export const LinkRotatorSection: React.FC = () => {
                       return waNumbers.map((wa: any, idx: number) => (
                         <div key={idx} className="flex justify-between items-center text-[12px] py-1.5 border-b last:border-0" style={{ borderColor: "#E4E6EB" }}>
                           <span className="font-medium" style={{ color: "#050505" }}>{wa.number}</span>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#E7F3FF", color: "#1877F2" }}>W: {wa.weight || 1}</span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#E7F3FF", color: "#0866FF" }}>W: {wa.weight || 1}</span>
                         </div>
                       ));
                     } catch {
@@ -722,7 +722,7 @@ export const LinkRotatorSection: React.FC = () => {
 
                 {clickLogsLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#1877F2" }} />
+                    <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#0866FF" }} />
                   </div>
                 ) : clickLogs.length === 0 ? (
                   <p className="text-[13px] text-center py-4" style={{ color: "#65676B" }}>Belum ada kunjungan</p>
@@ -735,7 +735,7 @@ export const LinkRotatorSection: React.FC = () => {
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-[11px] font-mono" style={{ color: "#65676B" }}>{log.ip_address}</span>
                               {log.source && (
-                                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "#E7F3FF", color: "#1877F2" }}>{log.source}</span>
+                                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "#E7F3FF", color: "#0866FF" }}>{log.source}</span>
                               )}
                             </div>
                             <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: "#65676B" }}>

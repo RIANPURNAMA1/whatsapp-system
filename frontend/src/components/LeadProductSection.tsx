@@ -217,7 +217,7 @@ export const LeadProductSection: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-              <Package className="w-5 h-5" style={{ color: "#1877F2" }} />
+              <Package className="w-5 h-5" style={{ color: "#0866FF" }} />
             </div>
             <div>
               <h1 className="text-xl font-bold" style={{ color: "#050505" }}>Leads Product</h1>
@@ -236,7 +236,7 @@ export const LeadProductSection: React.FC = () => {
               />
             </div>
             <Button onClick={() => { resetForm(); setIsFormOpen(true); }}
-              className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#1877F2" }}>
+              className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#0866FF" }}>
               <Plus className="w-4 h-4" />
               Tambah Produk
             </Button>
@@ -247,7 +247,7 @@ export const LeadProductSection: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           <div className="bg-white rounded-lg border p-4" style={{ borderColor: "#E4E6EB" }}>
             <div className="flex items-center gap-2 mb-1">
-              <Package size={16} style={{ color: "#1877F2" }} />
+              <Package size={16} style={{ color: "#0866FF" }} />
               <span className="text-[11px] font-semibold" style={{ color: "#65676B" }}>Total Produk</span>
             </div>
             <p className="text-[24px] font-bold" style={{ color: "#050505" }}>{totalProducts}</p>
@@ -283,7 +283,7 @@ export const LeadProductSection: React.FC = () => {
               className="px-4 py-1.5 rounded-md text-[12px] font-semibold transition-colors"
               style={{
                 backgroundColor: activeTab === "products" ? "#FFFFFF" : "transparent",
-                color: activeTab === "products" ? "#1877F2" : "#65676B",
+                color: activeTab === "products" ? "#0866FF" : "#65676B",
                 boxShadow: activeTab === "products" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
               }}
             >
@@ -294,7 +294,7 @@ export const LeadProductSection: React.FC = () => {
               className="px-4 py-1.5 rounded-md text-[12px] font-semibold transition-colors"
               style={{
                 backgroundColor: activeTab === "assignments" ? "#FFFFFF" : "transparent",
-                color: activeTab === "assignments" ? "#1877F2" : "#65676B",
+                color: activeTab === "assignments" ? "#0866FF" : "#65676B",
                 boxShadow: activeTab === "assignments" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
               }}
             >
@@ -313,9 +313,9 @@ export const LeadProductSection: React.FC = () => {
                 }}
                 className="px-3 py-1.5 rounded-md text-[11px] font-semibold transition-colors border"
                 style={{
-                  backgroundColor: dateFilter === key ? "#1877F2" : "#FFFFFF",
+                  backgroundColor: dateFilter === key ? "#0866FF" : "#FFFFFF",
                   color: dateFilter === key ? "#FFFFFF" : "#65676B",
-                  borderColor: dateFilter === key ? "#1877F2" : "#CCD0D5",
+                  borderColor: dateFilter === key ? "#0866FF" : "#CCD0D5",
                 }}
               >
                 {key === "hari_ini" ? "Hari Ini" : key === "kemarin" ? "Kemarin" : key === "minggu_ini" ? "Minggu Ini" : "Bulan Ini"}
@@ -331,9 +331,9 @@ export const LeadProductSection: React.FC = () => {
               }}
               className="px-3 py-1.5 rounded-md text-[11px] font-semibold transition-colors border"
               style={{
-                backgroundColor: dateFilter === "custom" ? "#1877F2" : "#FFFFFF",
+                backgroundColor: dateFilter === "custom" ? "#0866FF" : "#FFFFFF",
                 color: dateFilter === "custom" ? "#FFFFFF" : "#65676B",
-                borderColor: dateFilter === "custom" ? "#1877F2" : "#CCD0D5",
+                borderColor: dateFilter === "custom" ? "#0866FF" : "#CCD0D5",
               }}
             >
               Custom
@@ -363,7 +363,7 @@ export const LeadProductSection: React.FC = () => {
         {activeTab === "products" ? (
           loading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <div className="w-8 h-8 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#1877F2" }} />
+              <div className="w-8 h-8 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#0866FF" }} />
               <p className="text-[13px]" style={{ color: "#65676B" }}>Memuat data...</p>
             </div>
           ) : filteredProducts.length === 0 ? (
@@ -376,7 +376,7 @@ export const LeadProductSection: React.FC = () => {
                 Tambahkan produk dengan template teks untuk deteksi otomatis
               </p>
               <Button onClick={() => { resetForm(); setIsFormOpen(true); }}
-                className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#1877F2" }}>
+                className="h-[34px] text-[12px] font-semibold gap-1.5 border-0" style={{ backgroundColor: "#0866FF" }}>
                 <Plus className="w-4 h-4" /> Tambah Produk
               </Button>
             </div>
@@ -387,12 +387,12 @@ export const LeadProductSection: React.FC = () => {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#E7F3FF" }}>
-                        <Package size={18} style={{ color: "#1877F2" }} />
+                        <Package size={18} style={{ color: "#0866FF" }} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold text-[15px]" style={{ color: "#050505" }}>{item.name}</p>
-                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#E7F3FF", color: "#1877F2" }}>
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#E7F3FF", color: "#0866FF" }}>
                             {statsMap[item.id] || 0} leads
                           </span>
                           {item.session_name && (
@@ -430,7 +430,7 @@ export const LeadProductSection: React.FC = () => {
         ) : (
           loading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <div className="w-8 h-8 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#1877F2" }} />
+              <div className="w-8 h-8 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#0866FF" }} />
               <p className="text-[13px]" style={{ color: "#65676B" }}>Memuat data...</p>
             </div>
           ) : filteredAssignments.length === 0 ? (
@@ -467,7 +467,7 @@ export const LeadProductSection: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-semibold px-2 py-0.5 rounded-md text-[11px]" style={{ backgroundColor: "#E7F3FF", color: "#1877F2" }}>
+                          <span className="font-semibold px-2 py-0.5 rounded-md text-[11px]" style={{ backgroundColor: "#E7F3FF", color: "#0866FF" }}>
                             {item.product_name}
                           </span>
                         </td>
@@ -510,7 +510,7 @@ export const LeadProductSection: React.FC = () => {
           <DialogHeader>
             <div className="flex items-center gap-2.5 mb-1">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-                <Package className="w-4 h-4" style={{ color: "#1877F2" }} />
+                <Package className="w-4 h-4" style={{ color: "#0866FF" }} />
               </div>
               <DialogTitle className="text-[16px] font-bold" style={{ color: "#050505" }}>
                 {editingId ? "Edit Produk" : "Tambah Produk"}
@@ -575,7 +575,7 @@ export const LeadProductSection: React.FC = () => {
                 Batal
               </Button>
               <Button type="submit" disabled={submitting}
-                className="h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#1877F2" }}>
+                className="h-9 text-[12px] font-semibold border-0 rounded-lg" style={{ backgroundColor: "#0866FF" }}>
                 {submitting ? "Memproses..." : editingId ? "Update" : "Simpan Produk"}
               </Button>
             </DialogFooter>

@@ -277,13 +277,13 @@ const GroupChatWindow: React.FC<GroupChatWindowProps> = ({ sessionId, group }) =
         >
           {isLoadingMore && (
             <div className="flex justify-center py-3">
-              <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#1877F2" }} />
+              <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#0866FF" }} />
             </div>
           )}
 
           {isLoading ? (
             <div className="flex items-center justify-center h-full gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#1877F2" }} />
+              <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#0866FF" }} />
               <span className="text-[13px]" style={{ color: "#65676B" }}>Memuat pesan grup...</span>
             </div>
           ) : messages.length === 0 ? (
@@ -325,7 +325,7 @@ const GroupChatWindow: React.FC<GroupChatWindowProps> = ({ sessionId, group }) =
                           isFromMe ? "rounded-2xl rounded-br-sm" : "rounded-2xl rounded-bl-sm"
                         } px-4 py-2.5`}
                         style={{
-                          backgroundColor: isFromMe ? "#1877F2" : "#FFFFFF",
+                          backgroundColor: isFromMe ? "#0866FF" : "#FFFFFF",
                           boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
                         }}
                       >
@@ -337,10 +337,10 @@ const GroupChatWindow: React.FC<GroupChatWindowProps> = ({ sessionId, group }) =
 
                         {msg.quoted_content && (
                           <div className="mb-1.5 pl-2 border-l-2 rounded-r py-1 pr-2" style={{
-                            borderColor: isFromMe ? "rgba(255,255,255,0.5)" : "#1877F2",
+                            borderColor: isFromMe ? "rgba(255,255,255,0.5)" : "#0866FF",
                             backgroundColor: isFromMe ? "rgba(255,255,255,0.1)" : "#F0F2F5",
                           }}>
-                            <p className="text-[11px] font-medium" style={{ color: isFromMe ? "rgba(255,255,255,0.8)" : "#1877F2" }}>Dikutip</p>
+                            <p className="text-[11px] font-medium" style={{ color: isFromMe ? "rgba(255,255,255,0.8)" : "#0866FF" }}>Dikutip</p>
                             <p className="text-[11px] truncate" style={{ color: isFromMe ? "rgba(255,255,255,0.6)" : "#65676B" }}>{msg.quoted_content}</p>
                           </div>
                         )}
@@ -381,9 +381,9 @@ const GroupChatWindow: React.FC<GroupChatWindowProps> = ({ sessionId, group }) =
 
         {replyTo && (
           <div className="bg-white px-3 py-2 flex items-center gap-2.5 border-t shrink-0" style={{ borderColor: "#E4E6EB" }}>
-            <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: "#1877F2" }} />
+            <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: "#0866FF" }} />
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold" style={{ color: "#1877F2" }}>
+              <p className="text-[11px] font-semibold" style={{ color: "#0866FF" }}>
                 {replyTo.is_from_me ? "Anda" : replyTo.sender_name || replyTo.from_jid?.split("@")[0]}
               </p>
               <p className="text-[11px] truncate" style={{ color: "#65676B" }}>
@@ -450,7 +450,7 @@ const GroupChatWindow: React.FC<GroupChatWindowProps> = ({ sessionId, group }) =
             <div>
               <p className="text-[9px] font-semibold uppercase mb-2 px-1" style={{ color: "#65676B" }}>Anggota Grup</p>
               {isLoadingParticipants ? (
-                <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "#1877F2" }} /></div>
+                <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "#0866FF" }} /></div>
               ) : participants.length === 0 ? (
                 <p className="text-[12px] text-center py-4" style={{ color: "#65676B" }}>Data anggota belum tersedia</p>
               ) : (
@@ -485,7 +485,7 @@ const ParticipantItem: React.FC<{ participant: GroupParticipant }> = ({ particip
       {participant.role !== "member" && (
         <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md font-semibold shrink-0" style={{
           backgroundColor: participant.role === "superadmin" ? "#FFF3E0" : "#E7F3FF",
-          color: participant.role === "superadmin" ? "#F5A623" : "#1877F2",
+          color: participant.role === "superadmin" ? "#F5A623" : "#0866FF",
         }}>
           {participant.role === "superadmin" ? <Crown className="w-2.5 h-2.5" /> : <ShieldCheck className="w-2.5 h-2.5" />}
           {participant.role === "superadmin" ? "Owner" : "Admin"}

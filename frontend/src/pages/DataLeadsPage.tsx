@@ -209,7 +209,7 @@ const DataLeadsPage: React.FC = () => {
     const map: Record<string, { bg: string; text: string }> = {
       tiktok: { bg: "#FEF2F2", text: "#DC2626" },
       instagram: { bg: "#FDF2F8", text: "#BE185D" },
-      facebook: { bg: "#E7F3FF", text: "#1877F2" },
+      facebook: { bg: "#E7F3FF", text: "#0866FF" },
       whatsapp: { bg: "#ECFDF3", text: "#067647" },
       organik: { bg: "#F0F2F5", text: "#65676B" },
     };
@@ -220,7 +220,7 @@ const DataLeadsPage: React.FC = () => {
     <div className="p-3 sm:p-4 md:p-6 space-y-4 w-full">
       {/* Page Header */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1877F2] to-[#0C5DC7] flex items-center justify-center shrink-0 shadow-sm">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0866FF] to-[#0C5DC7] flex items-center justify-center shrink-0 shadow-sm">
           <Database size={18} className="text-white" />
         </div>
         <div>
@@ -235,7 +235,7 @@ const DataLeadsPage: React.FC = () => {
           onClick={() => setShowFilters(!showFilters)}
           className={`h-9 px-4 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
             showFilters
-              ? "bg-[#1877F2] text-white shadow-sm"
+              ? "bg-[#0866FF] text-white shadow-sm"
               : "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]"
           }`}
         >
@@ -263,7 +263,7 @@ const DataLeadsPage: React.FC = () => {
               <select
                 value={selectedDevice}
                 onChange={(e) => setSelectedDevice(e.target.value)}
-                className="w-full h-9 px-3 border border-[#CCD0D5] rounded-lg text-xs font-medium outline-none bg-white text-[#050505] focus:ring-2 focus:ring-[#1877F2]/20 focus:border-[#1877F2] transition-all"
+                className="w-full h-9 px-3 border border-[#CCD0D5] rounded-lg text-xs font-medium outline-none bg-white text-[#050505] focus:ring-2 focus:ring-[#0866FF]/20 focus:border-[#0866FF] transition-all"
               >
                 <option value="all">Semua Perangkat</option>
                 {sessions.map((s) => (
@@ -278,7 +278,7 @@ const DataLeadsPage: React.FC = () => {
               <select
                 value={socialFilter}
                 onChange={(e) => setSocialFilter(e.target.value)}
-                className="w-full h-9 px-3 border border-[#CCD0D5] rounded-lg text-xs font-medium outline-none bg-white text-[#050505] focus:ring-2 focus:ring-[#1877F2]/20 focus:border-[#1877F2] transition-all"
+                className="w-full h-9 px-3 border border-[#CCD0D5] rounded-lg text-xs font-medium outline-none bg-white text-[#050505] focus:ring-2 focus:ring-[#0866FF]/20 focus:border-[#0866FF] transition-all"
               >
                 <option value="all">Semua Sumber</option>
                 {availablePlatforms.map((p) => (
@@ -304,7 +304,7 @@ const DataLeadsPage: React.FC = () => {
                     onClick={() => applyDatePreset(key)}
                     className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-all flex items-center gap-1 ${
                       datePreset === key
-                        ? "bg-[#1877F2] text-white shadow-sm"
+                        ? "bg-[#0866FF] text-white shadow-sm"
                         : "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]"
                     }`}
                   >
@@ -321,7 +321,7 @@ const DataLeadsPage: React.FC = () => {
                     onChange={(e) =>
                       setTempDateRange({ ...tempDateRange, start: e.target.value })
                     }
-                    className="flex-1 h-9 px-3 border border-[#CCD0D5] rounded-lg text-xs outline-none bg-white text-[#050505] focus:ring-2 focus:ring-[#1877F2]/20 focus:border-[#1877F2] transition-all"
+                    className="flex-1 h-9 px-3 border border-[#CCD0D5] rounded-lg text-xs outline-none bg-white text-[#050505] focus:ring-2 focus:ring-[#0866FF]/20 focus:border-[#0866FF] transition-all"
                   />
                   <span className="text-[#BCC0C4] text-xs shrink-0">—</span>
                   <input
@@ -330,7 +330,7 @@ const DataLeadsPage: React.FC = () => {
                     onChange={(e) =>
                       setTempDateRange({ ...tempDateRange, end: e.target.value })
                     }
-                    className="flex-1 h-9 px-3 border border-[#CCD0D5] rounded-lg text-xs outline-none bg-white text-[#050505] focus:ring-2 focus:ring-[#1877F2]/20 focus:border-[#1877F2] transition-all"
+                    className="flex-1 h-9 px-3 border border-[#CCD0D5] rounded-lg text-xs outline-none bg-white text-[#050505] focus:ring-2 focus:ring-[#0866FF]/20 focus:border-[#0866FF] transition-all"
                   />
                 </div>
               )}
@@ -339,7 +339,7 @@ const DataLeadsPage: React.FC = () => {
           <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[#E4E6EB]">
             <button
               onClick={() => { handleApplyFilter(); setShowFilters(false); }}
-              className="h-9 px-5 bg-[#1877F2] text-white rounded-lg text-xs font-semibold hover:bg-[#166FE5] transition-all shadow-sm"
+              className="h-9 px-5 bg-[#0866FF] text-white rounded-lg text-xs font-semibold hover:bg-[#166FE5] transition-all shadow-sm"
             >
               Terapkan Filter
             </button>
@@ -365,7 +365,7 @@ const DataLeadsPage: React.FC = () => {
                 <MessageSquare size={13} className="text-[#65676B]" />
               </div>
               <h3 className="text-[13px] font-semibold text-[#050505]">Daftar Leads</h3>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#E7F3FF] text-[#1877F2]">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#E7F3FF] text-[#0866FF]">
                 {filteredLeads.length}
               </span>
             </div>
@@ -376,7 +376,7 @@ const DataLeadsPage: React.FC = () => {
                 placeholder="Cari nama, nomor, atau pesan..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 rounded-lg text-xs border border-[#CCD0D5] bg-[#F0F2F5] outline-none text-[#050505] placeholder:text-[#8C939D] focus:ring-2 focus:ring-[#1877F2]/20 focus:border-[#1877F2] focus:bg-white transition-all"
+                className="w-full h-9 pl-9 pr-3 rounded-lg text-xs border border-[#CCD0D5] bg-[#F0F2F5] outline-none text-[#050505] placeholder:text-[#8C939D] focus:ring-2 focus:ring-[#0866FF]/20 focus:border-[#0866FF] focus:bg-white transition-all"
               />
             </div>
           </div>
@@ -385,7 +385,7 @@ const DataLeadsPage: React.FC = () => {
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="flex flex-col items-center gap-3">
-              <Loader2 className="animate-spin" size={28} style={{ color: "#1877F2" }} />
+              <Loader2 className="animate-spin" size={28} style={{ color: "#0866FF" }} />
               <p className="text-sm font-medium text-[#65676B]">Memuat data leads...</p>
             </div>
           </div>
@@ -397,7 +397,7 @@ const DataLeadsPage: React.FC = () => {
             <p className="text-sm font-medium text-[#050505]">{error}</p>
             <button
               onClick={fetchData}
-              className="mt-3 px-4 py-1.5 text-xs font-semibold rounded-lg bg-[#F0F2F5] text-[#1877F2] hover:bg-[#E4E6EB] transition-all"
+              className="mt-3 px-4 py-1.5 text-xs font-semibold rounded-lg bg-[#F0F2F5] text-[#0866FF] hover:bg-[#E4E6EB] transition-all"
             >
               Coba Lagi
             </button>

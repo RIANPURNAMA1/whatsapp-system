@@ -145,12 +145,12 @@ const RoleManagementView = () => {
       return 'bg-[#FFF8E7] text-[#F5A623] border-[#F5A623]';
     }
     if (type === 'manager') {
-      return 'bg-[#E7F3FF] text-[#1877F2] border-[#1877F2]';
+      return 'bg-[#E7F3FF] text-[#0866FF] border-[#0866FF]';
     }
     if (type === 'tiktok_operator') {
       return 'bg-[#F0E6FF] text-[#8B5CF6] border-[#8B5CF6]';
     }
-    return 'bg-[#E7F3FF] text-[#1877F2] border-[#1877F2]';
+    return 'bg-[#E7F3FF] text-[#0866FF] border-[#0866FF]';
   };
 
   return (
@@ -161,7 +161,7 @@ const RoleManagementView = () => {
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-[#1877F2] rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-[#0866FF] rounded-lg flex items-center justify-center">
                 <ShieldCheck className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -201,7 +201,7 @@ const RoleManagementView = () => {
           <div className="bg-white rounded-lg p-5 border border-[#E4E6EB]">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
-                <Shield className="w-6 h-6 text-[#1877F2]" />
+                <Shield className="w-6 h-6 text-[#0866FF]" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-[#050505]">{roles.length}</p>
@@ -212,7 +212,7 @@ const RoleManagementView = () => {
           <div className="bg-white rounded-lg p-5 border border-[#E4E6EB]">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
-                <BadgeCheck className="w-6 h-6 text-[#1877F2]" />
+                <BadgeCheck className="w-6 h-6 text-[#0866FF]" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-[#050505]">
@@ -225,7 +225,7 @@ const RoleManagementView = () => {
           <div className="bg-white rounded-lg p-5 border border-[#E4E6EB]">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-[#E7F3FF] rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-[#1877F2]" />
+                <Users className="w-6 h-6 text-[#0866FF]" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-[#050505]">
@@ -240,7 +240,7 @@ const RoleManagementView = () => {
         {/* GRID KONTEN */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 border-4 border-[#E4E6EB] border-t-[#1877F2] rounded-full animate-spin" />
+            <div className="w-12 h-12 border-4 border-[#E4E6EB] border-t-[#0866FF] rounded-full animate-spin" />
             <p className="text-[#65676B] mt-4">Memuat data...</p>
           </div>
         ) : filteredRoles.length === 0 ? (
@@ -268,7 +268,7 @@ const RoleManagementView = () => {
               >
                 <div className="flex items-start justify-between mb-5">
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${role.type === 'system' ? 'bg-[#F5A623]' : 'bg-[#1877F2]'}`}>
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${role.type === 'system' ? 'bg-[#F5A623]' : 'bg-[#0866FF]'}`}>
                       {role.type === 'system' ? (
                         <Lock className="w-6 h-6 text-white" />
                       ) : (

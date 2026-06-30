@@ -8,15 +8,15 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'default', size = 'default', ...props }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1877F2] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+    const baseStyles = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0866FF] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
     
     const variants = {
-      default: "bg-[#1877F2] text-white hover:bg-[#166FE5]",
+      default: "bg-[#0866FF] text-white hover:bg-[#166FE5]",
       destructive: "bg-red-600 text-white hover:bg-red-700",
       outline: "border border-[#E4E6EB] bg-white hover:bg-[#F2F3F5] hover:text-[#050505]",
       secondary: "bg-[#F0F2F5] text-[#050505] hover:bg-[#E4E6EB]",
       ghost: "hover:bg-[#F2F3F5] hover:text-[#050505]",
-      link: "text-[#1877F2] underline-offset-4 hover:underline",
+      link: "text-[#0866FF] underline-offset-4 hover:underline",
     }
     
     const sizes = {

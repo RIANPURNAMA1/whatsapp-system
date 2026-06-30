@@ -73,7 +73,7 @@ function getLeadsPlatforms(data: any): Record<string, string> | null {
 const PLATFORM_ICONS: Record<string, string> = {
   tiktok: '#000000',
   instagram: '#E4405F',
-  facebook: '#1877F2',
+  facebook: '#0866FF',
   twitter: '#1DA1F2',
   whatsapp: '#25D366',
   telegram: '#0088CC',

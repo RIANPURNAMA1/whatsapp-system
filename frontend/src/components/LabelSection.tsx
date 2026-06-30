@@ -74,7 +74,7 @@ const LabelSection: React.FC<LabelSectionProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg" style={{ backgroundColor: "#E7F3FF" }}>
-              <Tag size={16} style={{ color: "#1877F2" }} />
+              <Tag size={16} style={{ color: "#0866FF" }} />
             </div>
             <div>
               <h2 className="text-[15px] font-bold" style={{ color: "#050505" }}>Labels</h2>
@@ -87,7 +87,7 @@ const LabelSection: React.FC<LabelSectionProps> = ({
               onClick={() => setShowSettings(!showSettings)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
               style={{
-                backgroundColor: showSettings ? "#1877F2" : "#F0F2F5",
+                backgroundColor: showSettings ? "#0866FF" : "#F0F2F5",
                 color: showSettings ? "#FFFFFF" : "#050505",
               }}
             >
@@ -115,7 +115,7 @@ const LabelSection: React.FC<LabelSectionProps> = ({
       <div className="p-5">
         {loadingLabels && items.length === 0 ? (
           <div className="flex justify-center py-10">
-            <Loader2 className="animate-spin" size={22} style={{ color: "#1877F2" }} />
+            <Loader2 className="animate-spin" size={22} style={{ color: "#0866FF" }} />
           </div>
         ) : (
           <DragDropContext onDragEnd={onDragEnd}>
@@ -140,7 +140,7 @@ const LabelSection: React.FC<LabelSectionProps> = ({
                                 ? 'bg-[#242526] border-[#2D2F33]'
                                 : 'bg-[#F0F2F5] border-transparent'
                             } ${
-                              snapshot.isDragging ? (isDarkMode ? 'border-[#1877F2]' : 'border-[#1877F2]') : ''
+                              snapshot.isDragging ? (isDarkMode ? 'border-[#0866FF]' : 'border-[#0866FF]') : ''
                             }`}
                           >
                             {showSettings && (
@@ -153,7 +153,7 @@ const LabelSection: React.FC<LabelSectionProps> = ({
                               >
                                 {isHidden
                                   ? <EyeOff size={12} style={{ color: "#E74C3C" }} />
-                                  : <Eye size={12} style={{ color: "#1877F2" }} />
+                                  : <Eye size={12} style={{ color: "#0866FF" }} />
                                 }
                               </button>
                             )}

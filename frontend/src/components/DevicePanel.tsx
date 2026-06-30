@@ -42,7 +42,7 @@ const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onRec
       <div className="px-3 py-3 border-b bg-white flex items-center justify-between shrink-0" style={{ borderColor: "#E4E6EB" }}>
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-            <Smartphone className="w-4 h-4" style={{ color: "#1877F2" }} />
+            <Smartphone className="w-4 h-4" style={{ color: "#0866FF" }} />
           </div>
           <div>
             <h2 className="text-[14px] font-bold" style={{ color: "#050505" }}>Perangkat</h2>
@@ -51,7 +51,7 @@ const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onRec
             </p>
           </div>
         </div>
-        <Button onClick={onAdd} size="sm" className="h-[30px] text-white text-[11px] font-semibold gap-1 border-0" style={{ backgroundColor: "#1877F2" }}>
+        <Button onClick={onAdd} size="sm" className="h-[30px] text-white text-[11px] font-semibold gap-1 border-0" style={{ backgroundColor: "#0866FF" }}>
           <PlusCircle className="w-3.5 h-3.5" />
           Tambah
         </Button>
@@ -69,7 +69,7 @@ const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onRec
                   onClick={() => onSelect(session)}
                   className="flex flex-col p-3.5 rounded-lg cursor-pointer transition-all bg-white border"
                   style={{
-                    borderColor: isActive ? "#1877F2" : "#E4E6EB",
+                    borderColor: isActive ? "#0866FF" : "#E4E6EB",
                     borderWidth: isActive ? 2 : 1,
                   }}
                 >
@@ -80,7 +80,7 @@ const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onRec
                       session.status === "connecting" ? "#FFF3E0" : "#FFEBEE"
                     }}>
                       {session.status === "connected" ? (
-                        <Wifi className="w-3.5 h-3.5" style={{ color: "#1877F2" }} />
+                        <Wifi className="w-3.5 h-3.5" style={{ color: "#0866FF" }} />
                       ) : session.status === "connecting" ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ color: "#F5A623" }} />
                       ) : (
@@ -92,7 +92,7 @@ const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onRec
                     <span className="text-[9px] font-semibold px-2 py-0.5 rounded-md" style={{
                       backgroundColor: session.status === "connected" ? "#E7F3FF" :
                       session.status === "connecting" ? "#FFF3E0" : "#FFEBEE",
-                      color: session.status === "connected" ? "#1877F2" :
+                      color: session.status === "connected" ? "#0866FF" :
                       session.status === "connecting" ? "#F5A623" : "#E74C3C",
                     }}>
                       {session.status === "connected" ? "Online" :
@@ -112,7 +112,7 @@ const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onRec
                           onKeyDown={handleKeyDown}
                           autoFocus
                           className="flex-1 text-[13px] font-semibold px-2 py-1 rounded border outline-none"
-                          style={{ borderColor: "#1877F2" }}
+                          style={{ borderColor: "#0866FF" }}
                           onClick={e => e.stopPropagation()}
                         />
                         <button onClick={e => { e.stopPropagation(); saveEdit(); }}
@@ -184,7 +184,7 @@ const DevicePanel = ({ sessions = [], activeId, onAdd, onSelect, onDelete, onRec
             </div>
             <h3 className="text-[14px] font-bold mb-1" style={{ color: "#050505" }}>Belum ada perangkat</h3>
             <p className="text-[12px] mb-4" style={{ color: "#65676B" }}>Hubungkan perangkat WhatsApp untuk memulai</p>
-            <Button onClick={onAdd} className="text-white text-[11px] font-semibold gap-1.5 border-0 h-[30px]" style={{ backgroundColor: "#1877F2" }}>
+            <Button onClick={onAdd} className="text-white text-[11px] font-semibold gap-1.5 border-0 h-[30px]" style={{ backgroundColor: "#0866FF" }}>
               <PlusCircle className="w-3.5 h-3.5" />
               Hubungkan
             </Button>

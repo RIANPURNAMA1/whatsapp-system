@@ -254,7 +254,7 @@ const AISettingPage: React.FC = () => {
                 >
                   {tab.label}
                   {activeTab === tab.id && (
-                    <div className="absolute bottom-0 w-full h-0.5 bg-[#1877F2] rounded-t-full" />
+                    <div className="absolute bottom-0 w-full h-0.5 bg-[#0866FF] rounded-t-full" />
                   )}
                 </button>
               ))}

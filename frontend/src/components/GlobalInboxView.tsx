@@ -121,7 +121,7 @@ export const GlobalInboxView: React.FC = () => {
       <div className="px-3 h-[52px] flex-none flex items-center justify-between border-b" style={{ borderColor: "#E4E6EB" }}>
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#E7F3FF" }}>
-            <Inbox size={16} style={{ color: "#1877F2" }} />
+            <Inbox size={16} style={{ color: "#0866FF" }} />
           </div>
           <div>
             <h2 className="text-[14px] font-bold leading-tight" style={{ color: "#050505" }}>
@@ -191,7 +191,7 @@ export const GlobalInboxView: React.FC = () => {
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading && messages.length === 0 ? (
           <div className="flex flex-col items-center pt-24 gap-3">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#1877F2" }} />
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#0866FF" }} />
             <p className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "#65676B" }}>
               Memuat Pesan...
             </p>
@@ -309,7 +309,7 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
           <span
             className="text-[11px] flex-shrink-0 ml-2"
             style={{
-              color: hasUnread ? "#1877F2" : "#65676B",
+              color: hasUnread ? "#0866FF" : "#65676B",
               fontWeight: hasUnread ? 600 : 400,
             }}
           >
@@ -322,7 +322,7 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
             {isMe && (
               <div className="mr-1.5 flex-shrink-0">
                 {msg.status === "read" ? (
-                  <CheckCheck size={14} style={{ color: "#1877F2" }} />
+                  <CheckCheck size={14} style={{ color: "#0866FF" }} />
                 ) : (
                   <Check size={14} style={{ color: "#8C939D" }} />
                 )}
@@ -344,7 +344,7 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
               className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md"
               style={{
                 backgroundColor: "#E7F3FF",
-                color: "#1877F2",
+                color: "#0866FF",
               }}
             >
               {msg.session_name || "Device"}
@@ -353,7 +353,7 @@ const GlobalInboxItem: React.FC<{ msg: any; onClick: () => void }> = ({
             {hasUnread && (
               <div
                 className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1"
-                style={{ backgroundColor: "#1877F2" }}
+                style={{ backgroundColor: "#0866FF" }}
               >
                 <span className="text-white text-[10px] font-bold">
                   {unreadCount > 99 ? "99+" : unreadCount}

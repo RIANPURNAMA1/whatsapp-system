@@ -391,13 +391,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       >
         {isLoadingMessages && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="animate-spin w-7 h-7" style={{ color: "#1877F2" }} />
+            <Loader2 className="animate-spin w-7 h-7" style={{ color: "#0866FF" }} />
           </div>
         ) : (
           <>
             {isLoadingMore && (
               <div className="flex justify-center py-3">
-                <Loader2 className="animate-spin w-4 h-4" style={{ color: "#1877F2" }} />
+                <Loader2 className="animate-spin w-4 h-4" style={{ color: "#0866FF" }} />
               </div>
             )}
             {messages.map((msg, index) => (
@@ -438,9 +438,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       <div className="flex-none bg-white flex flex-col border-t" style={{ borderColor: "#E4E6EB" }}>
         {replyTo && (
           <div className="mx-3 mt-3 px-3 py-2 flex items-center gap-3 rounded-lg" style={{ backgroundColor: "#E7F3FF" }}>
-            <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: "#1877F2" }} />
+            <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: "#0866FF" }} />
             <div className="flex-1 truncate">
-              <p className="text-[11px] font-semibold" style={{ color: "#1877F2" }}>
+              <p className="text-[11px] font-semibold" style={{ color: "#0866FF" }}>
                 {Number(replyTo.is_from_me) === 1
                   ? "Anda"
                   : (replyTo.sender_name?.includes('@') ? "Lead" : replyTo.sender_name)}
@@ -501,7 +501,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             onClick={handleSend}
             disabled={!inputText.trim() || isSending}
             className="w-[40px] h-[40px] rounded-full flex items-center justify-center shrink-0 transition-all disabled:opacity-50"
-            style={{ backgroundColor: "#1877F2" }}
+            style={{ backgroundColor: "#0866FF" }}
           >
             {isSending ? (
               <Loader2 className="animate-spin w-[18px] h-[18px] text-white" />
@@ -539,7 +539,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <button
               onClick={handleSendPreview}
               className="w-[44px] h-[44px] rounded-full flex items-center justify-center shrink-0"
-              style={{ backgroundColor: "#1877F2" }}
+              style={{ backgroundColor: "#0866FF" }}
             >
               <Send className="w-[18px] h-[18px] text-white" />
             </button>
@@ -567,10 +567,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 const WelcomeScreen = () => (
   <div className="flex-1 flex flex-col items-center justify-center h-full p-8 text-center" style={{ backgroundColor: "#F0F2F5" }}>
     <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5" style={{ backgroundColor: "#E7F3FF" }}>
-      <ImageIcon className="w-10 h-10" style={{ color: "#1877F2" }} />
+      <ImageIcon className="w-10 h-10" style={{ color: "#0866FF" }} />
     </div>
     <h2 className="text-xl font-bold tracking-tight" style={{ color: "#050505" }}>
-      SATU <span style={{ color: "#1877F2" }}>PINTU</span>
+      SATU <span style={{ color: "#0866FF" }}>PINTU</span>
     </h2>
     <p className="text-[13px] mt-3 max-w-xs font-medium leading-relaxed" style={{ color: "#65676B" }}>
       Pilih pesan masuk untuk mulai berinteraksi dengan Leads Anda secara real-time.
@@ -604,7 +604,7 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
           message.message_type === "image" ? "p-1" : "px-4 py-2.5"
         }`}
         style={{
-          backgroundColor: isFromMe ? "#1877F2" : "#FFFFFF",
+          backgroundColor: isFromMe ? "#0866FF" : "#FFFFFF",
           boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
         }}
       >
@@ -639,7 +639,7 @@ const MessageBubble = ({ message, isGroup, onReply }: any) => {
             onClick={() => window.open(getMediaUrl(message.media_url), "_blank")}
           >
             <div className="p-1.5 rounded-lg" style={{ backgroundColor: isFromMe ? "rgba(255,255,255,0.2)" : "#E7F3FF" }}>
-              <FileText className="w-4 h-4" style={{ color: isFromMe ? "#FFFFFF" : "#1877F2" }} />
+              <FileText className="w-4 h-4" style={{ color: isFromMe ? "#FFFFFF" : "#0866FF" }} />
             </div>
             <span className="text-[13px] font-medium truncate" style={{ color: isFromMe ? "#FFFFFF" : "#050505" }}>
               {message.content || "Dokumen File"}
@@ -729,7 +729,7 @@ const ContactInfoPanel = ({ chat, displayName, phoneNumber, isOnline, isTyping, 
         {/* Phone */}
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ backgroundColor: "#F0F2F5" }}>
           <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#E7F3FF" }}>
-            <Phone className="w-4 h-4" style={{ color: "#1877F2" }} />
+            <Phone className="w-4 h-4" style={{ color: "#0866FF" }} />
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-medium" style={{ color: "#65676B" }}>Nomor Telepon</p>
@@ -783,8 +783,8 @@ const ContactInfoPanel = ({ chat, displayName, phoneNumber, isOnline, isTyping, 
                 key={label.id}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium"
                 style={{
-                  backgroundColor: (label.color || "#1877F2") + "18",
-                  color: label.color || "#1877F2",
+                  backgroundColor: (label.color || "#0866FF") + "18",
+                  color: label.color || "#0866FF",
                 }}
               >
                 {label.name}

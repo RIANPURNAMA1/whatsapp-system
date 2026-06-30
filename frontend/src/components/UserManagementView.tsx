@@ -165,7 +165,7 @@ const UserManagementView = () => {
 
   const getRoleColor = (roleName: string | undefined) => {
     const lower = roleName?.toLowerCase() || '';
-    if (lower.includes('admin')) return 'bg-[#E7F3FF] text-[#1877F2] border-[#1877F2]';
+    if (lower.includes('admin')) return 'bg-[#E7F3FF] text-[#0866FF] border-[#0866FF]';
     if (lower.includes('super')) return 'bg-[#FFF8E7] text-[#F5A623] border-[#F5A623]';
     return 'bg-[#F0F2F5] text-[#65676B] border-[#E4E6EB]';
   };
