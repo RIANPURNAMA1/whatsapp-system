@@ -129,7 +129,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
           {/* Summary Stats */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ backgroundColor: "#F9FAFB" }}>
-              <Users size={14} style={{ color: "#1877F2" }} />
+              <Users size={14} style={{ color: "#0866FF" }} />
               <div>
                 <p className="text-[9px] font-semibold uppercase" style={{ color: "#65676B" }}>Leads</p>
                 <p className="text-xs font-bold" style={{ color: "#050505" }}>{(totalLeadsAll + totalOrganikAll).toLocaleString()}</p>
@@ -165,7 +165,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="flex flex-col items-center gap-3">
-              <Loader2 className="animate-spin" size={28} style={{ color: "#1877F2" }} />
+              <Loader2 className="animate-spin" size={28} style={{ color: "#0866FF" }} />
               <p className="text-sm font-medium" style={{ color: "#65676B" }}>Memuat data...</p>
             </div>
           </div>
@@ -178,7 +178,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
             <button
               onClick={fetchSocialStats}
               className="mt-3 px-4 py-1.5 text-xs font-semibold rounded-lg transition-all hover:opacity-80"
-              style={{ color: "#1877F2", backgroundColor: "#F0F2F5" }}
+              style={{ color: "#0866FF", backgroundColor: "#F0F2F5" }}
             >
               Coba Lagi
             </button>
@@ -214,7 +214,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
                                 : "shadow-sm hover:shadow-md"
                             }`}
                             style={{
-                              borderColor: snapshot.isDragging ? "#1877F2" : "#EAECF0",
+                              borderColor: snapshot.isDragging ? "#0866FF" : "#EAECF0",
                               transform: snapshot.isDragging ? "scale(1.02)" : undefined,
                             }}
                           >
@@ -303,10 +303,10 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
                                   <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg"
                                     style={{ backgroundColor: "#F9FAFB" }}>
                                     <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: "#344054" }}>
-                                      <Leaf size={11} style={{ color: "#1877F2" }} />
+                                      <Leaf size={11} style={{ color: "#0866FF" }} />
                                       Leads Organik
                                     </span>
-                                    <span className="text-[11px] font-semibold" style={{ color: "#1877F2" }}>
+                                    <span className="text-[11px] font-semibold" style={{ color: "#0866FF" }}>
                                       {item.totalOrganik} leads
                                     </span>
                                   </div>
@@ -338,7 +338,7 @@ const SocialLeadsSection: React.FC<SocialLeadsSectionProps> = ({
                               <button
                                 onClick={(e) => { e.stopPropagation(); navigate("/analisis-leads"); }}
                                 className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:opacity-80"
-                                style={{ backgroundColor: "#F0F2F5", color: "#1877F2" }}
+                                style={{ backgroundColor: "#F0F2F5", color: "#0866FF" }}
                               >
                                 <BarChart3 size={13} />
                                 Analisis Leads

@@ -1861,13 +1861,12 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
 
     let leads = await query(sql, finalParams);
 
-    // Fallback: cari phone_number dari wa_contacts berdasarkan push_name
-    // (override hasil JOIN by JID karena JID di wa_messages mungkin salah)
+    // Fallback phone_number untuk leads: cari dari wa_contacts berdasarkan push_name (prefer 62)
+    // karena chat_jid di wa_messages kadang berbeda dengan JID utama kontak
     const nameLookups = leads
-      .filter(l => l.pushName && l.pushName !== 'Unknown')
+      .filter(l => l.pushName && l.pushName !== 'Unknown' && !(l.phone_number || '').startsWith('62'))
       .map(l => ({ session_id: l.session_id, push_name: l.pushName }));
     if (nameLookups.length > 0) {
-      // Pakai WHERE + OR untuk batch lookup semua nama dalam 1 query
       const conditions = nameLookups.map(() => `(session_id = ? AND push_name = ?)`).join(' OR ');
       const params = nameLookups.flatMap(n => [n.session_id, n.push_name]);
       const contacts = await query(
@@ -1883,7 +1882,7 @@ router.get("/chats/leads-only", authenticateToken, async (req, res) => {
       }
       for (const lead of leads) {
         const key = lead.session_id + ':' + lead.pushName;
-        if (contactMap[key]) {
+        if (contactMap[key] && !(lead.phone_number || '').startsWith('62')) {
           lead.phone_number = contactMap[key];
         }
       }
@@ -2951,20 +2950,19 @@ router.get("/all-global-messages", async (req, res) => {
 
     const messages = await query(sql);
 
-    // Fix phone_number: cari ulang dari wa_contacts by display_name untuk SEMUA pesan
-    // Pilih nomor 62 (Indonesia) jika ada, karena JOIN by JID sering ambil nomor salah
-    const allNames = [...new Set(messages.filter(m => m.display_name && !m.display_name.includes('@')).map(m => m.session_id + ':' + m.display_name))];
-    if (allNames.length > 0) {
-      const orConditions = allNames.map(() => "(c.session_id = ? AND c.push_name = ?)");
+    // Fallback phone_number untuk global inbox: prefer 62
+    const globalNames = [...new Set(messages.filter(m => m.display_name && !m.display_name.includes('@') && !(m.phone_number || '').startsWith('62')).map(m => m.session_id + ':' + m.display_name))];
+    if (globalNames.length > 0) {
+      const orConditions = globalNames.map(() => "(c.session_id = ? AND c.push_name = ?)");
       const lookupParams = [];
-      for (const key of allNames) {
+      for (const key of globalNames) {
         const [sid, name] = key.split(':');
         lookupParams.push(sid, name);
       }
       const contacts = await query(
         `SELECT c.session_id, c.push_name, c.phone_number FROM wa_contacts c
          WHERE ${orConditions.join(" OR ")}
-         ORDER BY phone_number LIKE '62%' DESC, LENGTH(phone_number) DESC`,
+         ORDER BY c.phone_number LIKE '62%' DESC, LENGTH(c.phone_number) DESC`,
         lookupParams
       );
       const contactMap = {};
@@ -2974,7 +2972,8 @@ router.get("/all-global-messages", async (req, res) => {
       }
       for (const m of messages) {
         const key = m.session_id + ':' + m.display_name;
-        if (contactMap[key]) {
+        const curNum = m.phone_number || '';
+        if (!curNum.startsWith('62') && contactMap[key]) {
           m.phone_number = contactMap[key];
         }
       }
@@ -3089,17 +3088,18 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
       };
     });
 
-    // 4. Fix phone_number: cari ulang dari wa_contacts by push_name untuk SEMUA chat
-    const chatNames = [...new Set(parsedChats.filter(c => c.display_name && !c.display_name.includes('@')).map(c => c.display_name))];
+    // Fallback phone_number: cari ulang dari wa_contacts by push_name (hanya jika NON-62)
+    // karena JID chat kadang berbeda dengan JID utama kontak (mis: @lid vs @s.whatsapp.net)
+    const chatNames = [...new Set(parsedChats.filter(c => c.display_name && !c.display_name.includes('@') && !(c.phone_number || '').startsWith('62')).map(c => c.display_name))];
     if (chatNames.length > 0) {
-      const orConditions = chatNames.map(() => "(c.session_id = ? AND c.push_name = ?)");
+      const orConditions = chatNames.map(() => "(session_id = ? AND push_name = ?)");
       const lookupParams = [];
       for (const name of chatNames) {
         lookupParams.push(sessionId, name);
       }
       const contacts = await query(
-        `SELECT c.push_name, c.phone_number FROM wa_contacts c
-         WHERE ${orConditions.join(" OR ")}
+        `SELECT push_name, phone_number FROM wa_contacts
+         WHERE (${orConditions.join(" OR ")})
          ORDER BY phone_number LIKE '62%' DESC, LENGTH(phone_number) DESC`,
         lookupParams
       );
@@ -3108,7 +3108,8 @@ router.get("/sessions/:sessionId/chats", async (req, res) => {
         if (!contactMap[c.push_name]) contactMap[c.push_name] = c.phone_number;
       }
       for (const chat of parsedChats) {
-        if (contactMap[chat.display_name]) {
+        const curNum = chat.phone_number || '';
+        if (!curNum.startsWith('62') && contactMap[chat.display_name]) {
           chat.phone_number = contactMap[chat.display_name];
         }
       }
@@ -3394,7 +3395,8 @@ router.get(
          gp.participant_jid AS jid,
          gp.role,
          COALESCE(c.name, c.push_name, gp.participant_jid) AS display_name,
-         c.profile_pic_url
+         c.profile_pic_url,
+         c.phone_number
        FROM wa_group_participants gp
        LEFT JOIN wa_contacts c 
               ON c.session_id = gp.session_id 
@@ -3405,6 +3407,34 @@ router.get(
          display_name ASC`,
         [sessionId, decodedJid],
       );
+
+      // Fallback phone_number: cari ulang dari wa_contacts by push_name (hanya jika NON-62)
+      // karena participant_jid bisa @lid sementara JID kontak @s.whatsapp.net
+      const non62Names = participants
+        .filter(p => p.display_name && !p.display_name.includes('@') && !(p.phone_number || '').startsWith('62'))
+        .map(p => ({ session_id: sessionId, push_name: p.display_name }));
+      const uniqueNames = non62Names.filter((n, i, a) => a.findIndex(x => x.push_name === n.push_name) === i);
+      if (uniqueNames.length > 0) {
+        const conditions = uniqueNames.map(() => `(session_id = ? AND push_name = ?)`).join(' OR ');
+        const params = uniqueNames.flatMap(n => [n.session_id, n.push_name]);
+        const contacts = await query(
+          `SELECT push_name, phone_number FROM wa_contacts
+           WHERE (${conditions}) AND phone_number IS NOT NULL AND phone_number != ''
+           ORDER BY phone_number LIKE '62%' DESC, LENGTH(phone_number) DESC`,
+          params
+        );
+        const contactMap = {};
+        for (const c of contacts) {
+          if (!contactMap[c.push_name]) contactMap[c.push_name] = c.phone_number;
+        }
+        for (const p of participants) {
+          const curNum = p.phone_number || '';
+          if (!curNum.startsWith('62') && contactMap[p.display_name]) {
+            p.phone_number = contactMap[p.display_name];
+          }
+        }
+      }
+
       res.json({ success: true, data: participants });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });

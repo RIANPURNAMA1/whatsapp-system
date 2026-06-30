@@ -1,7 +1,14 @@
 /* index.css - Global Styles */
 @import "tailwindcss";
+@theme {
+  --font-sans: 'Nunito', sans-serif;
+}
+html {
+  font-family: 'Nunito', sans-serif !important;
+}
+
 body {
-  font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Nunito', sans-serif !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -36,7 +43,6 @@ body {
   body {
     background-color: #ffffff;
     color: #1f2937;
-    font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow: hidden;

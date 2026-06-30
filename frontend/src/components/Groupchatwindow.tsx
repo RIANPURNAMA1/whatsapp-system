@@ -468,6 +468,9 @@ const GroupChatWindow: React.FC<GroupChatWindowProps> = ({ sessionId, group }) =
 
 const ParticipantItem: React.FC<{ participant: GroupParticipant }> = ({ participant }) => {
   const name = participant.display_name || participant.jid?.split("@")[0] || "Anggota";
+  const phoneDisplay = participant.phone_number
+    ? `+${participant.phone_number}`
+    : `+${participant.jid?.split("@")[0]}`;
   return (
     <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg transition-colors hover:bg-[#F2F3F5]">
       <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor: getAvatarColor(participant.jid) }}>
@@ -477,7 +480,7 @@ const ParticipantItem: React.FC<{ participant: GroupParticipant }> = ({ particip
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-medium truncate" style={{ color: "#050505" }}>{name}</p>
-        <p className="text-[10px] truncate" style={{ color: "#65676B" }}>+{participant.jid?.split("@")[0]}</p>
+        <p className="text-[10px] truncate" style={{ color: "#65676B" }}>{phoneDisplay}</p>
       </div>
       {participant.role !== "member" && (
         <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-md font-semibold shrink-0" style={{

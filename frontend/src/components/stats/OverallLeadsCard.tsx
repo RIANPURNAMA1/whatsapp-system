@@ -36,8 +36,8 @@ const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
       }`}
     >
       <div className="flex items-center gap-2 mb-1">
-        <div className="p-2 rounded-lg" style={{ backgroundColor: isDarkMode ? '#1877F220' : '#E7F3FF' }}>
-          <ArrowUpRight size={16} style={{ color: '#1877F2' }} />
+        <div className="p-2 rounded-lg" style={{ backgroundColor: isDarkMode ? '#0866FF20' : '#DEEBFF' }}>
+          <ArrowUpRight size={16} style={{ color: '#0866FF' }} />
         </div>
         <span className="text-sm font-semibold" style={{ color: isDarkMode ? '#E4E6EB' : '#050505' }}>
           Leads Overview
@@ -48,7 +48,7 @@ const OverallLeadsCard: React.FC<OverallLeadsCardProps> = ({
         <div className="relative w-24 h-24 flex-shrink-0">
           {loading || pieData.length === 0 ? (
             <div className="w-full h-full flex items-center justify-center">
-              {loading ? <Loader2 className="animate-spin" size={18} style={{ color: '#1877F2' }} /> : (
+              {loading ? <Loader2 className="animate-spin" size={18} style={{ color: '#0866FF' }} /> : (
                 <p className="text-[10px]" style={{ color: isDarkMode ? '#65676B' : '#BCC0C4' }}>No data</p>
               )}
             </div>

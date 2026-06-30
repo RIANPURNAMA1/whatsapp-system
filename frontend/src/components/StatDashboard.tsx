@@ -210,7 +210,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#F0F2F5" }}>
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#1877F2" }} />
+          <div className="w-10 h-10 border-[3px] rounded-full animate-spin" style={{ borderColor: "#E4E6EB", borderTopColor: "#0866FF" }} />
           <p className="text-sm" style={{ color: "#65676B" }}>Memuat data...</p>
         </div>
       </div>
@@ -224,13 +224,13 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
         <div className="mb-5 space-y-3">
           {/* Row 1: Title + monitoring text */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#1877F2" }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#0866FF" }}>
               <Activity className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "#050505" }}>
                 Dashboard
-                {refreshing && <Loader2 size={14} className="animate-spin" style={{ color: "#1877F2" }} />}
+                {refreshing && <Loader2 size={14} className="animate-spin" style={{ color: "#0866FF" }} />}
               </h1>
               <p className="text-xs truncate" style={{ color: "#65676B" }}>Satu Pintu — Monitoring</p>
             </div>
@@ -273,7 +273,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
                         ? "text-white"
                         : "text-gray-500 hover:text-gray-800"
                     }`}
-                    style={activeFilter === item ? { backgroundColor: "#1877F2", color: "#FFFFFF" } : {}}>
+                    style={activeFilter === item ? { backgroundColor: "#0866FF", color: "#FFFFFF" } : {}}>
                     {item}
                   </button>
                 ))}
@@ -295,7 +295,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
                 style={{ backgroundColor: "#F0F2F5", borderColor: "#CCD0D5" }} />
               <button onClick={handleApplyCustomFilter}
                 className="h-9 px-4 text-white text-xs font-semibold rounded-lg transition-all shrink-0"
-                style={{ backgroundColor: "#1877F2" }}>
+                style={{ backgroundColor: "#0866FF" }}>
                 Terapkan
               </button>
             </div>
@@ -334,19 +334,19 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
         {leadProducts.length > 0 && (
           <div className="mb-5">
             <div className="flex items-center gap-2 mb-3">
-              <Package size={16} style={{ color: "#1877F2" }} />
+              <Package size={16} style={{ color: "#0866FF" }} />
               <span className="text-[13px] font-bold" style={{ color: "#050505" }}>Leads Product</span>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {leadProducts.map((p: any) => (
                 <div key={p.id} className="bg-white rounded-lg border p-4" style={{ borderColor: "#E4E6EB" }}>
                   <div className="flex items-center gap-2 mb-2">
-                    <Package size={14} style={{ color: "#1877F2" }} />
+                    <Package size={14} style={{ color: "#0866FF" }} />
                     <span className="font-bold text-[14px] truncate" style={{ color: "#050505" }}>{p.name}</span>
                   </div>
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className="text-[11px]" style={{ color: "#65676B" }}>Leads:</span>
-                    <span className="font-semibold text-[13px]" style={{ color: "#1877F2" }}>{p.total_leads}</span>
+                    <span className="font-semibold text-[13px]" style={{ color: "#0866FF" }}>{p.total_leads}</span>
                   </div>
                   <div className="flex items-center gap-1 text-[11px]" style={{ color: "#8C939D" }}>
                     <Smartphone size={11} />
@@ -383,7 +383,7 @@ const StatDashboard: React.FC<StatDashboardProps> = ({ onNavigate }) => {
       <button
         onClick={() => setShowAIAssistant(true)}
         className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 hover:shadow-xl active:scale-95"
-        style={{ backgroundColor: "#1877F2" }}
+        style={{ backgroundColor: "#0866FF" }}
         title="Asisten AI"
       >
         <Bot className="w-6 h-6 text-white" />

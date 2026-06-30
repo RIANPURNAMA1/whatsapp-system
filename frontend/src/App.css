@@ -1,10 +1,8 @@
-@import "tailwindcss";
-
 /* globals.css */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,200;1,300;1,400;1,500;1,600;1,700;1,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
 
 body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Nunito', sans-serif;
   /* Smoothing agar font terlihat tajam di layar manapun */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -21,7 +19,7 @@ body {
   border: none !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-family: 'Nunito', sans-serif !important;
   margin: 0 4px !important;
 }
 .swal-confirm-btn:hover {
@@ -39,7 +37,7 @@ body {
   border: none !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-family: 'Nunito', sans-serif !important;
   margin: 0 4px !important;
 }
 .swal-cancel-btn:hover {

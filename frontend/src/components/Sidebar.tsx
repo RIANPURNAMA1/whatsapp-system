@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MessageSquare,
@@ -12,8 +12,6 @@ import {
   Link2,
   Bot,
   FileText,
-  ChevronLeft,
-  ChevronRight,
   Users,
   Smartphone,
   Video,
@@ -48,14 +46,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   isSidebarOpen,
   setIsSidebarOpen,
 }) => {
-  const [collapsed, setCollapsed] = useState(() => {
-    const saved = localStorage.getItem("sidebarCollapsed");
-    return saved !== null ? JSON.parse(saved) : false;
-  });
-
-  useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", JSON.stringify(collapsed));
-  }, [collapsed]);
+  const [isHovered, setIsHovered] = useState(false);
+  const collapsed = !isHovered;
 
   const canManageMarketing = user?.role_type === "system" || user?.role_type === "manager";
   const isTikTokOperator = user?.role_type === "tiktok_operator";
@@ -111,7 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           ...(!canManageMarketing && !isSystemAdmin ? [{ id: "dashboard", title: "Dashboard", icon: <BarChart2 className="w-[18px] h-[18px]" /> }] : []),
           { id: "leads-only", title: "Leads Baru", icon: <UserSearch className="w-[18px] h-[18px]" /> },
           { id: "chats", title: "Chat WA", icon: <MessageSquare className="w-[18px] h-[18px]" /> },
-          { id: "all-messages", title: "Global Inbox", icon: <BarChart2 className="w-[18px] h-[18px]" /> },
+
           { id: "groups", title: "Grup", icon: <Users className="w-[18px] h-[18px]" /> },
           { id: "labels", title: "Labels", icon: <Tag className="w-[18px] h-[18px]" /> },
           { id: "contacts", title: "Kontak", icon: <Users className="w-[18px] h-[18px]" /> },
@@ -159,37 +151,44 @@ const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         className={`
-          fixed md:relative z-50 flex flex-col h-dvh bg-[#FFFFFF] border-r border-[#E4E6EB]
+          fixed md:relative z-50 flex flex-col h-dvh bg-[#0866FF]
           transition-all duration-200 ease-in-out select-none
-          ${collapsed ? "w-[60px]" : "w-[240px]"}
+          ${collapsed ? "w-[60px]" : "w-[240px] shadow-xl"}
           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}
         style={{ height: '100dvh' }}
       >
-        {/* Meta Style Collapse Trigger Button */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:flex absolute -right-[12px] top-6 z-50 w-6 h-6 bg-white border border-[#E4E6EB] rounded-full items-center justify-center text-[#65676B] hover:text-[#050505] hover:bg-[#F2F3F5] shadow-xs hover:shadow-md transition-all duration-150"
-        >
-          {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-        </button>
+        {/* Texture overlay */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `
+              repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.04) 2px, rgba(255,255,255,0.04) 4px),
+              radial-gradient(circle at 20% 50%, rgba(255,255,255,0.06) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(255,255,255,0.04) 0%, transparent 40%),
+              radial-gradient(circle at 50% 80%, rgba(255,255,255,0.03) 0%, transparent 45%)
+            `,
+          }}
+        />
 
         {/* Brand / Header Section */}
-        <div className={`flex items-center h-[56px] border-b border-[#F0F2F5] ${collapsed ? "justify-center" : "px-4"}`}>
+        <div className={`relative flex items-center h-[56px] border-b border-white/10 ${collapsed ? "justify-center" : "px-4"}`}>
           <button
             onClick={() => { window.location.reload(); setIsSidebarOpen(false); }}
             className="flex items-center gap-2.5 text-left group"
           >
-            <div className="w-8 h-8 bg-[#0866FF] rounded-lg flex items-center justify-center shrink-0 shadow-xs transition-transform group-hover:scale-[1.02]">
-              <MessageSquare className="w-4 h-4 text-white fill-current" />
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shrink-0 shadow-xs transition-transform group-hover:scale-[1.02]">
+              <MessageSquare className="w-4 h-4 text-[#0866FF] fill-current" />
             </div>
             {!collapsed && (
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-semibold text-[#050505] tracking-tight truncate leading-tight">
+                <span className="text-sm font-semibold text-white tracking-tight truncate leading-tight">
                   Satu Pintu
                 </span>
-                <span className="text-[10px] text-[#65676B] font-normal truncate leading-none mt-0.5">
+                <span className="text-[10px] text-white/60 font-normal truncate leading-none mt-0.5">
                   Business Suite
                 </span>
               </div>
@@ -198,12 +197,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Menu Navigation Items */}
-        <div className="flex-1 px-2 py-2 space-y-4 overflow-y-auto overflow-x-hidden scrollbar-none">
+        <div className="relative flex-1 px-2 py-2 space-y-4 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
           {groups.map((group) => (
             <div key={group.id} className="space-y-0.5">
               {/* Section Header Label */}
               {!collapsed && (
-                <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-[#65676B] tracking-wide truncate">
+                <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-white/50 tracking-wide truncate">
                   {group.label}
                 </div>
               )}
@@ -221,18 +220,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                         w-full flex items-center gap-3 rounded-lg relative transition-all duration-150 group
                         ${collapsed ? "justify-center h-10 w-10 mx-auto" : "px-3 h-9"}
                         ${active
-                          ? "bg-[#E7F3FF] text-[#0866FF] font-medium"
-                          : "text-[#050505] hover:bg-[#F2F3F5]"
+                          ? "bg-white text-[#0866FF] font-semibold shadow-sm"
+                          : "text-white/80 hover:bg-white/10 hover:text-white"
                         }
                       `}
                     >
-                      {/* Active Left Indicator Bar (Meta Style Accent) */}
+                      {/* Active Left Indicator Bar */}
                       {active && !collapsed && (
-                        <div className="absolute left-0 top-2 bottom-2 w-1 bg-[#0866FF] rounded-r-md" />
+                        <div className="absolute left-0 top-2 bottom-2 w-1 bg-white rounded-r-md" />
                       )}
 
                       {/* Icon Container */}
-                      <span className={`shrink-0 transition-colors ${active ? "text-[#0866FF]" : "text-[#65676B] group-hover:text-[#050505]"}`}>
+                      <span className={`shrink-0 transition-colors ${active ? "text-[#0866FF]" : "text-white/70 group-hover:text-white"}`}>
                         {item.icon}
                       </span>
 
@@ -250,22 +249,22 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </div>
 
-        {/* Footer Section / Action Area — Always visible on mobile */}
-        <div className="p-2 border-t border-[#F0F2F5] bg-[#FFFFFF] shrink-0 sticky bottom-0 md:static shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+        {/* Footer Section */}
+        <div className="relative p-2 border-t border-white/10 bg-[#0866FF] shrink-0 sticky bottom-0 md:static">
           <button
             onClick={() => { onLogout(); setIsSidebarOpen(false); }}
             title={collapsed ? "Keluar Aplikasi" : undefined}
             className={`
-              flex items-center gap-3 rounded-lg transition-all duration-150 text-[#1E3A5F] hover:text-[#0D2137] hover:bg-[#E8EEF5]
+              flex items-center gap-3 rounded-lg transition-all duration-150 text-white/80 hover:text-white hover:bg-white/10
               ${collapsed ? "justify-center h-10 w-10 mx-auto" : "w-full px-3 h-10"}
             `}
           >
-            <span className="shrink-0 text-[#1E3A5F]">
+            <span className="shrink-0">
               <LogOut className="w-[18px] h-[18px]" />
             </span>
             {!collapsed && (
               <div className="flex flex-col items-start text-left min-w-0 leading-tight">
-                <span className="text-[13px] font-medium text-[#1E3A5F] truncate">
+                <span className="text-[13px] font-medium truncate">
                   Keluar Aplikasi?
                 </span>
               </div>

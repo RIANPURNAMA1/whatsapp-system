@@ -12,8 +12,8 @@ interface ChartProps {
 
 // ─── Meta/Facebook design tokens ─────────────────────────────────────────────
 const FB = {
-  blue: "#1877F2",
-  blueLight: "#E7F3FF",
+  blue: "#0866FF",
+  blueLight: "#DEEBFF",
   blueFaint: "rgba(24,119,242,0.08)",
   green: "#31A24C",
   orange: "#F5A623",
@@ -63,7 +63,7 @@ const ChartHeader: React.FC<{
 
 // ─── Color palette for device lines ──────────────────────────────────────────
 const DEVICE_COLORS = [
-  "#1877F2", "#31A24C", "#F5A623", "#E74C3C", "#9B59B6",
+  "#0866FF", "#31A24C", "#F5A623", "#E74C3C", "#9B59B6",
   "#1ABC9C", "#E67E22", "#3498DB", "#2ECC71", "#E91E63",
   "#00BCD4", "#FF5722", "#673AB7", "#009688", "#795548",
 ];
@@ -186,7 +186,7 @@ export const SLAChart: React.FC<ChartProps> = React.memo(({ data, dark }) => {
         subtitle={
           <span
             className={`text-[11px] font-semibold px-2 py-0.5 rounded inline-block mt-1 ${
-              slaRate >= 70 ? "bg-[#E7F3FF] text-[#1877F2]" : "bg-[#FFEBEE] text-[#E74C3C]"
+              slaRate >= 70 ? "bg-[#DEEBFF] text-[#0866FF]" : "bg-[#FFEBEE] text-[#E74C3C]"
             }`}
           >
             {slaRate}% On-Time

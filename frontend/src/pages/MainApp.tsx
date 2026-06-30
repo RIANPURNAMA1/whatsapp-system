@@ -153,8 +153,8 @@ export const MainApp: React.FC<{ user: UserData; onLogout: () => void }> = ({
             Anda akan diarahkan kembali ke halaman login.
           </div>
           <div style="display:flex;gap:10px;justify-content:center;margin-top:8px">
-            <button type="button" id="swal-cancel-btn" style="flex:1;padding:10px 0;border-radius:10px;border:none;font-size:14px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#475569;cursor:pointer;transition:all 0.15s ease">Batal</button>
-            <button type="button" id="swal-confirm-btn" style="flex:1;padding:10px 0;border-radius:10px;border:none;font-size:14px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;background:#EE1D52;color:#fff;cursor:pointer;transition:all 0.15s ease">Ya, Keluar</button>
+            <button type="button" id="swal-cancel-btn" style="flex:1;padding:10px 0;border-radius:10px;border:none;font-size:14px;font-weight:600;font-family:'Nunito',sans-serif;background:#F1F5F9;color:#475569;cursor:pointer;transition:all 0.15s ease">Batal</button>
+            <button type="button" id="swal-confirm-btn" style="flex:1;padding:10px 0;border-radius:10px;border:none;font-size:14px;font-weight:600;font-family:'Nunito',sans-serif;background:#EE1D52;color:#fff;cursor:pointer;transition:all 0.15s ease">Ya, Keluar</button>
           </div>
         </div>
       `,

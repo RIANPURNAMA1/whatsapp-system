@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Search,
   Plus,
@@ -12,7 +12,10 @@ import {
   MessageSquare,
   Mail,
   MailOpen,
-  Pin
+  Pin,
+  ChevronDown,
+  Smartphone,
+  Check
 } from "lucide-react";
 import useStore from "../store/useStore";
 import Avatar from "./Avatar";
@@ -20,6 +23,7 @@ import {
   getDisplayName,
   formatChatTime,
   formatMessagePreview,
+  formatPhoneFromJid,
   truncate,
   isGroupJid,
 } from "../utils/helpers";
@@ -43,9 +47,11 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
     chatSearch,
     isLoadingChats,
     activeSession,
+    sessions,
     setChatSearch,
     fetchChats,
     selectChat,
+    setActiveSession,
     setShowQRModal,
     setShowNewChatModal,
   } = useStore();
@@ -56,6 +62,8 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [showManageLabelsModal, setShowManageLabelsModal] = useState(false);
   const [selectedChatForLabel, setSelectedChatForLabel] = useState<Chat | null>(null);
+  const [showSessionDropdown, setShowSessionDropdown] = useState(false);
+  const sessionDropdownRef = useRef<HTMLDivElement>(null);
   const [isLoadingLabels, setIsLoadingLabels] = useState(false);
   const [currentChatLabels, setCurrentChatLabels] = useState<any[]>([]);
   const [isFetchingChatLabels, setIsFetchingChatLabels] = useState(false);
@@ -66,6 +74,17 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
       loadLabels();
     }
   }, [sessionId, fetchChats]);
+
+  // Close session dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sessionDropdownRef.current && !sessionDropdownRef.current.contains(e.target as Node)) {
+        setShowSessionDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Listen for real-time label changes from phone
   useEffect(() => {
@@ -194,21 +213,67 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
 
   return (
     <div className="flex flex-col h-full bg-white border-r" style={{ borderColor: "#E4E6EB" }}>
-      {/* Header */}
-      <div className="h-[52px] px-3 flex items-center justify-between border-b shrink-0" style={{ borderColor: "#E4E6EB" }}>
-        <div className="flex items-center gap-2 min-w-0">
-          <Avatar name={activeSession?.name || "W"} size="sm" className="w-[32px] h-[32px] ring-1 ring-[#E4E6EB]" />
-          <div className="flex flex-col min-w-0 leading-tight justify-center">
-            <span className="text-[13px] font-semibold truncate max-w-[120px]" style={{ color: "#050505" }}>
-              {activeSession?.name || "WhatsApp"}
-            </span>
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${activeSession?.status === "connected" ? "bg-[#31A24C]" : "bg-[#F5A623]"}`} />
-              <span className="text-[10px] font-medium" style={{ color: "#65676B" }}>
-                {activeSession?.status === "connected" ? "Online" : "Offline"}
+      {/* Header with Session Switcher */}
+      <div className="h-[52px] px-3 flex items-center justify-between border-b shrink-0 relative" style={{ borderColor: "#E4E6EB" }}>
+        <div ref={sessionDropdownRef} className="relative">
+          <button
+            onClick={() => setShowSessionDropdown(!showSessionDropdown)}
+            className="flex items-center gap-2 min-w-0 max-w-[180px]"
+          >
+            <Avatar name={activeSession?.name || "W"} size="sm" className="w-[32px] h-[32px] ring-1 ring-[#E4E6EB]" />
+            <div className="flex flex-col min-w-0 leading-tight justify-center text-left">
+              <span className="flex items-center gap-1 text-[13px] font-semibold truncate" style={{ color: "#050505" }}>
+                {activeSession?.name || "WhatsApp"}
+                <ChevronDown className="w-3.5 h-3.5 shrink-0" style={{ color: "#65676B" }} />
               </span>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${activeSession?.status === "connected" ? "bg-[#31A24C]" : "bg-[#F5A623]"}`} />
+                <span className="text-[10px] font-medium" style={{ color: "#65676B" }}>
+                  {activeSession?.status === "connected" ? "Online" : "Offline"}
+                </span>
+              </div>
             </div>
-          </div>
+          </button>
+
+          {showSessionDropdown && (
+            <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border z-50 py-1" style={{ borderColor: "#E4E6EB" }}>
+              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#8C939D" }}>
+                Pilih Perangkat
+              </div>
+              {sessions.length === 0 ? (
+                <div className="px-3 py-2 text-[12px]" style={{ color: "#65676B" }}>
+                  Tidak ada sesi
+                </div>
+              ) : (
+                sessions.map((s) => {
+                  const isActive = activeSession?.id === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setActiveSession(s);
+                        setShowSessionDropdown(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium transition-colors hover:bg-[#F2F3F5] ${isActive ? "bg-[#E7F3FF]" : ""}`}
+                      style={{ color: "#050505" }}
+                    >
+                      <div className="relative shrink-0">
+                        <Avatar name={s.name || "D"} size="xs" className="w-[28px] h-[28px]" />
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-white ${s.status === "connected" ? "bg-[#31A24C]" : "bg-[#F5A623]"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <span className="block truncate">{s.name || s.id}</span>
+                        <span className="block text-[10px] font-normal" style={{ color: "#65676B" }}>
+                          {s.status === "connected" ? "Terhubung" : "Terputus"}
+                        </span>
+                      </div>
+                      {isActive && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: "#1877F2" }} />}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
@@ -388,6 +453,9 @@ const ChatListItem: React.FC<{
   isLoadingLabel?: boolean;
 }> = ({ chat, isSelected, onClick, onAddLabel, labels, isLoadingLabel }) => {
   const displayName = getDisplayName(chat);
+  const phoneDisplay = chat.phone_number
+    ? `+${chat.phone_number}`
+    : formatPhoneFromJid(chat.jid);
   const isGroup = isGroupJid(chat.jid);
   const hasUnread = chat.unread_count > 0;
 
@@ -424,7 +492,7 @@ const ChatListItem: React.FC<{
           <div className="flex items-center gap-1 min-w-0">
             {isGroup && <Users className="w-3 h-3 shrink-0" style={{ color: "#8C939D" }} />}
             <span className={`text-[12px] truncate ${hasUnread ? "font-bold" : "font-semibold"}`} style={{ color: "#050505" }}>
-              {displayName}
+              {phoneDisplay}
             </span>
           </div>
           <span className={`text-[10px] shrink-0 ml-2 ${hasUnread ? "font-semibold" : ""}`} style={{ color: hasUnread ? "#1877F2" : "#65676B" }}>
@@ -434,6 +502,8 @@ const ChatListItem: React.FC<{
 
         <div className="flex items-center justify-between gap-1.5 mt-0.5">
           <span className={`text-[11px] truncate leading-tight flex-1 ${hasUnread ? "font-medium" : ""}`} style={{ color: hasUnread ? "#050505" : "#65676B" }}>
+            {displayName !== phoneDisplay && <span className="font-medium" style={{ color: "#1877F2" }}>{displayName}</span>}
+            {displayName !== phoneDisplay && <span> · </span>}
             {preview}
           </span>
 

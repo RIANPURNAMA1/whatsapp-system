@@ -17,6 +17,8 @@ import {
   Calendar,
 } from "lucide-react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import useStore from "../store/useStore";
 
 interface Lead {
   id: number;
@@ -34,6 +36,8 @@ interface Lead {
 }
 
 const DataLeadsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { selectChat } = useStore();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +170,27 @@ const DataLeadsPage: React.FC = () => {
     if (lead.phone_number) return `+${lead.phone_number}`;
     const num = (lead.remoteJid || "").split("@")[0];
     if (!num) return "-";
+    if (num.startsWith('62')) {
+      const local = '0' + num.substring(2);
+      if (local.length === 13) return `${local.substring(0, 5)}-${local.substring(5, 8)}-${local.substring(8)}`;
+      if (local.length === 12) return `${local.substring(0, 4)}-${local.substring(4, 8)}-${local.substring(8)}`;
+      if (local.length === 11) return `${local.substring(0, 4)}-${local.substring(4, 7)}-${local.substring(7)}`;
+    }
     return `+${num}`;
+  };
+
+  const handleRowClick = (lead: Lead) => {
+    selectChat({
+      jid: lead.remoteJid,
+      name: lead.pushName || lead.remoteJid.split("@")[0],
+      display_name: lead.pushName,
+      session_id: lead.session_id,
+      phone_number: lead.phone_number,
+      last_message: lead.content,
+      last_message_time: lead.updatedAt,
+      is_group: 0,
+    } as any);
+    navigate("/chat-wa");
   };
 
   const formatDate = (dateString: string) => {
@@ -193,7 +217,7 @@ const DataLeadsPage: React.FC = () => {
   };
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 w-full">
       {/* Page Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1877F2] to-[#0C5DC7] flex items-center justify-center shrink-0 shadow-sm">
@@ -333,7 +357,7 @@ const DataLeadsPage: React.FC = () => {
 
 
       {/* Search & Table Section */}
-      <div className="bg-white rounded-xl border border-[#E4E6EB] overflow-hidden shadow-sm">
+      <div className="bg-white border border-[#E4E6EB] shadow-sm w-full">
         <div className="px-4 sm:px-5 py-3.5 border-b border-[#E4E6EB]">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -388,25 +412,26 @@ const DataLeadsPage: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[#F8F9FA]">
-                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border-b border-[#E4E6EB]">Nama</th>
-                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border-b border-[#E4E6EB]">No. WhatsApp</th>
-                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border-b border-[#E4E6EB]">Status</th>
-                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border-b border-[#E4E6EB]">Sumber</th>
-                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border-b border-[#E4E6EB] hidden md:table-cell">Pesan Terakhir</th>
-                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border-b border-[#E4E6EB] hidden md:table-cell">Waktu</th>
-                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border-b border-[#E4E6EB] hidden lg:table-cell">Perangkat</th>
+                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border border-[#E4E6EB]">Nama</th>
+                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border border-[#E4E6EB]">No. WhatsApp</th>
+                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border border-[#E4E6EB]">Status</th>
+                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border border-[#E4E6EB]">Sumber</th>
+                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border border-[#E4E6EB] hidden md:table-cell">Pesan Terakhir</th>
+                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border border-[#E4E6EB] hidden md:table-cell">Waktu</th>
+                  <th className="text-left px-4 sm:px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] border border-[#E4E6EB] hidden lg:table-cell">Perangkat</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E4E6EB]">
+              <tbody>
                 {filteredLeads.map((lead) => (
                   <tr
                     key={lead.id}
-                    className="hover:bg-[#F8F9FA] transition-colors"
+                    onClick={() => handleRowClick(lead)}
+                    className="hover:bg-[#F8F9FA] transition-colors cursor-pointer"
                   >
-                    <td className="px-4 sm:px-5 py-3.5">
+                    <td className="px-4 sm:px-5 py-3.5 border border-[#E4E6EB]">
                       <div className="flex items-center gap-3">
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
@@ -419,12 +444,12 @@ const DataLeadsPage: React.FC = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 sm:px-5 py-3.5">
+                    <td className="px-4 sm:px-5 py-3.5 border border-[#E4E6EB]">
                       <span className="text-xs text-[#65676B] font-mono">
                         {formatPhone(lead)}
                       </span>
                     </td>
-                    <td className="px-4 sm:px-5 py-3.5">
+                    <td className="px-4 sm:px-5 py-3.5 border border-[#E4E6EB]">
                       {lead.status ? (
                         <span
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap"
@@ -440,7 +465,7 @@ const DataLeadsPage: React.FC = () => {
                         <span className="text-xs text-[#BCC0C4]">-</span>
                       )}
                     </td>
-                    <td className="px-4 sm:px-5 py-3.5">
+                    <td className="px-4 sm:px-5 py-3.5 border border-[#E4E6EB]">
                       <span
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap"
                         style={{
@@ -456,17 +481,17 @@ const DataLeadsPage: React.FC = () => {
                         {lead.lead_source || "Organik"}
                       </span>
                     </td>
-                    <td className="px-4 sm:px-5 py-3.5 hidden md:table-cell">
+                    <td className="px-4 sm:px-5 py-3.5 border border-[#E4E6EB] hidden md:table-cell">
                       <p className="text-xs text-[#65676B] truncate max-w-[200px] lg:max-w-[260px]">
                         {lead.content || "-"}
                       </p>
                     </td>
-                    <td className="px-4 sm:px-5 py-3.5 hidden md:table-cell">
+                    <td className="px-4 sm:px-5 py-3.5 border border-[#E4E6EB] hidden md:table-cell">
                       <span className="text-xs text-[#65676B] whitespace-nowrap">
                         {formatDate(lead.updatedAt)}
                       </span>
                     </td>
-                    <td className="px-4 sm:px-5 py-3.5 hidden lg:table-cell">
+                    <td className="px-4 sm:px-5 py-3.5 border border-[#E4E6EB] hidden lg:table-cell">
                       <span className="text-xs text-[#65676B]">
                         {sessions.find(s => s.id === lead.session_id)?.name || lead.session_id}
                       </span>

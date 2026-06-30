@@ -1,5 +1,5 @@
-import React from "react";
-import { Table, BarChart3, RefreshCw } from "lucide-react";
+import React, { useState } from "react";
+import { Table, BarChart3, RefreshCw, Calendar, Sun, Sunrise, CalendarDays, CalendarRange } from "lucide-react";
 
 interface ReportDataTableProps {
   reportData: any;
@@ -7,7 +7,7 @@ interface ReportDataTableProps {
   activeSessions: any[];
   selectedSessionId: string;
   onSessionChange: (id: string) => void;
-  onFetchReport: () => void;
+  onFetchReport: (startDate?: string, endDate?: string) => void;
 }
 
 export const ReportDataTable: React.FC<ReportDataTableProps> = ({
@@ -18,6 +18,48 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
   onSessionChange,
   onFetchReport,
 }) => {
+  const toLocalISO = (date: Date) => {
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  };
+
+  const getDefaultRange = () => {
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(); end.setHours(23, 59, 59, 999);
+    return { start: toLocalISO(start), end: toLocalISO(end) };
+  };
+
+  const [datePreset, setDatePreset] = useState("today");
+  const [range, setRange] = useState(getDefaultRange);
+  const [showCustom, setShowCustom] = useState(false);
+
+  const applyPreset = (preset: string) => {
+    if (preset === "custom") { setDatePreset("custom"); setShowCustom(true); return; }
+    setDatePreset(preset);
+    setShowCustom(false);
+    const now = new Date();
+    const end = new Date(now); end.setHours(23, 59, 59, 999);
+    const start = new Date(now);
+    switch (preset) {
+      case "today": start.setHours(0, 0, 0, 0); break;
+      case "yesterday": start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0); end.setDate(end.getDate() - 1); break;
+      case "week": start.setDate(start.getDate() - start.getDay()); start.setHours(0, 0, 0, 0); break;
+      case "month": start.setDate(1); start.setHours(0, 0, 0, 0); break;
+    }
+    setRange({ start: toLocalISO(start), end: toLocalISO(end) });
+  };
+
+  const handleFetch = () => {
+    onFetchReport(range.start.replace("T", " ") + ":00", range.end.replace("T", " ") + ":59");
+  };
+
+  const presets = [
+    { key: "today", label: "Hari Ini", icon: Sun },
+    { key: "yesterday", label: "Kemarin", icon: Sunrise },
+    { key: "week", label: "Minggu Ini", icon: CalendarDays },
+    { key: "month", label: "Bulan Ini", icon: CalendarRange },
+  ];
+
   return (
     <div className="mt-8">
       <div className="bg-white rounded-lg border border-[#E4E6EB] p-6">
@@ -44,7 +86,7 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
                 ))}
             </select>
             <button
-              onClick={onFetchReport}
+              onClick={handleFetch}
               disabled={isLoadingReport}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 isLoadingReport
@@ -60,6 +102,52 @@ export const ReportDataTable: React.FC<ReportDataTableProps> = ({
               {isLoadingReport ? "Memuat..." : "Tampilkan Laporan"}
             </button>
           </div>
+        </div>
+
+        {/* Date Range Filter */}
+        <div className="flex flex-wrap items-center gap-2 mb-6 pb-4 border-b border-[#E4E6EB]">
+          {presets.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => applyPreset(key)}
+              className={`h-8 px-3 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                datePreset === key
+                  ? "bg-[#1877F2] text-white shadow-sm"
+                  : "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]"
+              }`}
+            >
+              <Icon size={13} />
+              {label}
+            </button>
+          ))}
+          <button
+            onClick={() => applyPreset("custom")}
+            className={`h-8 px-3 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+              datePreset === "custom"
+                ? "bg-[#1877F2] text-white shadow-sm"
+                : "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6EB]"
+            }`}
+          >
+            <Calendar size={13} />
+            Custom
+          </button>
+          {showCustom && (
+            <div className="flex items-center gap-2 ml-1">
+              <input
+                type="datetime-local"
+                value={range.start}
+                onChange={(e) => { setRange(r => ({ ...r, start: e.target.value })); setDatePreset("custom"); }}
+                className="h-8 px-2 border border-[#CCD0D5] rounded-lg text-xs outline-none"
+              />
+              <span className="text-[#BCC0C4] text-xs">—</span>
+              <input
+                type="datetime-local"
+                value={range.end}
+                onChange={(e) => { setRange(r => ({ ...r, end: e.target.value })); setDatePreset("custom"); }}
+                className="h-8 px-2 border border-[#CCD0D5] rounded-lg text-xs outline-none"
+              />
+            </div>
+          )}
         </div>
 
         {isLoadingReport ? (

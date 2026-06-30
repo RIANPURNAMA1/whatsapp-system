@@ -40,7 +40,7 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg" style={{ backgroundColor: isDarkMode ? '#31A24C20' : '#E7F3FF' }}>
+          <div className="p-2 rounded-lg" style={{ backgroundColor: isDarkMode ? '#31A24C20' : '#DEEBFF' }}>
             <CheckCircle2 size={16} style={{ color: '#31A24C' }} />
           </div>
           <div>
@@ -54,7 +54,7 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
           <p className="text-2xl font-bold" style={{
             color: rawRate > 100 ? '#F5A623' : isDarkMode ? '#31A24C' : '#31A24C'
           }}>
-            {loading ? <Loader2 className="animate-spin mx-auto" size={20} style={{ color: '#1877F2' }} /> : `${rawRate}%`}
+            {loading ? <Loader2 className="animate-spin mx-auto" size={20} style={{ color: '#0866FF' }} /> : `${rawRate}%`}
           </p>
           <p className="text-[10px]" style={{ color: isDarkMode ? '#65676B' : '#65676B' }}>Conversion Rate</p>
         </div>
@@ -89,8 +89,8 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
             <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
               <defs>
                 <linearGradient id="leadsAreaFB" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1877F2" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#1877F2" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#0866FF" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#0866FF" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="closingAreaFB" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#31A24C" stopOpacity={0.25} />
@@ -109,7 +109,7 @@ const ClosingStatCard: React.FC<ClosingStatCardProps> = ({
                   fontSize: 12,
                 }}
               />
-              <Area type="monotone" dataKey="leads" stroke="#1877F2" strokeWidth={2} fill="url(#leadsAreaFB)" dot={{ r: 3, fill: '#1877F2' }} />
+              <Area type="monotone" dataKey="leads" stroke="#0866FF" strokeWidth={2} fill="url(#leadsAreaFB)" dot={{ r: 3, fill: '#0866FF' }} />
               <Area type="monotone" dataKey="closing" stroke="#31A24C" strokeWidth={2} fill="url(#closingAreaFB)" dot={{ r: 3, fill: '#31A24C' }} />
             </AreaChart>
           </ResponsiveContainer>

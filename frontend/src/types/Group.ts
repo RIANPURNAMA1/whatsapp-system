@@ -58,4 +58,5 @@ export interface GroupParticipant {
   role: "member" | "admin" | "superadmin";
   display_name: string | null;
   profile_pic_url: string | null;
+  phone_number: string | null;
 }

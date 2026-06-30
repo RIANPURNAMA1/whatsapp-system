@@ -77,7 +77,7 @@ const LiveFeed: React.FC<LiveFeedProps> = React.memo(({ messages, totalPesan, on
       <div className="px-4 pt-3 pb-2 flex items-center justify-between flex-shrink-0 bg-white border-b border-[#E4E6EB]">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#E7F3FF]">
-            <MessageCircle size={13} color="#1877F2" />
+            <MessageCircle size={13} color="#0866FF" />
           </div>
           <div className="min-w-0">
             <p className="text-[12px] font-semibold text-[#050505] truncate">
@@ -119,7 +119,7 @@ const LiveFeed: React.FC<LiveFeedProps> = React.memo(({ messages, totalPesan, on
                 </p>
               </div>
               <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ArrowRight size={12} color="#1877F2" />
+                <ArrowRight size={12} color="#0866FF" />
               </div>
             </button>
           ))
@@ -149,7 +149,7 @@ const LiveFeed: React.FC<LiveFeedProps> = React.memo(({ messages, totalPesan, on
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#E7F3FF]">
-              <Radio size={15} color="#1877F2" />
+              <Radio size={15} color="#0866FF" />
             </div>
             <div>
               <p className="text-[13px] font-semibold text-[#050505]">
@@ -190,7 +190,7 @@ const LiveFeed: React.FC<LiveFeedProps> = React.memo(({ messages, totalPesan, on
           <div className="px-5 pt-4 pb-3 flex items-center justify-between flex-shrink-0 bg-white border-b border-[#E4E6EB]">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#E7F3FF]">
-                <MessageCircle size={16} color="#1877F2" />
+                <MessageCircle size={16} color="#0866FF" />
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-[#050505]">Live Chat Feed</p>
@@ -232,7 +232,7 @@ const LiveFeed: React.FC<LiveFeedProps> = React.memo(({ messages, totalPesan, on
                     </p>
                   </div>
                   <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ArrowRight size={14} color="#1877F2" />
+                    <ArrowRight size={14} color="#0866FF" />
                   </div>
                 </button>
               ))

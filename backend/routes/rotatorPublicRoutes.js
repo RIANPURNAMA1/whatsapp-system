@@ -166,7 +166,7 @@ router.get("/r/:slug", async (req, res) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pilih Sumber - ${rotator.name}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     * {
@@ -176,7 +176,7 @@ router.get("/r/:slug", async (req, res) => {
     }
 
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Nunito', sans-serif;
       background-color: #ebedef;
       min-height: 100vh;
       display: flex;

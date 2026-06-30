@@ -186,11 +186,13 @@ export const LeadsReportPage: React.FC = () => {
     }
   };
 
-  const fetchReportData = useCallback(async () => {
+  const fetchReportData = useCallback(async (startDate?: string, endDate?: string) => {
     setIsLoadingReport(true);
     try {
       const params: any = { period: activePeriod };
       if (selectedSessionId !== "all") params.sessionId = selectedSessionId;
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
       const res = await axios.get(
         `${import.meta.env.VITE_API_URL}/leads-report/data`,
         {
