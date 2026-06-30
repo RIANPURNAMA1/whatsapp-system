@@ -267,7 +267,7 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
                           {s.status === "connected" ? "Terhubung" : "Terputus"}
                         </span>
                       </div>
-                      {isActive && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: "#1877F2" }} />}
+                      {isActive && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: "#0866FF" }} />}
                     </button>
                   );
                 })
@@ -325,14 +325,14 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
           onClick={toggleUnreadFilter}
           className={`shrink-0 flex items-center gap-1 h-[26px] px-2.5 rounded-md text-[11px] font-medium transition-colors border ${
             showUnreadOnly
-              ? "bg-[#E7F3FF] border-[#E7F3FF] text-[#1877F2]"
+              ? "bg-[#E7F3FF] border-[#E7F3FF] text-[#0866FF]"
               : "bg-white border-[#E4E6EB] text-[#65676B] hover:bg-[#F2F3F5]"
           }`}
         >
           {showUnreadOnly ? <Mail className="w-3 h-3" /> : <MailOpen className="w-3 h-3" />}
           Belum Dibaca
           {totalUnread > 0 && !showUnreadOnly && (
-            <span style={{ color: "#1877F2" }}>{totalUnread}</span>
+            <span style={{ color: "#0866FF" }}>{totalUnread}</span>
           )}
         </button>
 
@@ -361,8 +361,8 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
                       : 'hover:bg-[#F2F3F5]'
                   }`}
                   style={{
-                    backgroundColor: isActive ? '#1877F2' : '#FFFFFF',
-                    borderColor: isActive ? '#1877F2' : '#E4E6EB',
+                    backgroundColor: isActive ? '#0866FF' : '#FFFFFF',
+                    borderColor: isActive ? '#0866FF' : '#E4E6EB',
                     color: isActive ? '#FFFFFF' : '#65676B',
                   }}
                 >
@@ -394,7 +394,7 @@ export const ChatList: React.FC<ChatListProps> = ({ sessionId }) => {
             {(chatSearch || selectedLabelFilter !== "all" || showUnreadOnly) && (
               <button
                 onClick={() => { setChatSearch(""); setSelectedLabelFilter("all"); setShowUnreadOnly(false); }}
-                className="mt-3 text-[12px] font-semibold hover:underline" style={{ color: "#1877F2" }}
+                className="mt-3 text-[12px] font-semibold hover:underline" style={{ color: "#0866FF" }}
               >
                 Hapus Filter
               </button>
@@ -480,7 +480,7 @@ const ChatListItem: React.FC<{
       }}
     >
       {isSelected && (
-        <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm" style={{ backgroundColor: "#1877F2" }} />
+        <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm" style={{ backgroundColor: "#0866FF" }} />
       )}
 
       <div className="relative shrink-0">
@@ -491,20 +491,18 @@ const ChatListItem: React.FC<{
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 min-w-0">
             {isGroup && <Users className="w-3 h-3 shrink-0" style={{ color: "#8C939D" }} />}
-            <span className={`text-[12px] truncate ${hasUnread ? "font-bold" : "font-semibold"}`} style={{ color: "#050505" }}>
-              {phoneDisplay}
+            <span className={`text-[13px] truncate ${hasUnread ? "font-bold" : "font-semibold"}`} style={{ color: "#050505" }}>
+              {displayName}
             </span>
           </div>
-          <span className={`text-[10px] shrink-0 ml-2 ${hasUnread ? "font-semibold" : ""}`} style={{ color: hasUnread ? "#1877F2" : "#65676B" }}>
+          <span className={`text-[10px] shrink-0 ml-2 ${hasUnread ? "font-semibold" : ""}`} style={{ color: hasUnread ? "#0866FF" : "#65676B" }}>
             {formatChatTime(chat.last_message_time)}
           </span>
         </div>
 
         <div className="flex items-center justify-between gap-1.5 mt-0.5">
-          <span className={`text-[11px] truncate leading-tight flex-1 ${hasUnread ? "font-medium" : ""}`} style={{ color: hasUnread ? "#050505" : "#65676B" }}>
-            {displayName !== phoneDisplay && <span className="font-medium" style={{ color: "#1877F2" }}>{displayName}</span>}
-            {displayName !== phoneDisplay && <span> · </span>}
-            {preview}
+          <span className="text-[10px] truncate leading-tight flex-1" style={{ color: "#8C939D" }}>
+            {phoneDisplay}{displayName !== phoneDisplay ? ` · ${preview}` : preview}
           </span>
 
           <div className="flex items-center gap-1 shrink-0">
@@ -512,7 +510,7 @@ const ChatListItem: React.FC<{
               <Pin className="w-2.5 h-2.5 rotate-45" style={{ color: "#8C939D", fill: "#8C939D" }} />
             )}
             {hasUnread && (
-              <div className="min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center" style={{ backgroundColor: "#1877F2" }}>
+              <div className="min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center" style={{ backgroundColor: "#0866FF" }}>
                 <span className="text-[9px] text-white font-bold leading-none">{chat.unread_count > 99 ? "99+" : chat.unread_count}</span>
               </div>
             )}
@@ -548,7 +546,7 @@ const ChatListItem: React.FC<{
         disabled={isLoadingLabel}
       >
         {isLoadingLabel
-          ? <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#1877F2" }} />
+          ? <Loader2 className="w-3 h-3 animate-spin" style={{ color: "#0866FF" }} />
           : <Tag className="w-3 h-3" style={{ color: "#65676B" }} />
         }
       </button>

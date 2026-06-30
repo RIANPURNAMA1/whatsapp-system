@@ -71,8 +71,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   return (
     <div className="min-h-screen bg-[#F0F2F5] flex font-sans">
       {/* Left Panel */}
-      <div className="hidden lg:flex w-[480px] bg-[#1877F2] p-12 flex-col justify-between shrink-0">
-        <div className="flex flex-col gap-6">
+      <div className="hidden lg:flex w-[480px] bg-[#0866FF] p-12 flex-col justify-between shrink-0 relative overflow-hidden">
+        {/* Texture overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `
+              repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.04) 2px, rgba(255,255,255,0.04) 4px),
+              radial-gradient(circle at 15% 30%, rgba(255,255,255,0.08) 0%, transparent 50%),
+              radial-gradient(circle at 85% 70%, rgba(255,255,255,0.05) 0%, transparent 45%),
+              radial-gradient(circle at 50% 10%, rgba(255,255,255,0.06) 0%, transparent 40%)
+            `,
+          }}
+        />
+        <div className="relative flex flex-col gap-6 z-10">
           <div className="w-12 h-12 flex items-center justify-center text-white">
             <AsteriskIcon className="w-10 h-10" />
           </div>
@@ -86,7 +98,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             </p>
           </div>
         </div>
-        <div className="space-y-4">
+        <div className="relative space-y-4 z-10">
           <div className="flex items-center gap-3 text-white/70 text-xs">
             <BarChart3 className="w-4 h-4" />
             <span>Multi-device WhatsApp management</span>
@@ -109,7 +121,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           <div className="bg-white rounded-xl border border-[#E4E6EB] p-8 shadow-sm">
             {/* Mobile Logo */}
             <div className="lg:hidden flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 flex items-center justify-center text-[#1877F2]">
+              <div className="w-10 h-10 flex items-center justify-center text-[#0866FF]">
                 <AsteriskIcon className="w-8 h-8" />
               </div>
               <div>
@@ -139,7 +151,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   placeholder="Masukkan username atau email"
-                  className="w-full bg-white border border-[#E4E6EB] rounded-lg py-2.5 px-3.5 text-sm text-[#050505] placeholder:text-[#8C939D] outline-none focus:border-[#1877F2] focus:ring-2 focus:ring-[#1877F2]/20 transition-all disabled:opacity-50"
+                  className="w-full bg-white border border-[#E4E6EB] rounded-lg py-2.5 px-3.5 text-sm text-[#050505] placeholder:text-[#8C939D] outline-none focus:border-[#0866FF] focus:ring-2 focus:ring-[#0866FF]/20 transition-all disabled:opacity-50"
                 />
               </div>
 
@@ -153,12 +165,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="Masukkan password"
-                    className="w-full bg-white border border-[#E4E6EB] rounded-lg py-2.5 px-3.5 text-sm text-[#050505] placeholder:text-[#8C939D] outline-none focus:border-[#1877F2] focus:ring-2 focus:ring-[#1877F2]/20 transition-all disabled:opacity-50 pr-11"
+                    className="w-full bg-white border border-[#E4E6EB] rounded-lg py-2.5 px-3.5 text-sm text-[#050505] placeholder:text-[#8C939D] outline-none focus:border-[#0866FF] focus:ring-2 focus:ring-[#0866FF]/20 transition-all disabled:opacity-50 pr-11"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#65676B] hover:text-[#1877F2] transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#65676B] hover:text-[#0866FF] transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -170,14 +182,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 <label className="block text-[13px] font-semibold text-[#050505]">Verifikasi Keamanan</label>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 flex items-center justify-center h-10 bg-white border border-[#E4E6EB] rounded-lg select-none">
-                    <span className="font-mono text-base font-bold tracking-[0.3em] text-[#1877F2]">
+                    <span className="font-mono text-base font-bold tracking-[0.3em] text-[#0866FF]">
                       {captchaCode}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={generateCaptcha}
-                    className="p-2.5 text-[#65676B] hover:text-[#1877F2] transition-colors bg-white rounded-lg border border-[#E4E6EB]"
+                    className="p-2.5 text-[#65676B] hover:text-[#0866FF] transition-colors bg-white rounded-lg border border-[#E4E6EB]"
                     title="Refresh Captcha"
                   >
                     <RefreshCw className="w-4 h-4" />
@@ -189,14 +201,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   placeholder="Masukkan kode di atas"
                   value={captchaInput}
                   onChange={(e) => setCaptchaInput(e.target.value)}
-                  className="w-full bg-white border border-[#E4E6EB] rounded-lg py-2 px-3.5 text-sm text-[#050505] placeholder:text-[#8C939D] outline-none focus:border-[#1877F2] focus:ring-2 focus:ring-[#1877F2]/20 transition-all"
+                  className="w-full bg-white border border-[#E4E6EB] rounded-lg py-2 px-3.5 text-sm text-[#050505] placeholder:text-[#8C939D] outline-none focus:border-[#0866FF] focus:ring-2 focus:ring-[#0866FF]/20 transition-all"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-[#1877F2] hover:bg-[#166FE5] text-white font-semibold py-2.5 px-4 rounded-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-[#0866FF] hover:bg-[#166FE5] text-white font-semibold py-2.5 px-4 rounded-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
@@ -212,7 +224,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
           <p className="mt-4 text-center text-xs text-[#65676B]">
             Belum punya akun?{' '}
-            <a href="#" className="font-semibold text-[#1877F2] hover:underline">
+            <a href="#" className="font-semibold text-[#0866FF] hover:underline">
               Hubungi admin
             </a>
           </p>
